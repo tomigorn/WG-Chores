@@ -49,8 +49,11 @@
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <div>@c.Title</div>
                                                     <div class="text-end">
-                                                        <small class="text-muted">@GetLastCompletedText(c.Id)</small>
-                                                        <small class="text-muted d-block">@GetLastCompletedMember(c.Id)</small>
+                                                            <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
+                                                        @if (showMemberNames)
+                                                        {
+                                                            <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
+                                                        }
                                                     </div>
                                                 </div>
                                             </li>
@@ -77,6 +80,7 @@
                 </div>
 
                 <div class="d-flex gap-2 w-100 justify-content-sm-end">
+                    <button class="btn btn-outline-secondary d-none d-sm-inline w-auto" type="button" @onclick="ToggleShowMemberNames">@(showMemberNames ? "Hide names" : "Show names")</button>
                     <button class="btn btn-secondary w-100 w-sm-auto" type="button" @onclick="ToggleEditChores">@(editingChores ? "Done" : "Edit chores")</button>
                     <button class="btn btn-primary w-100 w-sm-auto" type="button" @onclick="OpenAddModal">Add chore</button>
                 </div>
@@ -129,6 +133,7 @@
     private Dictionary<int, (DateTime? DoneAt, string? MemberName)> lastDone = new();
     private int? currentMemberId;
     private string? currentMemberName;
+    private bool showMemberNames = false;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -170,6 +175,13 @@
             currentMemberId = null;
             currentMemberName = null;
         }
+        // load saved preference for showing member names
+        try
+        {
+            var showStr = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_show_member_names");
+            if (bool.TryParse(showStr, out var s)) showMemberNames = s;
+        }
+        catch { }
         if (household != null && household.Chores != null && household.Chores.Any())
         {
             var chores = household.Chores.ToList();
@@ -367,5 +379,11 @@
             return "by Unknown";
 
         return $"by {entry.MemberName}";
+    }
+
+    private async Task ToggleShowMemberNames()
+    {
+        showMemberNames = !showMemberNames;
+        try { await JS.InvokeVoidAsync("localStorage.setItem", "wg_show_member_names", showMemberNames.ToString()); } catch { }
     }
 }
