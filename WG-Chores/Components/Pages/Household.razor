@@ -49,10 +49,10 @@
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <div>@c.Title</div>
                                                     <div class="text-end">
-                                                            <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
+                                                        <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
                                                         @if (showMemberNames)
                                                         {
-                                                            <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
+                                                        <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
                                                         }
                                                     </div>
                                                 </div>
@@ -80,7 +80,9 @@
                 </div>
 
                 <div class="d-flex gap-2 w-100 justify-content-sm-end">
-                    <button class="btn btn-outline-secondary d-none d-sm-inline w-auto" type="button" @onclick="ToggleShowMemberNames">@(showMemberNames ? "Hide names" : "Show names")</button>
+                    <button class="btn btn-outline-secondary me-2" type="button" title="@(showMemberNames ? "Hide member names" : "Show member names")" @onclick="ToggleShowMemberNames">
+                        <i class="fa @(showMemberNames ? "fa-eye" : "fa-eye-slash")" aria-hidden="true"></i>
+                    </button>
                     <button class="btn btn-secondary w-100 w-sm-auto" type="button" @onclick="ToggleEditChores">@(editingChores ? "Done" : "Edit chores")</button>
                     <button class="btn btn-primary w-100 w-sm-auto" type="button" @onclick="OpenAddModal">Add chore</button>
                 </div>
@@ -376,9 +378,9 @@
             return string.Empty;
 
         if (string.IsNullOrWhiteSpace(entry.MemberName))
-            return "by Unknown";
+            return " by Unknown";
 
-        return $"by {entry.MemberName}";
+        return $" by {entry.MemberName}";
     }
 
     private async Task ToggleShowMemberNames()
