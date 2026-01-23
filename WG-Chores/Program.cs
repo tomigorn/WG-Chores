@@ -156,8 +156,8 @@ public class HouseholdService : IHouseholdService
             if (household == null)
                 return null;
 
-            // Check membership using the loaded household.Members collection (case-insensitive)
-            var existing = household.Members?.FirstOrDefault(m => string.Equals(m.Username, username, StringComparison.OrdinalIgnoreCase));
+            // Check membership directly in the database to avoid relying on unloaded navigation properties
+            var existing = await _db.Members.FirstOrDefaultAsync(m => m.HouseholdId == household.Id && m.Username.ToLower() == username.ToLower(), cancellationToken);
             if (existing != null)
                 return existing;
 
