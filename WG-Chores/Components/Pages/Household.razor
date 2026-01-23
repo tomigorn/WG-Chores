@@ -1,6 +1,9 @@
 @page "/household/{Code}"
+@using Microsoft.AspNetCore.Components
 @using WG_Chores.Data
 @using System.Linq
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
 @inject IHouseholdService HouseholdService
 @inject NavigationManager Nav
 
@@ -58,15 +61,20 @@
 </div>
 
     <div class="fixed-bottom bg-light border-top">
-        <div class="container d-flex justify-content-start py-2">
+        <div class="container d-flex justify-content-start py-2" style="gap:8px; align-items:center;">
             <button class="btn btn-outline-success me-2" type="button">Chores completed</button>
-            <button class="btn btn-outline-secondary" type="button">📅 @selectedDate.ToString("yyyy-MM-dd")</button>
+            <div class="d-flex align-items-center">
+                <span class="me-2">📅</span>
+                <input type="date" class="form-control" style="width:160px;" @bind="selectedDate" />
+            </div>
         </div>
         <div class="container d-flex justify-content-end py-2 border-top">
             <button class="btn btn-secondary me-2" type="button" @onclick="ToggleEditChores">@(editingChores ? "Done" : "Edit chores")</button>
             <button class="btn btn-primary" type="button" @onclick="OpenAddModal">Add chore</button>
         </div>
     </div>
+
+    
 
 @if (showAddModal)
 {
@@ -161,6 +169,8 @@
             showAddModal = false;
         }
     }
+
+    // Date changes are handled by binding to `selectedDate` directly.
 
     private void OpenEditModal(WG_Chores.Data.Chore c)
     {
