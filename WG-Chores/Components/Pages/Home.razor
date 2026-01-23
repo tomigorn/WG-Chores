@@ -1,5 +1,8 @@
 ﻿@page "/"
 
+@inject IHouseholdService HouseholdService
+@inject NavigationManager Nav
+
 <PageTitle>Login</PageTitle>
 
 <div class="container-fluid vh-100 d-flex align-items-center justify-content-center bg-light">
@@ -72,7 +75,7 @@
     status = null;
   }
 
-  private void Create()
+  private async Task Create()
   {
     if (!CanAct())
     {
@@ -84,12 +87,23 @@
       status = "Enter a household name.";
       return;
     }
-    status = $"{username} created household '{newHousehold}'. (placeholder)";
-    newHousehold = string.Empty;
-    showCreateInput = false;
+
+    try
+    {
+      var household = await HouseholdService.CreateAsync(newHousehold!.Trim(), username!.Trim());
+      status = $"Created household '{household.Name}' — code: {household.Code}.";
+      newHousehold = string.Empty;
+      showCreateInput = false;
+      Nav.NavigateTo($"/household/{household.Id}");
+    }
+    catch (Exception ex)
+    {
+      status = $"Error creating household: {ex.Message}" + (ex.InnerException != null ? $" - {ex.InnerException.Message}" : string.Empty);
+      Console.Error.WriteLine(ex);
+    }
   }
 
-  private void Join()
+  private async Task Join()
   {
     if (!CanAct())
     {
@@ -101,8 +115,26 @@
       status = "Enter a household code.";
       return;
     }
-    status = $"{username} requested to join '{joinCode}'. (placeholder)";
-    joinCode = string.Empty;
+
+    try
+    {
+      var member = await HouseholdService.JoinAsync(joinCode!.Trim(), username!.Trim());
+      if (member == null)
+      {
+        status = "Household code not found or an error occurred.";
+      }
+      else
+      {
+        status = $"Joined household (id: {member.HouseholdId}) as {member.Username}.";
+        joinCode = string.Empty;
+        Nav.NavigateTo($"/household/{member.HouseholdId}");
+      }
+    }
+    catch (Exception ex)
+    {
+      status = $"Error joining household: {ex.Message}" + (ex.InnerException != null ? $" - {ex.InnerException.Message}" : string.Empty);
+      Console.Error.WriteLine(ex);
+    }
   }
 }
 
