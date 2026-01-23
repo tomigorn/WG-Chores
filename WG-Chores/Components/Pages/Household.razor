@@ -62,7 +62,7 @@
 
     <div class="fixed-bottom bg-light border-top">
         <div class="container d-flex justify-content-start py-2" style="gap:8px; align-items:center;">
-            <button class="btn btn-outline-success me-2" type="button">Chores completed</button>
+            <button class="btn btn-outline-success me-2" type="button" @onclick="MarkSelectedChoresAsync">Chores completed</button>
             <div class="d-flex align-items-center">
                 <span class="me-2">📅</span>
                 <input type="date" class="form-control" style="width:160px;" @bind="selectedDate" />
@@ -236,6 +236,30 @@
         await HouseholdService.RemoveChoreAsync(editingChore.Id);
         showAddModal = false;
         editingChore = null;
+        await Load();
+    }
+
+    private async Task MarkSelectedChoresAsync()
+    {
+        if (selectedChores == null || !selectedChores.Any()) return;
+        var tasks = new List<Task<WG_Chores.Data.ChoreHistory>>();
+        foreach (var id in selectedChores)
+        {
+            // record history entry for the selected date; no member info for now
+            tasks.Add(HouseholdService.AddChoreHistoryAsync(id, null, null, notes: null, doneAt: selectedDate));
+        }
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error recording chore history: {ex}");
+        }
+
+        // clear selection and refresh
+        selectedChores.Clear();
         await Load();
     }
 }
