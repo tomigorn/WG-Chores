@@ -48,6 +48,7 @@ namespace WG_Chores.Data
                 eb.Property(c => c.Title).IsRequired();
                 eb.Property(c => c.IsDone).HasDefaultValue(false);
                 eb.Property(c => c.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                eb.Property(c => c.Room).HasMaxLength(64).HasDefaultValue("");
             });
         }
     }
@@ -77,6 +78,7 @@ namespace WG_Chores.Data
         public int Id { get; set; }
         public string Title { get; set; } = null!;
         public string? Description { get; set; }
+        public string? Room { get; set; }
         public bool IsDone { get; set; }
         public int HouseholdId { get; set; }
         public Household? Household { get; set; }

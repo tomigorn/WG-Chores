@@ -5,7 +5,7 @@
 
 <PageTitle>Household</PageTitle>
 
-<div class="container p-4">
+<div class="container p-4" style="padding-bottom:80px;">
     @if (loading)
     {
         <div>Loading...</div>
@@ -49,11 +49,45 @@
     }
 </div>
 
+    <div class="fixed-bottom bg-light border-top">
+        <div class="container d-flex justify-content-end py-2">
+            <button class="btn btn-secondary me-2" type="button">Edit chores</button>
+            <button class="btn btn-primary" type="button" @onclick="OpenAddModal">Add chore</button>
+        </div>
+    </div>
+
+@if (showAddModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index:1050;">
+        <div class="card" style="width:420px;">
+            <div class="card-body">
+                <h5 class="card-title">Add chore</h5>
+                <div class="mb-3">
+                    <label class="form-label">Chore name</label>
+                    <input class="form-control" @bind="newChoreTitle" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Room</label>
+                    <input class="form-control" @bind="newChoreRoom" />
+                </div>
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-link me-2" @onclick="CloseAddModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SubmitAddChoreAsync" disabled="@string.IsNullOrWhiteSpace(newChoreTitle)">Add</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public string? Code { get; set; }
 
     private WG_Chores.Data.Household? household;
     private bool loading = true;
+    private bool showAddModal = false;
+    private string newChoreTitle = string.Empty;
+    private string newChoreRoom = string.Empty;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -78,4 +112,28 @@
     private async Task Refresh() => await Load();
 
     private void GoHome() => Nav.NavigateTo("/");
+
+    private void OpenAddModal()
+    {
+        newChoreTitle = string.Empty;
+        newChoreRoom = string.Empty;
+        showAddModal = true;
+    }
+
+    private void CloseAddModal()
+    {
+        showAddModal = false;
+    }
+
+    private async Task SubmitAddChoreAsync()
+    {
+        if (household == null) return;
+        if (string.IsNullOrWhiteSpace(newChoreTitle)) return;
+
+        // Add chore to this household only
+        await HouseholdService.AddChoreAsync(household.Id, newChoreTitle.Trim(), description: null, room: string.IsNullOrWhiteSpace(newChoreRoom) ? null : newChoreRoom.Trim());
+
+        showAddModal = false;
+        await Load();
+    }
 }

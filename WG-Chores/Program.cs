@@ -59,7 +59,7 @@ public interface IHouseholdService
 
     Task<Household?> GetByIdAsync(int householdId, CancellationToken cancellationToken = default);
 
-    Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, CancellationToken cancellationToken = default);
+    Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, string? room = null, CancellationToken cancellationToken = default);
     Task<bool> RemoveChoreAsync(int choreId, CancellationToken cancellationToken = default);
     Task<Chore?> UpdateChoreAsync(Chore chore, CancellationToken cancellationToken = default);
 }
@@ -184,12 +184,13 @@ public class HouseholdService : IHouseholdService
         return await _db.Households.Include(h => h.Members).Include(h => h.Chores).FirstOrDefaultAsync(h => h.Id == householdId, cancellationToken);
     }
 
-    public async Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, CancellationToken cancellationToken = default)
+    public async Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, string? room = null, CancellationToken cancellationToken = default)
     {
         var chore = new Chore
         {
             Title = title,
             Description = description,
+            Room = room,
             HouseholdId = householdId,
             CreatedAt = DateTime.UtcNow,
             IsDone = false
