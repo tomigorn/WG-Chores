@@ -6,6 +6,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @inject IHouseholdService HouseholdService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Household</PageTitle>
 
@@ -46,7 +47,10 @@
                                         {
                                             var isSelected = selectedChores.Contains(c.Id);
                                             <li class="list-group-item @(isSelected ? "list-group-item-success text-white" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
-                                                @c.Title
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>@c.Title</div>
+                                                    <small class="text-muted">@GetLastCompletedText(c.Id)</small>
+                                                </div>
                                             </li>
                                         }
                                     </ul>
@@ -116,6 +120,9 @@
     private WG_Chores.Data.Chore? editingChore;
     private HashSet<int> selectedChores = new();
     private DateTime selectedDate = DateTime.Today;
+    private Dictionary<int, DateTime?> lastDone = new();
+    private int? currentMemberId;
+    private string? currentMemberName;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -142,6 +149,42 @@
                 // Ensure chores (and members) are loaded by fetching the full household
                 household = await HouseholdService.GetByIdAsync(basic.Id);
             }
+        }
+        // load last done dates for chores
+        lastDone.Clear();
+        // load current member info from localStorage (if available)
+        try
+        {
+            var idStr = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_id");
+            if (int.TryParse(idStr, out var mid)) currentMemberId = mid;
+            currentMemberName = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_username");
+        }
+        catch
+        {
+            currentMemberId = null;
+            currentMemberName = null;
+        }
+        if (household != null && household.Chores != null && household.Chores.Any())
+        {
+            var chores = household.Chores.ToList();
+            var tasks = chores.Select(async c =>
+            {
+                try
+                {
+                    var hist = await HouseholdService.GetChoreHistoryAsync(c.Id);
+                    var latest = hist.FirstOrDefault()?.DoneAt;
+                    lock (lastDone)
+                    {
+                        lastDone[c.Id] = latest;
+                    }
+                }
+                catch
+                {
+                    lock (lastDone) { lastDone[c.Id] = null; }
+                }
+            }).ToArray();
+
+            await Task.WhenAll(tasks);
         }
         loading = false;
         StateHasChanged();
@@ -242,11 +285,43 @@
     private async Task MarkSelectedChoresAsync()
     {
         if (selectedChores == null || !selectedChores.Any()) return;
+        // read current member info from localStorage (try every time to avoid timing issues)
+        try
+        {
+            var idStr = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_id");
+            if (int.TryParse(idStr, out var mid)) currentMemberId = mid;
+            currentMemberName = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_username");
+        }
+        catch
+        {
+            currentMemberId = null;
+            currentMemberName = null;
+        }
+
+        // If we have a username but not an id, attempt to resolve/ensure the member server-side
+        if (currentMemberId == null && !string.IsNullOrWhiteSpace(currentMemberName) && household != null)
+        {
+            try
+            {
+                var member = await HouseholdService.JoinAsync(household.Code, currentMemberName);
+                if (member != null)
+                {
+                    currentMemberId = member.Id;
+                    currentMemberName = member.Username;
+                    // store resolved id back to localStorage
+                    try { await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_id", member.Id.ToString()); } catch { }
+                }
+            }
+            catch
+            {
+                // ignore resolution failures
+            }
+        }
         var tasks = new List<Task<WG_Chores.Data.ChoreHistory>>();
         foreach (var id in selectedChores)
         {
-            // record history entry for the selected date; no member info for now
-            tasks.Add(HouseholdService.AddChoreHistoryAsync(id, null, null, notes: null, doneAt: selectedDate));
+            // record history entry for the selected date; include current member if available
+            tasks.Add(HouseholdService.AddChoreHistoryAsync(id, currentMemberId, currentMemberName, notes: null, doneAt: selectedDate));
         }
 
         try
@@ -261,5 +336,18 @@
         // clear selection and refresh
         selectedChores.Clear();
         await Load();
+    }
+
+    private string GetLastCompletedText(int choreId)
+    {
+        if (!lastDone.TryGetValue(choreId, out var dt) || dt == null)
+            return "Never";
+
+        var doneDate = dt.Value.ToLocalTime().Date;
+        var today = DateTime.Today;
+        var days = (today - doneDate).Days;
+        if (days == 0) return "Today";
+        if (days == 1) return "1 day ago";
+        return $"{days} days ago";
     }
 }

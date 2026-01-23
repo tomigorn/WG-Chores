@@ -2,6 +2,7 @@
 
 @inject IHouseholdService HouseholdService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Login</PageTitle>
 
@@ -91,6 +92,13 @@
     try
     {
       var household = await HouseholdService.CreateAsync(newHousehold!.Trim(), username!.Trim());
+      // After creating, join as the owner to get Member info and persist locally
+      var member = await HouseholdService.JoinAsync(household.Code, username!.Trim());
+      if (member != null)
+      {
+        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_id", member.Id.ToString());
+        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_username", member.Username ?? string.Empty);
+      }
       status = $"Created household '{household.Name}' — code: {household.Code}.";
       newHousehold = string.Empty;
       showCreateInput = false;
@@ -127,6 +135,9 @@
       }
       else
       {
+        // persist member id/username locally so household pages can record history
+        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_id", member.Id.ToString());
+        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_username", member.Username ?? string.Empty);
         status = $"Joined household (id: {member.HouseholdId}) as {member.Username}.";
         joinCode = string.Empty;
         Nav.NavigateTo($"/household/{code}");
