@@ -94,7 +94,7 @@
       status = $"Created household '{household.Name}' — code: {household.Code}.";
       newHousehold = string.Empty;
       showCreateInput = false;
-      Nav.NavigateTo($"/household/{household.Id}");
+      Nav.NavigateTo($"/household/{household.Code}");
     }
     catch (Exception ex)
     {
@@ -116,9 +116,11 @@
       return;
     }
 
+    var code = joinCode!.Trim();
+
     try
     {
-      var member = await HouseholdService.JoinAsync(joinCode!.Trim(), username!.Trim());
+      var member = await HouseholdService.JoinAsync(code, username!.Trim());
       if (member == null)
       {
         status = "Household code not found or an error occurred.";
@@ -127,7 +129,7 @@
       {
         status = $"Joined household (id: {member.HouseholdId}) as {member.Username}.";
         joinCode = string.Empty;
-        Nav.NavigateTo($"/household/{member.HouseholdId}");
+        Nav.NavigateTo($"/household/{code}");
       }
     }
     catch (Exception ex)
