@@ -280,4 +280,34 @@ obj/
 /node_modules
 /wwwroot/node_modules
 
+# Local SQLite database files
+wgchores.db
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# EF Core migrations folder (optional - include in repo if you want migrations in source control)
+Migrations/
+
+# User secrets and appsettings overrides
+appsettings.Development.json
+appsettings.*.Local.json
+secrets.json
+
+# VS/IDE
+.vs/
+.vscode/
+.idea/
+
+# Build
+bin/
+obj/
+
+# OS files
+.DS_Store
+Thumbs.db
+
 # End of https://www.toptal.com/developers/gitignore/api/aspnetcore,dotnetcore
