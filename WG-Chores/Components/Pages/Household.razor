@@ -48,7 +48,10 @@
                                             <li class="list-group-item border-0 px-0 py-2 @(isSelected ? "list-group-item-success text-white rounded-1" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <div>@c.Title</div>
-                                                    <small class="text-muted">@GetLastCompletedText(c.Id)</small>
+                                                    <div class="text-end">
+                                                        <small class="text-muted">@GetLastCompletedText(c.Id)</small>
+                                                        <small class="text-muted d-block">@GetLastCompletedMember(c.Id)</small>
+                                                    </div>
                                                 </div>
                                             </li>
                                         }
@@ -123,7 +126,7 @@
     private WG_Chores.Data.Chore? editingChore;
     private HashSet<int> selectedChores = new();
     private DateTime selectedDate = DateTime.Today;
-    private Dictionary<int, DateTime?> lastDone = new();
+    private Dictionary<int, (DateTime? DoneAt, string? MemberName)> lastDone = new();
     private int? currentMemberId;
     private string? currentMemberName;
 
@@ -175,15 +178,16 @@
                 try
                 {
                     var hist = await HouseholdService.GetChoreHistoryAsync(c.Id);
-                    var latest = hist.FirstOrDefault()?.DoneAt;
+                    var histSorted = hist.OrderByDescending(h => h.DoneAt);
+                    var latestEntry = histSorted.FirstOrDefault();
                     lock (lastDone)
                     {
-                        lastDone[c.Id] = latest;
+                        lastDone[c.Id] = (latestEntry?.DoneAt, latestEntry?.MemberName);
                     }
                 }
                 catch
                 {
-                    lock (lastDone) { lastDone[c.Id] = null; }
+                    lock (lastDone) { lastDone[c.Id] = (null, null); }
                 }
             }).ToArray();
 
@@ -343,14 +347,25 @@
 
     private string GetLastCompletedText(int choreId)
     {
-        if (!lastDone.TryGetValue(choreId, out var dt) || dt == null)
+        if (!lastDone.TryGetValue(choreId, out var entry) || entry.DoneAt == null)
             return "Never";
 
-        var doneDate = dt.Value.ToLocalTime().Date;
+        var doneDate = entry.DoneAt.Value.ToLocalTime().Date;
         var today = DateTime.Today;
         var days = (today - doneDate).Days;
         if (days == 0) return "Today";
         if (days == 1) return "1 day ago";
         return $"{days} days ago";
+    }
+
+    private string GetLastCompletedMember(int choreId)
+    {
+        if (!lastDone.TryGetValue(choreId, out var entry) || entry.DoneAt == null)
+            return string.Empty;
+
+        if (string.IsNullOrWhiteSpace(entry.MemberName))
+            return "by Unknown";
+
+        return $"by {entry.MemberName}";
     }
 }
