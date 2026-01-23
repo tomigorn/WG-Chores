@@ -62,6 +62,8 @@ public interface IHouseholdService
     Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, string? room = null, CancellationToken cancellationToken = default);
     Task<bool> RemoveChoreAsync(int choreId, CancellationToken cancellationToken = default);
     Task<Chore?> UpdateChoreAsync(Chore chore, CancellationToken cancellationToken = default);
+    Task<ChoreHistory> AddChoreHistoryAsync(int choreId, int? memberId, string? memberName, string? notes = null, DateTime? doneAt = null, CancellationToken cancellationToken = default);
+    Task<List<ChoreHistory>> GetChoreHistoryAsync(int choreId, CancellationToken cancellationToken = default);
 }
 
 public class HouseholdService : IHouseholdService
@@ -213,11 +215,52 @@ public class HouseholdService : IHouseholdService
     {
         var existing = await _db.Chores.FindAsync(new object[] { chore.Id }, cancellationToken);
         if (existing == null) return null;
+
+        var wasDone = existing.IsDone;
+
         existing.Title = chore.Title;
         existing.Description = chore.Description;
+        existing.Room = chore.Room;
         existing.IsDone = chore.IsDone;
+
         await _db.SaveChangesAsync(cancellationToken);
+
+        // if chore transitioned from not done -> done, record a history entry (no member info)
+        if (!wasDone && existing.IsDone)
+        {
+            var history = new ChoreHistory
+            {
+                ChoreId = existing.Id,
+                MemberId = null,
+                MemberName = null,
+                Notes = null,
+                DoneAt = DateTime.UtcNow
+            };
+            _db.ChoreHistories.Add(history);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
         return existing;
+    }
+
+    public async Task<ChoreHistory> AddChoreHistoryAsync(int choreId, int? memberId, string? memberName, string? notes = null, DateTime? doneAt = null, CancellationToken cancellationToken = default)
+    {
+        var history = new ChoreHistory
+        {
+            ChoreId = choreId,
+            MemberId = memberId,
+            MemberName = memberName,
+            Notes = notes,
+            DoneAt = doneAt ?? DateTime.UtcNow
+        };
+        _db.ChoreHistories.Add(history);
+        await _db.SaveChangesAsync(cancellationToken);
+        return history;
+    }
+
+    public async Task<List<ChoreHistory>> GetChoreHistoryAsync(int choreId, CancellationToken cancellationToken = default)
+    {
+        return await _db.ChoreHistories.Where(h => h.ChoreId == choreId).OrderByDescending(h => h.DoneAt).ToListAsync(cancellationToken);
     }
 
     private async Task<string> GenerateUniqueCodeAsync(CancellationToken cancellationToken)

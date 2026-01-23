@@ -18,18 +18,10 @@
     }
     else
     {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Welcome</h5>
-                <p class="text-muted">This is a sample household page. Soon you will be able to manage chores and members here.</p>
-            </div>
-        </div>
-
         <div class="row">
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-body">
-                        <h6 class="card-title">Chores</h6>
                         @if (household.Chores == null || !household.Chores.Any())
                         {
                             <div class="text-muted">No chores yet.</div>
@@ -49,7 +41,14 @@
                                     <ul class="list-group">
                                         @foreach (var c in grp.OrderByDescending(x => x.CreatedAt))
                                         {
-                                            <li class="list-group-item">@c.Title</li>
+                                            if (editingChores)
+                                            {
+                                                <li class="list-group-item" style="cursor:pointer;" @onclick="() => OpenEditModal(c)">@c.Title</li>
+                                            }
+                                            else
+                                            {
+                                                <li class="list-group-item">@c.Title</li>
+                                            }
                                         }
                                     </ul>
                                 </div>
@@ -64,7 +63,7 @@
 
     <div class="fixed-bottom bg-light border-top">
         <div class="container d-flex justify-content-end py-2">
-            <button class="btn btn-secondary me-2" type="button">Edit chores</button>
+            <button class="btn btn-secondary me-2" type="button" @onclick="ToggleEditChores">@(editingChores ? "Done" : "Edit chores")</button>
             <button class="btn btn-primary" type="button" @onclick="OpenAddModal">Add chore</button>
         </div>
     </div>
@@ -74,21 +73,25 @@
     <div class="modal-backdrop fade show"></div>
     <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index:1050;">
         <div class="card" style="width:420px;">
-            <div class="card-body">
-                <h5 class="card-title">Add chore</h5>
-                <div class="mb-3">
-                    <label class="form-label">Chore name</label>
-                    <input class="form-control" @bind="newChoreTitle" />
+                <div class="card-body">
+                    <h5 class="card-title">@(editingChore != null ? "Edit chore" : "Add chore")</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Chore name</label>
+                        <input class="form-control" @bind="newChoreTitle" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Room</label>
+                        <input class="form-control" @bind="newChoreRoom" />
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        @if (editingChore != null)
+                        {
+                            <button class="btn btn-danger me-2" @onclick="DeleteChoreAsync">Delete</button>
+                        }
+                        <button class="btn btn-link me-2" @onclick="CloseAddModal">Cancel</button>
+                        <button class="btn btn-primary" @onclick="SubmitAddChoreAsync" disabled="@string.IsNullOrWhiteSpace(newChoreTitle)">@(editingChore != null ? "Save" : "Add")</button>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Room</label>
-                    <input class="form-control" @bind="newChoreRoom" />
-                </div>
-                <div class="d-flex justify-content-end">
-                    <button class="btn btn-link me-2" @onclick="CloseAddModal">Cancel</button>
-                    <button class="btn btn-primary" @onclick="SubmitAddChoreAsync" disabled="@string.IsNullOrWhiteSpace(newChoreTitle)">Add</button>
-                </div>
-            </div>
         </div>
     </div>
 }
@@ -101,6 +104,8 @@
     private bool showAddModal = false;
     private string newChoreTitle = string.Empty;
     private string newChoreRoom = string.Empty;
+    private bool editingChores = false;
+    private WG_Chores.Data.Chore? editingChore;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -140,6 +145,26 @@
     {
         newChoreTitle = string.Empty;
         newChoreRoom = string.Empty;
+        editingChore = null;
+        showAddModal = true;
+    }
+
+    private void ToggleEditChores()
+    {
+        editingChores = !editingChores;
+        // close any modal/edit state when toggling off
+        if (!editingChores)
+        {
+            editingChore = null;
+            showAddModal = false;
+        }
+    }
+
+    private void OpenEditModal(WG_Chores.Data.Chore c)
+    {
+        editingChore = c;
+        newChoreTitle = c.Title;
+        newChoreRoom = c.Room ?? string.Empty;
         showAddModal = true;
     }
 
@@ -153,10 +178,38 @@
         if (household == null) return;
         if (string.IsNullOrWhiteSpace(newChoreTitle)) return;
 
-        // Add chore to this household only
-        await HouseholdService.AddChoreAsync(household.Id, newChoreTitle.Trim(), description: null, room: string.IsNullOrWhiteSpace(newChoreRoom) ? null : newChoreRoom.Trim());
+        if (editingChore != null)
+        {
+            // update existing chore
+            var updated = new WG_Chores.Data.Chore
+            {
+                Id = editingChore.Id,
+                Title = newChoreTitle.Trim(),
+                Description = editingChore.Description,
+                Room = string.IsNullOrWhiteSpace(newChoreRoom) ? null : newChoreRoom.Trim(),
+                IsDone = editingChore.IsDone,
+                HouseholdId = editingChore.HouseholdId,
+                CreatedAt = editingChore.CreatedAt
+            };
+            await HouseholdService.UpdateChoreAsync(updated);
+        }
+        else
+        {
+            // Add chore to this household only
+            await HouseholdService.AddChoreAsync(household.Id, newChoreTitle.Trim(), description: null, room: string.IsNullOrWhiteSpace(newChoreRoom) ? null : newChoreRoom.Trim());
+        }
 
         showAddModal = false;
+        editingChore = null;
+        await Load();
+    }
+
+    private async Task DeleteChoreAsync()
+    {
+        if (editingChore == null) return;
+        await HouseholdService.RemoveChoreAsync(editingChore.Id);
+        showAddModal = false;
+        editingChore = null;
         await Load();
     }
 }

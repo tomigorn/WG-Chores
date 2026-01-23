@@ -11,6 +11,7 @@ namespace WG_Chores.Data
         public DbSet<Household> Households { get; set; } = null!;
         public DbSet<Member> Members { get; set; } = null!;
         public DbSet<Chore> Chores { get; set; } = null!;
+        public DbSet<ChoreHistory> ChoreHistories { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -50,6 +51,18 @@ namespace WG_Chores.Data
                 eb.Property(c => c.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
                 eb.Property(c => c.Room).HasMaxLength(64).HasDefaultValue("");
             });
+
+            modelBuilder.Entity<ChoreHistory>(eb =>
+            {
+                eb.HasKey(h => h.Id);
+                eb.Property(h => h.MemberName).HasMaxLength(128).HasDefaultValue("");
+                eb.Property(h => h.DoneAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                eb.HasOne(h => h.Chore)
+                    .WithMany()
+                    .HasForeignKey(h => h.ChoreId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 
@@ -83,5 +96,17 @@ namespace WG_Chores.Data
         public int HouseholdId { get; set; }
         public Household? Household { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    public class ChoreHistory
+    {
+        public int Id { get; set; }
+        public int ChoreId { get; set; }
+        public Chore? Chore { get; set; }
+        // optional member who completed the chore (denormalized name for convenience)
+        public int? MemberId { get; set; }
+        public string? MemberName { get; set; }
+        public DateTime DoneAt { get; set; }
+        public string? Notes { get; set; }
     }
 }
