@@ -41,14 +41,10 @@
                                     <ul class="list-group">
                                         @foreach (var c in grp.OrderByDescending(x => x.CreatedAt))
                                         {
-                                            if (editingChores)
-                                            {
-                                                <li class="list-group-item" style="cursor:pointer;" @onclick="() => OpenEditModal(c)">@c.Title</li>
-                                            }
-                                            else
-                                            {
-                                                <li class="list-group-item">@c.Title</li>
-                                            }
+                                            var isSelected = selectedChores.Contains(c.Id);
+                                            <li class="list-group-item @(isSelected ? "list-group-item-success text-white" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
+                                                @c.Title
+                                            </li>
                                         }
                                     </ul>
                                 </div>
@@ -62,7 +58,11 @@
 </div>
 
     <div class="fixed-bottom bg-light border-top">
-        <div class="container d-flex justify-content-end py-2">
+        <div class="container d-flex justify-content-start py-2">
+            <button class="btn btn-outline-success me-2" type="button">Chores completed</button>
+            <button class="btn btn-outline-secondary" type="button">📅 @selectedDate.ToString("yyyy-MM-dd")</button>
+        </div>
+        <div class="container d-flex justify-content-end py-2 border-top">
             <button class="btn btn-secondary me-2" type="button" @onclick="ToggleEditChores">@(editingChores ? "Done" : "Edit chores")</button>
             <button class="btn btn-primary" type="button" @onclick="OpenAddModal">Add chore</button>
         </div>
@@ -106,6 +106,8 @@
     private string newChoreRoom = string.Empty;
     private bool editingChores = false;
     private WG_Chores.Data.Chore? editingChore;
+    private HashSet<int> selectedChores = new();
+    private DateTime selectedDate = DateTime.Today;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -166,6 +168,20 @@
         newChoreTitle = c.Title;
         newChoreRoom = c.Room ?? string.Empty;
         showAddModal = true;
+    }
+
+    private void OnChoreClick(WG_Chores.Data.Chore c)
+    {
+        if (editingChores)
+        {
+            OpenEditModal(c);
+            return;
+        }
+
+        if (selectedChores.Contains(c.Id))
+            selectedChores.Remove(c.Id);
+        else
+            selectedChores.Add(c.Id);
     }
 
     private void CloseAddModal()
