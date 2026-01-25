@@ -31,8 +31,13 @@
                                 <i class="fa-solid fa-filter" aria-hidden="true"></i>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end @(showSortMenu ? "show" : "")" style="right:0; left:auto;">
-                                <li><button class="dropdown-item" type="button">Category</button></li>
-                                <li><button class="dropdown-item" type="button">Time</button></li>
+                                <li><button class="dropdown-item @(sortMode == SortMode.Category ? "active" : "")" type="button" @onclick="() => SetCategorySort()">Category</button></li>
+                                <li>
+                                    <button class="dropdown-item d-flex justify-content-between align-items-center @(sortMode == SortMode.Time ? "active" : "")" type="button" @onclick="() => SetTimeSort()">
+                                        <span>Time</span>
+                                        <span class="ms-2 small text-muted">@((sortMode == SortMode.Time) ? (timeAsc ? "↑" : "↓") : "")</span>
+                                    </button>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -42,35 +47,67 @@
                         }
                         else
                         {
-                            var groups = household.Chores
-                                .GroupBy(c => string.IsNullOrWhiteSpace(c.Room) ? "General" : c.Room)
-                                .OrderBy(g => g.Key);
-
-                            foreach (var grp in groups)
+                            if (sortMode == SortMode.Category)
                             {
-                                <div class="mb-3">
-                                    <div class="mb-1">
-                                        <strong>@grp.Key</strong>
-                                    </div>
-                                    <ul class="list-group list-group-flush">
-                                        @foreach (var c in grp.OrderByDescending(x => x.CreatedAt))
-                                        {
-                                            var isSelected = selectedChores.Contains(c.Id);
-                                            <li class="list-group-item border-0 px-0 py-2 @(isSelected ? "list-group-item-success text-white rounded-1" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>@c.Title</div>
-                                                    <div class="text-end">
-                                                        <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
-                                                        @if (showMemberNames)
-                                                        {
-                                                        <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
-                                                        }
+                                var groups = household.Chores
+                                    .GroupBy(c => string.IsNullOrWhiteSpace(c.Room) ? "General" : c.Room)
+                                    .OrderBy(g => g.Key);
+
+                                foreach (var grp in groups)
+                                {
+                                    <div class="mb-3">
+                                        <div class="mb-1">
+                                            <strong>@grp.Key</strong>
+                                        </div>
+                                        <ul class="list-group list-group-flush">
+                                            @foreach (var c in grp.OrderBy(x => x.Title))
+                                            {
+                                                var isSelected = selectedChores.Contains(c.Id);
+                                                <li class="list-group-item border-0 px-0 py-2 @(isSelected ? "list-group-item-success text-white rounded-1" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>@c.Title</div>
+                                                        <div class="text-end">
+                                                            <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
+                                                            @if (showMemberNames)
+                                                            {
+                                                            <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
+                                                            }
+                                                        </div>
                                                     </div>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            }
+                            else if (sortMode == SortMode.Time)
+                            {
+                                // flat list ordered by last completed date
+                                var ordered = timeAsc
+                                    ? household.Chores.OrderBy(c => GetChoreDoneAt(c.Id))
+                                    : household.Chores.OrderByDescending(c => GetChoreDoneAt(c.Id));
+
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var c in ordered)
+                                    {
+                                        var isSelected = selectedChores.Contains(c.Id);
+                                        <li class="list-group-item border-0 px-0 py-2 @(isSelected ? "list-group-item-success text-white rounded-1" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <div>@c.Title</div>
+                                                    <small class="text-muted">@c.Room</small>
                                                 </div>
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
+                                                <div class="text-end">
+                                                    <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
+                                                    @if (showMemberNames)
+                                                    {
+                                                    <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
                             }
                         }
                     </div>
@@ -249,6 +286,38 @@
     private void ToggleSortMenu()
     {
         showSortMenu = !showSortMenu;
+    }
+    private enum SortMode { Category, Time }
+    private SortMode sortMode = SortMode.Category;
+    private bool timeAsc = true;
+
+    private void SetCategorySort()
+    {
+        sortMode = SortMode.Category;
+        showSortMenu = false;
+    }
+
+    private void SetTimeSort()
+    {
+        if (sortMode == SortMode.Time)
+        {
+            // toggle asc/desc
+            timeAsc = !timeAsc;
+        }
+        else
+        {
+            sortMode = SortMode.Time;
+            timeAsc = true; // default first press = ascending
+        }
+        showSortMenu = false;
+    }
+
+    private DateTime GetChoreDoneAt(int choreId)
+    {
+        if (lastDone.TryGetValue(choreId, out var entry) && entry.DoneAt.HasValue)
+            return entry.DoneAt.Value.ToLocalTime();
+        // treat never-done as very old so it appears first when sorting ascending
+        return DateTime.MinValue;
     }
 
     // Date changes are handled by binding to `selectedDate` directly.
