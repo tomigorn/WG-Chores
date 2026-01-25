@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  wg-chores:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wg-chores:latest
+    ports:
+      - "8080:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    volumes:
+      - wgchores-data:/app
+    restart: unless-stopped
+
+volumes:
+  wgchores-data:
+    driver: local
