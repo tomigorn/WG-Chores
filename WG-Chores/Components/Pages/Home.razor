@@ -48,11 +48,11 @@
 
       @if (!string.IsNullOrEmpty(status))
       {
-        <div class="alert alert-info py-2 mt-2" role="status">@status</div>
+        <div class="alert alert-info py-2 mt-2" role="status" style="white-space:pre-wrap">@status</div>
       }
 
       <div class="mt-3 text-center">
-        <small class="text-muted">Demo auth — local only</small>
+        <button class="btn btn-link btn-sm text-muted" @onclick="ForgotHousehold">Forgot household</button>
       </div>
     </div>
 </div>
@@ -143,6 +143,37 @@
     catch (Exception ex)
     {
       status = $"Error joining household: {ex.Message}" + (ex.InnerException != null ? $" - {ex.InnerException.Message}" : string.Empty);
+      Console.Error.WriteLine(ex);
+    }
+  }
+
+  private async Task ForgotHousehold()
+  {
+    if (string.IsNullOrWhiteSpace(username))
+    {
+      status = "Enter a username to search for households.";
+      return;
+    }
+
+    try
+    {
+      var households = await HouseholdService.GetByUsernameAsync(username!.Trim());
+      // also clear stored member info
+      await JS.InvokeVoidAsync("localStorage.removeItem", "wg_member_id");
+      await JS.InvokeVoidAsync("localStorage.removeItem", "wg_member_username");
+
+      if (households == null || households.Count == 0)
+      {
+        status = "No households found for that username.";
+      }
+      else
+        {
+        status = string.Join("\n", households.Select(h => $"{h.Name} ({h.Code})"));
+      }
+    }
+    catch (Exception ex)
+    {
+      status = $"Error finding households: {ex.Message}";
       Console.Error.WriteLine(ex);
     }
   }

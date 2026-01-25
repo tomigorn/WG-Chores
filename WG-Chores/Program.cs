@@ -58,6 +58,7 @@ public interface IHouseholdService
     Task<Member?> JoinAsync(string code, string username, CancellationToken cancellationToken = default);
 
     Task<Household?> GetByIdAsync(int householdId, CancellationToken cancellationToken = default);
+    Task<List<Household>> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
 
     Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, string? room = null, CancellationToken cancellationToken = default);
     Task<bool> RemoveChoreAsync(int choreId, CancellationToken cancellationToken = default);
@@ -184,6 +185,17 @@ public class HouseholdService : IHouseholdService
     public async Task<Household?> GetByIdAsync(int householdId, CancellationToken cancellationToken = default)
     {
         return await _db.Households.Include(h => h.Members).Include(h => h.Chores).FirstOrDefaultAsync(h => h.Id == householdId, cancellationToken);
+    }
+
+    public async Task<List<Household>> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(username)) return new List<Household>();
+        username = username.Trim();
+
+        return await _db.Households
+            .Include(h => h.Members)
+            .Where(h => h.Members.Any(m => m.Username.ToLower() == username.ToLower()))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<Chore> AddChoreAsync(int householdId, string title, string? description = null, string? room = null, CancellationToken cancellationToken = default)
