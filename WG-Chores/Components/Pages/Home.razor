@@ -93,8 +93,8 @@
       var member = await HouseholdService.JoinAsync(household.Code, username!.Trim());
       if (member != null)
       {
-        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_id", member.Id.ToString());
-        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_username", member.Username ?? string.Empty);
+        await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_id", member.Id.ToString(), 365);
+        await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_username", member.Username ?? string.Empty, 365);
       }
       status = $"Created household '{household.Name}' — code: {household.Code}.";
       newHousehold = string.Empty;
@@ -133,8 +133,8 @@
       else
       {
         // persist member id/username locally so household pages can record history
-        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_id", member.Id.ToString());
-        await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_username", member.Username ?? string.Empty);
+        await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_id", member.Id.ToString(), 365);
+        await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_username", member.Username ?? string.Empty, 365);
         status = $"Joined household (id: {member.HouseholdId}) as {member.Username}.";
         joinCode = string.Empty;
         Nav.NavigateTo($"/household/{code}");
@@ -159,8 +159,8 @@
     {
       var households = await HouseholdService.GetByUsernameAsync(username!.Trim());
       // also clear stored member info
-      await JS.InvokeVoidAsync("localStorage.removeItem", "wg_member_id");
-      await JS.InvokeVoidAsync("localStorage.removeItem", "wg_member_username");
+      await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_member_id");
+      await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_member_username");
 
       if (households == null || households.Count == 0)
       {

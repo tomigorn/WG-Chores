@@ -216,9 +216,9 @@
         // load current member info from localStorage (if available)
         try
         {
-            var idStr = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_id");
+            var idStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_id");
             if (int.TryParse(idStr, out var mid)) currentMemberId = mid;
-            currentMemberName = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_username");
+            currentMemberName = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_username");
         }
         catch
         {
@@ -228,7 +228,7 @@
         // load saved preference for showing member names
         try
         {
-            var showStr = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_show_member_names");
+            var showStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_show_member_names");
             if (bool.TryParse(showStr, out var s)) showMemberNames = s;
         }
         catch { }
@@ -395,9 +395,9 @@
         // read current member info from localStorage (try every time to avoid timing issues)
         try
         {
-            var idStr = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_id");
+            var idStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_id");
             if (int.TryParse(idStr, out var mid)) currentMemberId = mid;
-            currentMemberName = await JS.InvokeAsync<string?>("localStorage.getItem", "wg_member_username");
+            currentMemberName = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_username");
         }
         catch
         {
@@ -416,7 +416,7 @@
                     currentMemberId = member.Id;
                     currentMemberName = member.Username;
                     // store resolved id back to localStorage
-                    try { await JS.InvokeVoidAsync("localStorage.setItem", "wg_member_id", member.Id.ToString()); } catch { }
+                    try { await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_id", member.Id.ToString(), 365); } catch { }
                 }
             }
             catch
@@ -472,6 +472,6 @@
     private async Task ToggleShowMemberNames()
     {
         showMemberNames = !showMemberNames;
-        try { await JS.InvokeVoidAsync("localStorage.setItem", "wg_show_member_names", showMemberNames.ToString()); } catch { }
+        try { await JS.InvokeVoidAsync("wgChores.setCookie", "wg_show_member_names", showMemberNames.ToString(), 365); } catch { }
     }
 }
