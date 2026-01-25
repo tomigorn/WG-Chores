@@ -5,12 +5,15 @@ services:
       context: .
       dockerfile: Dockerfile
     image: wg-chores:latest
+    container_name: wg-chores-app
     ports:
-      - "8080:80"
+      - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Default=Data Source=/app/data/wgchores.db
     volumes:
-      - wgchores-data:/app
+      - wgchores-data:/app/data
     restart: unless-stopped
 
 volumes:

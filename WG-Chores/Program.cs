@@ -21,11 +21,20 @@ builder.Services.AddScoped<IHouseholdService, HouseholdService>();
 
 var app = builder.Build();
 
-// Ensure database created (development convenience)
+// Ensure database created and apply migrations
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    
+    // Use EnsureCreated for development (simpler), Migrate for production (proper versioning)
+    if (app.Environment.IsDevelopment())
+    {
+        db.Database.EnsureCreated();
+    }
+    else
+    {
+        db.Database.Migrate();
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -36,11 +45,9 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// HTTPS redirection removed for Docker container
 
 app.UseStaticFiles();
 app.UseAntiforgery();
