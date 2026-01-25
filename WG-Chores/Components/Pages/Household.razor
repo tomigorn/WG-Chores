@@ -25,6 +25,17 @@
         <div class="row">
             <div class="col-12 col-md-8">
                 <div class="p-0">
+                    <div class="d-flex justify-content-end mb-2">
+                        <div class="dropdown position-relative">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" @onclick="ToggleSortMenu" title="Sort">
+                                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end @(showSortMenu ? "show" : "")" style="right:0; left:auto;">
+                                <li><button class="dropdown-item" type="button">Category</button></li>
+                                <li><button class="dropdown-item" type="button">Time</button></li>
+                            </ul>
+                        </div>
+                    </div>
                         @if (household.Chores == null || !household.Chores.Any())
                         {
                             <div class="text-muted">No chores yet.</div>
@@ -232,6 +243,12 @@
             editingChore = null;
             showAddModal = false;
         }
+    }
+
+    private bool showSortMenu = false;
+    private void ToggleSortMenu()
+    {
+        showSortMenu = !showSortMenu;
     }
 
     // Date changes are handled by binding to `selectedDate` directly.
