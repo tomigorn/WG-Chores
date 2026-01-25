@@ -15,6 +15,12 @@ services:
     volumes:
       - wgchores-data:/app/data
     restart: unless-stopped
+    networks:         # Define the external Traefik network. remove if not using Traefik
+      - traefik_proxy
+
+networks:             # Define the external Traefik network. remove if not using Traefik
+  traefik_proxy:
+    external: true
 
 volumes:
   wgchores-data:
