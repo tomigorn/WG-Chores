@@ -209,6 +209,8 @@
             {
                 // Ensure chores (and members) are loaded by fetching the full household
                 household = await HouseholdService.GetByIdAsync(basic.Id);
+                // persist the last-opened household code in a cookie for convenience
+                try { if (household != null) await JS.InvokeVoidAsync("wgChores.setCookie", "wg_household_code", household.Code, 365); } catch { }
             }
         }
         // load last done dates for chores
