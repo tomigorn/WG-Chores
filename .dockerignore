@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+**/.vs/
+.vscode/
+*.user
+*.suo
+*.log
+.DS_Store
+.git
+node_modules
+*.db
+**/*.db
+**/*.pdb
+**/*.exe
+**/publish
+**/bin
+**/obj

@@ -311,3 +311,19 @@ obj/
 Thumbs.db
 
 # End of https://www.toptal.com/developers/gitignore/api/aspnetcore,dotnetcore
+
+# Docker related
+# Ignore docker-compose override files and local compose files
+docker-compose.override.yml
+docker-compose.*.local.yml
+docker-compose.*.dev.yml
+
+# Docker environment files (keep sample, ignore actual env overrides if you create them locally)
+.env.local
+.env.*.local
+
+# Docker build context artifacts
+.docker/
+docker-stack.yml
+
+.env
