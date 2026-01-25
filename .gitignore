@@ -289,9 +289,6 @@ wgchores.db
 *.db-wal
 *.db-shm
 
-# EF Core migrations folder (optional - include in repo if you want migrations in source control)
-Migrations/
-
 # User secrets and appsettings overrides
 appsettings.Development.json
 appsettings.*.Local.json
