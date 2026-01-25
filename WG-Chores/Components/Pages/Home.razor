@@ -182,18 +182,20 @@
       Console.Error.WriteLine(ex);
     }
   }
-}
 
   protected override async Task OnInitializedAsync()
   {
     try
     {
-      var code = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_household_code");
-      if (!string.IsNullOrWhiteSpace(code))
+      string code = await JS.InvokeAsync<string>("wgChores.getCookie", "wg_household_code");
+      string storedUsername = await JS.InvokeAsync<string>("wgChores.getCookie", "wg_member_username");
+      
+      if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(storedUsername))
       {
         Nav.NavigateTo($"/household/{code}");
       }
     }
     catch { }
   }
+}
 
