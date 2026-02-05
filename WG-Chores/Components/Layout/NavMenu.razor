@@ -1,4 +1,8 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">WG-Chores</a>
     </div>
@@ -9,10 +13,26 @@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
+            <a class="nav-link" role="button" @onclick="Logout">
+                <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
+            </a>
         </div>
     </nav>
 </div>
+
+@code {
+    private async Task Logout()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_member_id");
+            await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_member_username");
+            await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_household_code");
+            await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_show_member_names");
+        }
+        catch { }
+
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}
 
