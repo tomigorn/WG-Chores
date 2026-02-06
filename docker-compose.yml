@@ -17,6 +17,17 @@ services:
     networks:         # Define the external Traefik network. remove if not using Traefik
       - traefik_proxy
 
+  sqlite-web:
+    build:
+      context: ./sqlite-web
+    image: wg-chores-sqliteweb:local
+    container_name: wg-chores-sqliteweb
+    ports:
+      - 8088:8080
+    volumes:
+      - wgchores-data:/data
+    restart: unless-stopped
+
 networks:             # Define the external Traefik network. remove if not using Traefik
   traefik_proxy:
     external: true
