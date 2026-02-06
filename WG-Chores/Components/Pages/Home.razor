@@ -3,6 +3,7 @@
 @inject IHouseholdService HouseholdService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@using System.Reflection
 
 <PageTitle>Login</PageTitle>
 
@@ -54,6 +55,13 @@
       <div class="mt-3 text-center">
         <button class="btn btn-link btn-sm text-muted" @onclick="ForgotHousehold">Forgot household</button>
       </div>
+      
+      <!-- version visually placed at bottom but as part of page content -->
+      <div style="position:fixed; left:0; right:0; bottom:0; text-align:right; padding:1rem 1rem; font-size:.85rem; color:#6c757d; background:transparent;" aria-hidden="true">
+        Version: @appVersion
+      </div>
+
+      <div style="height:48px;" aria-hidden="true"></div>
     </div>
 </div>
 
@@ -62,6 +70,7 @@
   private string? newHousehold;
   private string? joinCode;
   private string? status;
+  private string appVersion = "unknown";
 
   private bool showCreateInput = false;
 
@@ -185,6 +194,17 @@
 
   protected override async Task OnInitializedAsync()
   {
+    // determine application version from assembly attributes (strip any +commit suffix)
+    try
+    {
+      var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+      var raw = asm?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? asm?.GetName().Version?.ToString();
+      if (string.IsNullOrWhiteSpace(raw)) appVersion = "unknown";
+      else appVersion = raw.Split('+')[0];
+    }
+    catch { appVersion = "unknown"; }
+
     try
     {
       string code = await JS.InvokeAsync<string>("wgChores.getCookie", "wg_household_code");
