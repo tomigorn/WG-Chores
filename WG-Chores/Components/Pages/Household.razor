@@ -353,6 +353,7 @@
     {
         confirmChore = c;
         confirmDate = DateTime.Today;
+        confirmDate = confirmDate.Date + DateTime.Now.TimeOfDay;
         showConfirmModal = true;
     }
 
