@@ -1,0 +1,158 @@
+/* Mobile-first login page */
+.login-page {
+    min-height: 100dvh;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    padding-bottom: 4rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    padding: 1.75rem;
+    box-shadow: var(--shadow-md);
+}
+
+.login-header {
+    margin-bottom: 1.5rem;
+}
+
+.login-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.25rem 0;
+    color: var(--color-text);
+}
+
+.login-subtitle {
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.login-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 48px;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-accent);
+    color: white;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.login-back-btn:active {
+    opacity: 0.9;
+    transform: scale(0.98);
+}
+
+.login-other-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.login-other-link:hover {
+    color: var(--color-accent);
+}
+
+.login-other-link i {
+    font-size: 0.7rem;
+}
+
+.login-form .form-control {
+    min-height: 52px;
+}
+
+.login-actions {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.login-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.login-actions-row.login-join-row {
+    gap: 0.5rem;
+}
+
+.login-actions-row.login-join-row .form-control {
+    flex: 1;
+    min-width: 100px;
+}
+
+.login-or {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+.login-create {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.login-create-btns {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.login-status {
+    padding: 0.75rem 1rem;
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    margin-top: 0.5rem;
+}
+
+.login-forgot {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+.login-version {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0.75rem 1rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}

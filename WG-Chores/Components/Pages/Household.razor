@@ -1,172 +1,186 @@
 @page "/household/{Code}"
 @using Microsoft.AspNetCore.Components
 @using WG_Chores.Data
+@using WG_Chores.Services
 @using System.Linq
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @inject IHouseholdService HouseholdService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject AppPreferencesService Preferences
+@implements IDisposable
 
 <PageTitle>Household</PageTitle>
 
-<div class="container-fluid p-3">
+<div class="household-page">
     @if (loading)
     {
-        <div>Loading...</div>
+        <div class="household-loading">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Loading...</p>
+        </div>
     }
     else if (household == null)
     {
-        <div class="alert alert-warning">Household not found.</div>
-        <button class="btn btn-link" @onclick="GoHome">Back</button>
+        <div class="household-empty">
+            <p class="household-empty-text">Household not found.</p>
+            <button class="btn btn-outline-secondary" @onclick="GoHome">Back to login</button>
+        </div>
     }
     else
     {
-        <div class="row">
-            <div class="col-12 col-md-8">
-                <div class="p-0">
-                    <div class="d-flex justify-content-end mb-2">
-                        <div class="dropdown position-relative">
-                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" @onclick="ToggleSortMenu" title="Sort">
-                                <i class="fa-solid fa-filter" aria-hidden="true"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end @(showSortMenu ? "show" : "")" style="right:0; left:auto;">
-                                <li><button class="dropdown-item @(sortMode == SortMode.Category ? "active" : "")" type="button" @onclick="() => SetCategorySort()">Category</button></li>
-                                <li>
-                                    <button class="dropdown-item d-flex justify-content-between align-items-center @(sortMode == SortMode.Time ? "active" : "")" type="button" @onclick="() => SetTimeSort()">
-                                        <span>Time</span>
-                                        <span class="ms-2 small text-muted">@((sortMode == SortMode.Time) ? (timeAsc ? "↑" : "↓") : "")</span>
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                        @if (household.Chores == null || !household.Chores.Any())
-                        {
-                            <div class="text-muted">No chores yet.</div>
-                        }
-                        else
-                        {
-                            if (sortMode == SortMode.Category)
-                            {
-                                var groups = household.Chores
-                                    .GroupBy(c => string.IsNullOrWhiteSpace(c.Room) ? "General" : c.Room)
-                                    .OrderBy(g => g.Key);
-
-                                foreach (var grp in groups)
-                                {
-                                    <div class="mb-3">
-                                        <div class="mb-1">
-                                            <strong>@grp.Key</strong>
-                                        </div>
-                                        <ul class="list-group list-group-flush">
-                                            @foreach (var c in grp.OrderBy(x => x.Title))
-                                            {
-                                                var isSelected = selectedChores.Contains(c.Id);
-                                                <li class="list-group-item border-0 px-0 py-2 @(isSelected ? "list-group-item-success text-white rounded-1" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <div>@c.Title</div>
-                                                        <div class="text-end">
-                                                            <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
-                                                            @if (showMemberNames)
-                                                            {
-                                                            <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                            }
-                                        </ul>
-                                    </div>
-                                }
-                            }
-                            else if (sortMode == SortMode.Time)
-                            {
-                                // flat list ordered by last completed date
-                                var ordered = timeAsc
-                                    ? household.Chores.OrderBy(c => GetChoreDoneAt(c.Id))
-                                    : household.Chores.OrderByDescending(c => GetChoreDoneAt(c.Id));
-
-                                <ul class="list-group list-group-flush">
-                                    @foreach (var c in ordered)
-                                    {
-                                        var isSelected = selectedChores.Contains(c.Id);
-                                        <li class="list-group-item border-0 px-0 py-2 @(isSelected ? "list-group-item-success text-white rounded-1" : string.Empty)" style="cursor:pointer;" @onclick="() => OnChoreClick(c)">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <div>@c.Title</div>
-                                                    <small class="text-muted">@c.Room</small>
-                                                </div>
-                                                <div class="text-end">
-                                                    <small class="text-muted ms-2">@GetLastCompletedText(c.Id)</small>
-                                                    @if (showMemberNames)
-                                                    {
-                                                    <small class="text-muted">@GetLastCompletedMember(c.Id)</small>
-                                                    }
-                                                </div>
-                                            </div>
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                        }
-                    </div>
-            </div>
+        <div class="household-toolbar">
+            <button class="btn btn-outline-secondary household-sort-btn" type="button" @onclick="ToggleSortMenu" title="Sort">
+                <i class="fa-solid fa-arrow-down-wide-short" aria-hidden="true"></i>
+                <span>@(sortMode == SortMode.Category ? "Category" : "Time")</span>
+            </button>
+            <button class="household-add-btn btn btn-outline-secondary" type="button" @onclick="OpenAddModal" title="Add chore" aria-label="Add chore">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                Add Chore
+            </button>
+            @if (showSortMenu)
+            {
+                <div class="household-sort-overlay" @onclick="ToggleSortMenu"></div>
+                <div class="household-sort-menu">
+                    <button type="button" class="household-sort-item @(sortMode == SortMode.Category ? "active" : "")" @onclick="() => SetCategorySort()">Category</button>
+                    <button type="button" class="household-sort-item @(sortMode == SortMode.Time ? "active" : "")" @onclick="() => SetTimeSort()">
+                        Time @((sortMode == SortMode.Time) ? (timeAsc ? "↑" : "↓") : "")
+                    </button>
+                </div>
+            }
         </div>
+
+        @if (household.Chores == null || !household.Chores.Any())
+        {
+            <div class="household-empty-state">
+                <i class="fa-solid fa-broom" aria-hidden="true"></i>
+                <p>No chores yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="household-chores">
+                @if (sortMode == SortMode.Category)
+                {
+                    var groups = household.Chores
+                        .GroupBy(c => string.IsNullOrWhiteSpace(c.Room) ? "General" : c.Room)
+                        .OrderBy(g => g.Key);
+
+                    foreach (var grp in groups)
+                    {
+                        <section class="chore-section">
+                            <h2 class="chore-section-title">@grp.Key</h2>
+                            <ul class="chore-list">
+                                @foreach (var c in grp.OrderBy(x => x.Title))
+                                {
+                                    <li class="chore-item" @onclick="() => OnChoreClick(c)">
+                                        <span class="chore-title">@c.Title</span>
+                                        <span class="chore-meta">
+                                            @if (Preferences.ShowMemberNames)
+                                            {
+                                                <span class="chore-meta-member">@GetLastCompletedMember(c.Id)</span>
+                                            }
+                                            <span class="chore-meta-date">@GetLastCompletedText(c.Id)</span>
+                                        </span>
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                }
+                else
+                {
+                    var ordered = timeAsc
+                        ? household.Chores.OrderBy(c => GetChoreDoneAt(c.Id))
+                        : household.Chores.OrderByDescending(c => GetChoreDoneAt(c.Id));
+
+                    <ul class="chore-list chore-list-flat">
+                        @foreach (var c in ordered)
+                        {
+                            <li class="chore-item" @onclick="() => OnChoreClick(c)">
+                                <div>
+                                    <span class="chore-title">@c.Title</span>
+                                    @if (!string.IsNullOrWhiteSpace(c.Room))
+                                    {
+                                        <span class="chore-room">@c.Room</span>
+                                    }
+                                </div>
+                                <span class="chore-meta">
+                                    @if (Preferences.ShowMemberNames)
+                                    {
+                                        <span class="chore-meta-member">@GetLastCompletedMember(c.Id)</span>
+                                    }
+                                    <span class="chore-meta-date">@GetLastCompletedText(c.Id)</span>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
     }
 </div>
 
-    <!-- spacer to prevent last list item being hidden behind fixed footer -->
-    <div style="height:80px; pointer-events:none;" aria-hidden="true"></div>
-
-    <div class="fixed-bottom bg-light border-top">
-        <div class="container-fluid py-2">
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
-                <div class="d-flex gap-2 w-100">
-                    <button class="btn btn-outline-success flex-fill flex-sm-none" type="button" @onclick="MarkSelectedChoresAsync">Chores completed</button>
-                    <div class="d-flex align-items-center">
-                        <span class="me-2">📅</span>
-                        <input type="date" class="form-control" style="width:160px; min-width:120px;" @bind="selectedDate" />
-                    </div>
+@if (showAddModal)
+{
+    <div class="modal-backdrop @(isAddModalClosing ? "modal-backdrop-closing" : "")" @onclick="CloseAddModalAsync"></div>
+    <div class="chore-modal" @onclick="CloseAddModalAsync">
+        <div class="chore-modal-sheet @(isAddModalClosing ? "chore-modal-sheet-closing" : "")" @onclick:stopPropagation="true">
+            <div class="chore-modal-header">
+                <h3>@(editingChore != null ? "Edit chore" : "Add chore")</h3>
+                <button type="button" class="chore-modal-close" @onclick="CloseAddModalAsync" aria-label="Close">✕</button>
+            </div>
+            <div class="chore-modal-body">
+                <div class="form-floating mb-3">
+                    <input class="form-control" id="chore-title" placeholder="Chore name" @bind="newChoreTitle" />
+                    <label for="chore-title">Chore name</label>
                 </div>
-
-                <div class="d-flex gap-2 w-100 justify-content-sm-end">
-                    <button class="btn btn-outline-secondary me-2" type="button" title="@(showMemberNames ? "Hide member names" : "Show member names")" @onclick="ToggleShowMemberNames">
-                        <i class="fa @(showMemberNames ? "fa-eye" : "fa-eye-slash")" aria-hidden="true"></i>
-                    </button>
-                    <button class="btn btn-secondary w-100 w-sm-auto" type="button" @onclick="ToggleEditChores">@(editingChores ? "Done" : "Edit chores")</button>
-                    <button class="btn btn-primary w-100 w-sm-auto" type="button" @onclick="OpenAddModal">Add chore</button>
+                <div class="form-floating mb-3">
+                    <input class="form-control" id="chore-room" placeholder="Room" @bind="newChoreRoom" />
+                    <label for="chore-room">Room</label>
+                </div>
+                <div class="chore-modal-actions">
+                    @if (editingChore != null)
+                    {
+                        <button class="btn btn-danger" @onclick="DeleteChoreAsync">Delete</button>
+                    }
+                    <button class="btn btn-outline-secondary" @onclick="CloseAddModalAsync">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SubmitAddChoreAsync" disabled="@string.IsNullOrWhiteSpace(newChoreTitle)">@(editingChore != null ? "Save" : "Add")</button>
                 </div>
             </div>
         </div>
     </div>
+}
 
-    
-
-@if (showAddModal)
+@if (showConfirmModal && confirmChore != null)
 {
-    <div class="modal-backdrop fade show"></div>
-    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="z-index:1050;">
-        <div class="card" style="width:420px;">
-                <div class="card-body">
-                    <h5 class="card-title">@(editingChore != null ? "Edit chore" : "Add chore")</h5>
-                    <div class="mb-3">
-                        <label class="form-label">Chore name</label>
-                        <input class="form-control" @bind="newChoreTitle" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Room</label>
-                        <input class="form-control" @bind="newChoreRoom" />
-                    </div>
-                    <div class="d-flex justify-content-end">
-                        @if (editingChore != null)
-                        {
-                            <button class="btn btn-danger me-2" @onclick="DeleteChoreAsync">Delete</button>
-                        }
-                        <button class="btn btn-link me-2" @onclick="CloseAddModal">Cancel</button>
-                        <button class="btn btn-primary" @onclick="SubmitAddChoreAsync" disabled="@string.IsNullOrWhiteSpace(newChoreTitle)">@(editingChore != null ? "Save" : "Add")</button>
+    <div class="modal-backdrop @(isConfirmModalClosing ? "modal-backdrop-closing" : "")" @onclick="CloseConfirmModalAsync"></div>
+    <div class="chore-modal" @onclick="CloseConfirmModalAsync">
+        <div class="chore-modal-sheet chore-confirm-sheet @(isConfirmModalClosing ? "chore-modal-sheet-closing" : "")" @onclick:stopPropagation="true">
+            <div class="chore-modal-header">
+                <h3>@confirmChore.Title</h3>
+                <button type="button" class="chore-modal-close" @onclick="CloseConfirmModalAsync" aria-label="Close">✕</button>
+            </div>
+            <div class="chore-modal-body">
+                <div class="chore-confirm-date">
+                    <label for="confirm-date">Date</label>
+                    <input type="date" id="confirm-date" class="form-control" @bind="confirmDate" />
+                </div>
+                <div class="chore-confirm-actions">
+                    <button class="btn btn-primary chore-confirm-mark-done" @onclick="ConfirmMarkDoneAsync">
+                        <i class="fa-solid fa-check" aria-hidden="true"></i>
+                        Mark done
+                    </button>
+                    <div class="chore-confirm-secondary">
+                        <button class="btn btn-outline-secondary" @onclick="EditFromConfirm">
+                            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                            Edit
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="CloseConfirmModalAsync">Cancel</button>
                     </div>
                 </div>
+            </div>
         </div>
     </div>
 }
@@ -179,14 +193,25 @@
     private bool showAddModal = false;
     private string newChoreTitle = string.Empty;
     private string newChoreRoom = string.Empty;
-    private bool editingChores = false;
     private WG_Chores.Data.Chore? editingChore;
-    private HashSet<int> selectedChores = new();
-    private DateTime selectedDate = DateTime.Today;
+    private bool showConfirmModal = false;
+    private bool isAddModalClosing = false;
+    private bool isConfirmModalClosing = false;
+    private WG_Chores.Data.Chore? confirmChore;
+    private DateTime confirmDate = DateTime.Today;
     private Dictionary<int, (DateTime? DoneAt, string? MemberName)> lastDone = new();
     private int? currentMemberId;
     private string? currentMemberName;
-    private bool showMemberNames = false;
+
+    protected override void OnInitialized()
+    {
+        Preferences.OnShowMemberNamesChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Preferences.OnShowMemberNamesChanged -= StateHasChanged;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -230,11 +255,11 @@
             currentMemberId = null;
             currentMemberName = null;
         }
-        // load saved preference for showing member names
+        // sync preference from cookie (in case user navigated directly)
         try
         {
             var showStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_show_member_names");
-            if (bool.TryParse(showStr, out var s)) showMemberNames = s;
+            if (bool.TryParse(showStr, out var s)) Preferences.SetShowMemberNames(s);
         }
         catch { }
         if (household != null && household.Chores != null && household.Chores.Any())
@@ -274,17 +299,6 @@
         newChoreRoom = string.Empty;
         editingChore = null;
         showAddModal = true;
-    }
-
-    private void ToggleEditChores()
-    {
-        editingChores = !editingChores;
-        // close any modal/edit state when toggling off
-        if (!editingChores)
-        {
-            editingChore = null;
-            showAddModal = false;
-        }
     }
 
     private bool showSortMenu = false;
@@ -337,21 +351,75 @@
 
     private void OnChoreClick(WG_Chores.Data.Chore c)
     {
-        if (editingChores)
-        {
-            OpenEditModal(c);
-            return;
-        }
-
-        if (selectedChores.Contains(c.Id))
-            selectedChores.Remove(c.Id);
-        else
-            selectedChores.Add(c.Id);
+        confirmChore = c;
+        confirmDate = DateTime.Today;
+        showConfirmModal = true;
     }
 
-    private void CloseAddModal()
+    private async Task EditFromConfirm()
     {
+        if (confirmChore == null) return;
+        var chore = confirmChore;
+        await CloseConfirmModalAsync();
+        OpenEditModal(chore);
+    }
+
+    private async Task CloseConfirmModalAsync()
+    {
+        if (isConfirmModalClosing) return;
+        isConfirmModalClosing = true;
+        StateHasChanged();
+        await Task.Delay(250);
+        showConfirmModal = false;
+        confirmChore = null;
+        isConfirmModalClosing = false;
+    }
+
+    private async Task ConfirmMarkDoneAsync()
+    {
+        if (confirmChore == null) return;
+
+        try
+        {
+            var idStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_id");
+            if (int.TryParse(idStr, out var mid)) currentMemberId = mid;
+            currentMemberName = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_username");
+        }
+        catch
+        {
+            currentMemberId = null;
+            currentMemberName = null;
+        }
+
+        if (currentMemberId == null && !string.IsNullOrWhiteSpace(currentMemberName) && household != null)
+        {
+            try
+            {
+                var member = await HouseholdService.JoinAsync(household.Code, currentMemberName);
+                if (member != null)
+                {
+                    currentMemberId = member.Id;
+                    currentMemberName = member.Username;
+                    try { await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_id", member.Id.ToString(), 365); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        await HouseholdService.AddChoreHistoryAsync(confirmChore.Id, currentMemberId, currentMemberName, notes: null, doneAt: confirmDate);
+        await CloseConfirmModalAsync();
+        await Load();
+    }
+
+    private async Task CloseAddModalAsync()
+    {
+        if (isAddModalClosing) return;
+        isAddModalClosing = true;
+        StateHasChanged();
+        await Task.Delay(250);
         showAddModal = false;
+        editingChore = null;
+        isAddModalClosing = false;
     }
 
     private async Task SubmitAddChoreAsync()
@@ -380,8 +448,7 @@
             await HouseholdService.AddChoreAsync(household.Id, newChoreTitle.Trim(), description: null, room: string.IsNullOrWhiteSpace(newChoreRoom) ? null : newChoreRoom.Trim());
         }
 
-        showAddModal = false;
-        editingChore = null;
+        await CloseAddModalAsync();
         await Load();
     }
 
@@ -389,64 +456,8 @@
     {
         if (editingChore == null) return;
         await HouseholdService.RemoveChoreAsync(editingChore.Id);
-        showAddModal = false;
         editingChore = null;
-        await Load();
-    }
-
-    private async Task MarkSelectedChoresAsync()
-    {
-        if (selectedChores == null || !selectedChores.Any()) return;
-        // read current member info from localStorage (try every time to avoid timing issues)
-        try
-        {
-            var idStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_id");
-            if (int.TryParse(idStr, out var mid)) currentMemberId = mid;
-            currentMemberName = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_member_username");
-        }
-        catch
-        {
-            currentMemberId = null;
-            currentMemberName = null;
-        }
-
-        // If we have a username but not an id, attempt to resolve/ensure the member server-side
-        if (currentMemberId == null && !string.IsNullOrWhiteSpace(currentMemberName) && household != null)
-        {
-            try
-            {
-                var member = await HouseholdService.JoinAsync(household.Code, currentMemberName);
-                if (member != null)
-                {
-                    currentMemberId = member.Id;
-                    currentMemberName = member.Username;
-                    // store resolved id back to localStorage
-                    try { await JS.InvokeVoidAsync("wgChores.setCookie", "wg_member_id", member.Id.ToString(), 365); } catch { }
-                }
-            }
-            catch
-            {
-                // ignore resolution failures
-            }
-        }
-        var tasks = new List<Task<WG_Chores.Data.ChoreHistory>>();
-        foreach (var id in selectedChores)
-        {
-            // record history entry for the selected date; include current member if available
-            tasks.Add(HouseholdService.AddChoreHistoryAsync(id, currentMemberId, currentMemberName, notes: null, doneAt: selectedDate));
-        }
-
-        try
-        {
-            await Task.WhenAll(tasks);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error recording chore history: {ex}");
-        }
-
-        // clear selection and refresh
-        selectedChores.Clear();
+        await CloseAddModalAsync();
         await Load();
     }
 
@@ -468,15 +479,7 @@
         if (!lastDone.TryGetValue(choreId, out var entry) || entry.DoneAt == null)
             return string.Empty;
 
-        if (string.IsNullOrWhiteSpace(entry.MemberName))
-            return " by Unknown";
-
-        return $" by {entry.MemberName}";
+        return string.IsNullOrWhiteSpace(entry.MemberName) ? "Unknown" : entry.MemberName;
     }
 
-    private async Task ToggleShowMemberNames()
-    {
-        showMemberNames = !showMemberNames;
-        try { await JS.InvokeVoidAsync("wgChores.setCookie", "wg_show_member_names", showMemberNames.ToString(), 365); } catch { }
-    }
 }
