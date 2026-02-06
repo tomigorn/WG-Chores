@@ -1,8 +1,7 @@
 /* Mobile-first household page */
 .household-page {
     padding: 1rem;
-    padding-bottom: 2rem;
-    min-height: calc(100dvh - 56px);
+    padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 .household-loading {
@@ -331,6 +330,22 @@
 
 .chore-confirm-date .form-control {
     min-height: 52px;
+}
+
+/* Fix iOS Safari date input - text shifted to top */
+.chore-confirm-date input[type="date"] {
+    padding: 14px 16px;
+}
+
+.chore-confirm-date input[type="date"]::-webkit-datetime-edit,
+.chore-confirm-date input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+    line-height: 1.5;
+}
+
+.chore-confirm-date input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    display: flex;
+    align-items: center;
 }
 
 .chore-confirm-actions {
