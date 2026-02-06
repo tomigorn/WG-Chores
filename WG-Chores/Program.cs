@@ -18,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connect
 
 // Register a simple households service
 builder.Services.AddScoped<IHouseholdService, HouseholdService>();
+builder.Services.AddScoped<WG_Chores.Services.AppPreferencesService>();
 
 var app = builder.Build();
 

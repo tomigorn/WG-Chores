@@ -1,4 +1,5 @@
-﻿@page "/"
+@page "/"
+@layout LoginLayout
 
 @inject IHouseholdService HouseholdService
 @inject NavigationManager Nav
@@ -7,62 +8,70 @@
 
 <PageTitle>Login</PageTitle>
 
-<div class="container-fluid d-flex align-items-center justify-content-center">
-  <div style="max-width:420px; width:100%; box-sizing: border-box;" class="p-3">
-      <div class="d-flex align-items-center mb-2">
-        <div>
-          <h4 class="mb-0">WG-Chores</h4>
-          <small class="text-muted">Sign in to manage your household</small>
-        </div>
-      </div>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-header">
+      <h1 class="login-title">WG-Chores</h1>
+      <p class="login-subtitle">Manage your household</p>
+    </div>
 
-      <div class="mb-3 form-floating">
+    <div class="login-form">
+      @if (!string.IsNullOrWhiteSpace(storedHouseholdCode))
+      {
+        <a href="/household/@storedHouseholdCode" class="login-back-btn">
+          @(storedHouseholdName ?? "Back to household")
+        </a>
+        <button type="button" class="login-other-link" @onclick="() => showOtherHouseholds = !showOtherHouseholds">
+          <i class="fa-solid fa-chevron-@(showOtherHouseholds ? "up" : "down")" aria-hidden="true"></i>
+          Other households
+        </button>
+      }
+
+      @if (showOtherHouseholds || string.IsNullOrWhiteSpace(storedHouseholdCode))
+      {
+      <div class="form-floating mb-3">
         <input id="username" class="form-control" placeholder="Username" @bind="username" />
         <label for="username">Username</label>
       </div>
 
-      <div class="d-flex align-items-center justify-content-between mb-2">
-        <div class="d-flex align-items-center" style="gap:12px;">
-          <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleCreate" disabled="@(!CanAct())">
-            <span class="me-1">+</span>
-            <span class="small">Create</span>
+      <div class="login-actions">
+        <div class="login-actions-row">
+          <button class="btn btn-outline-secondary" @onclick="ToggleCreate" disabled="@(!CanAct())">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            Create
           </button>
-          <small class="text-muted">or</small>
         </div>
-
-        <div class="d-flex align-items-center" style="gap:8px;">
-          <input class="form-control form-control-sm" placeholder="Join code" style="width:140px" @bind="joinCode" />
-          <button class="btn btn-sm btn-primary" @onclick="Join">Join</button>
+        <div class="login-actions-row">
+          <span class="login-or">or</span>
+        </div>
+        <div class="login-actions-row login-join-row">
+          <input class="form-control" placeholder="Join code" @bind="joinCode" />
+          <button class="btn btn-primary" @onclick="Join">Join</button>
         </div>
       </div>
 
       @if (showCreateInput)
       {
-        <div class="mb-3">
-          <div class="input-group">
-            <input class="form-control" placeholder="Household name" @bind="newHousehold" />
-            <button class="btn btn-primary" @onclick="Create">Create</button>
+        <div class="login-create mb-3">
+          <input class="form-control" placeholder="Household name" @bind="newHousehold" />
+          <div class="login-create-btns">
             <button class="btn btn-outline-secondary" @onclick="() => showCreateInput = false">Cancel</button>
+            <button class="btn btn-primary" @onclick="Create">Create</button>
           </div>
         </div>
       }
 
       @if (!string.IsNullOrEmpty(status))
       {
-        <div class="alert alert-info py-2 mt-2" role="status" style="white-space:pre-wrap">@status</div>
+        <div class="login-status" role="status">@status</div>
       }
 
-      <div class="mt-3 text-center">
-        <button class="btn btn-link btn-sm text-muted" @onclick="ForgotHousehold">Forgot household</button>
-      </div>
-      
-      <!-- version visually placed at bottom but as part of page content -->
-      <div style="position:fixed; left:0; right:0; bottom:0; text-align:right; padding:1rem 1rem; font-size:.85rem; color:#6c757d; background:transparent;" aria-hidden="true">
-        Version: @appVersion
-      </div>
-
-      <div style="height:48px;" aria-hidden="true"></div>
+      <button class="btn btn-link login-forgot" @onclick="ForgotHousehold">Forgot household?</button>
+      }
     </div>
+  </div>
+
+  <div class="login-version" aria-hidden="true">v @appVersion</div>
 </div>
 
 @code {
@@ -71,8 +80,11 @@
   private string? joinCode;
   private string? status;
   private string appVersion = "unknown";
+  private string? storedHouseholdCode;
+  private string? storedHouseholdName;
 
   private bool showCreateInput = false;
+  private bool showOtherHouseholds = false;
 
   private bool CanAct() => !string.IsNullOrWhiteSpace(username);
 
@@ -209,10 +221,18 @@
     {
       string code = await JS.InvokeAsync<string>("wgChores.getCookie", "wg_household_code");
       string storedUsername = await JS.InvokeAsync<string>("wgChores.getCookie", "wg_member_username");
-      
-      if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(storedUsername))
+
+      if (!string.IsNullOrWhiteSpace(code))
       {
-        Nav.NavigateTo($"/household/{code}");
+        storedHouseholdCode = code;
+        joinCode = code; // Pre-fill for easy re-join after logout
+        var household = await HouseholdService.GetByCodeAsync(code);
+        if (household != null)
+          storedHouseholdName = household.Name;
+        if (!string.IsNullOrWhiteSpace(storedUsername))
+        {
+          Nav.NavigateTo($"/household/{code}");
+        }
       }
     }
     catch { }

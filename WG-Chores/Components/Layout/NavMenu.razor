@@ -1,40 +1,53 @@
-﻿@using Microsoft.JSInterop
+@using Microsoft.JSInterop
 @using System.Reflection
+@using WG_Chores.Services
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject AppPreferencesService Preferences
 
-<div style="position:relative">
-  <div class="top-row ps-3 navbar navbar-dark">
-      <div class="container-fluid">
-          <a class="navbar-brand" href="">WG-Chores</a>
-      </div>
-  </div>
+<div class="nav-wrapper">
+    <a class="nav-brand" href="">WG-Chores</a>
 
-    <input type="checkbox" title="Navigation menu" class="navbar-toggler" @bind="menuOpen" />
+    <button type="button" class="nav-menu-btn" title="Menu" @onclick="ToggleMenu" aria-expanded="@menuOpen">
+        <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+    </button>
 
-    <div class="nav-scrollable" @onclick="() => menuOpen = false">
-      <nav class="flex-column">
-          <div class="nav-item px-3">
-              <a class="nav-link" role="button" @onclick="Logout">
-                  <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
-              </a>
-          </div>
-      </nav>
-  </div>
-
-    @if (menuOpen)
+    @if (menuOpen || isMenuClosing)
     {
-        <div style="position:absolute; right:8px; bottom:8px; font-size:0.75rem; color:#6c757d;">
-            v @appVersion
+        <div class="nav-overlay @(isMenuClosing ? "nav-overlay-closing" : "")" @onclick="CloseMenuAsync"></div>
+        <div class="nav-sheet @(isMenuClosing ? "nav-sheet-closing" : "")">
+            <div class="nav-sheet-header">
+                <span class="nav-sheet-title">Settings</span>
+                <button type="button" class="nav-sheet-close" @onclick="CloseMenuAsync" aria-label="Close">✕</button>
+            </div>
+            <nav class="nav-sheet-body">
+                <button type="button" class="nav-sheet-item nav-sheet-item-toggle" @onclick="ToggleShowMemberNames">
+                    <i class="fa @(Preferences.ShowMemberNames ? "fa-eye" : "fa-eye-slash")" aria-hidden="true"></i>
+                    <span class="nav-sheet-toggle-label">Show who completed chores</span>
+                    <span class="nav-sheet-toggle @(Preferences.ShowMemberNames ? "on" : "")" role="switch" aria-checked="@Preferences.ShowMemberNames">
+                        <span class="nav-sheet-toggle-thumb"></span>
+                    </span>
+                </button>
+                <button type="button" class="nav-sheet-item" @onclick="Logout">
+                    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Logout</span>
+                </button>
+                <div class="nav-sheet-footer">
+                    <span class="text-muted">v @appVersion</span>
+                </div>
+            </nav>
         </div>
     }
 </div>
 
+@implements IDisposable
+
 @code {
     private string appVersion = "unknown";
     private bool menuOpen = false;
+    private bool isMenuClosing = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
@@ -44,19 +57,64 @@
             appVersion = string.IsNullOrWhiteSpace(raw) ? "unknown" : raw.Split('+')[0];
         }
         catch { appVersion = "unknown"; }
+
+        try
+        {
+            var showStr = await JS.InvokeAsync<string?>("wgChores.getCookie", "wg_show_member_names");
+            if (bool.TryParse(showStr, out var s))
+                Preferences.SetShowMemberNames(s);
+        }
+        catch { }
+
+        Preferences.OnShowMemberNamesChanged += StateHasChanged;
     }
+
+    public void Dispose()
+    {
+        Preferences.OnShowMemberNamesChanged -= StateHasChanged;
+    }
+
+    private void ToggleMenu()
+    {
+        if (menuOpen)
+            _ = CloseMenuAsync();
+        else
+            menuOpen = true;
+    }
+
+    private async Task CloseMenuAsync()
+    {
+        if (isMenuClosing) return;
+        isMenuClosing = true;
+        StateHasChanged();
+        await Task.Delay(250);
+        menuOpen = false;
+        isMenuClosing = false;
+    }
+
+    private async Task ToggleShowMemberNames()
+    {
+        var newValue = !Preferences.ShowMemberNames;
+        Preferences.SetShowMemberNames(newValue);
+        try
+        {
+            await JS.InvokeVoidAsync("wgChores.setCookie", "wg_show_member_names", newValue.ToString(), 365);
+        }
+        catch { }
+    }
+
     private async Task Logout()
     {
+        menuOpen = false;
         try
         {
             await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_member_id");
             await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_member_username");
-            await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_household_code");
             await JS.InvokeVoidAsync("wgChores.deleteCookie", "wg_show_member_names");
+            // Keep wg_household_code so login page can show "Back to household" button
         }
         catch { }
 
         Navigation.NavigateTo("/", forceLoad: true);
     }
 }
-
