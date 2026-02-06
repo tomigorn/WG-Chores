@@ -1,6 +1,7 @@
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
+ARG TARGETARCH
 
 # Ensure the exact SDK requested by global.json is installed
 # (global.json requests 8.0.123) so install it here alongside the
@@ -11,7 +12,10 @@ RUN apt-get update \
 
 RUN curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh \
 	&& chmod +x dotnet-install.sh \
-	&& ./dotnet-install.sh --version 8.0.123 --install-dir /usr/share/dotnet --architecture x64 \
+	&& ARCH=x64 \
+	&& if [ "${TARGETARCH}" = "arm64" ]; then ARCH=arm64; elif [ "${TARGETARCH}" = "arm" ]; then ARCH=arm; fi \
+	&& echo "Installing dotnet for architecture: ${ARCH}" \
+	&& ./dotnet-install.sh --version 8.0.123 --install-dir /usr/share/dotnet --architecture ${ARCH} \
 	&& rm dotnet-install.sh
 
 ENV DOTNET_ROOT=/usr/share/dotnet
