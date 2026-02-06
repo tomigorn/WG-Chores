@@ -1,26 +1,50 @@
 ﻿@using Microsoft.JSInterop
+@using System.Reflection
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">WG-Chores</a>
-    </div>
-</div>
+<div style="position:relative">
+  <div class="top-row ps-3 navbar navbar-dark">
+      <div class="container-fluid">
+          <a class="navbar-brand" href="">WG-Chores</a>
+      </div>
+  </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <input type="checkbox" title="Navigation menu" class="navbar-toggler" @bind="menuOpen" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <a class="nav-link" role="button" @onclick="Logout">
-                <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
-            </a>
+    <div class="nav-scrollable" @onclick="() => menuOpen = false">
+      <nav class="flex-column">
+          <div class="nav-item px-3">
+              <a class="nav-link" role="button" @onclick="Logout">
+                  <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
+              </a>
+          </div>
+      </nav>
+  </div>
+
+    @if (menuOpen)
+    {
+        <div style="position:absolute; right:8px; bottom:8px; font-size:0.75rem; color:#6c757d;">
+            v @appVersion
         </div>
-    </nav>
+    }
 </div>
 
 @code {
+    private string appVersion = "unknown";
+    private bool menuOpen = false;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+            var raw = asm?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                      ?? asm?.GetName().Version?.ToString();
+            appVersion = string.IsNullOrWhiteSpace(raw) ? "unknown" : raw.Split('+')[0];
+        }
+        catch { appVersion = "unknown"; }
+    }
     private async Task Logout()
     {
         try
