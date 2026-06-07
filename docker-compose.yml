@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     image: wg-chores:latest
     container_name: wg-chores-app
+    mem_limit: 512m
     ports:
       - 8084:8080
     environment:
@@ -22,6 +23,7 @@ services:
       context: ./sqlite-web
     image: wg-chores-sqliteweb:local
     container_name: wg-chores-sqliteweb
+    mem_limit: 128m
     ports:
       - 8088:8080
     volumes:
