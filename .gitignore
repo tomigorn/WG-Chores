@@ -324,3 +324,8 @@ docker-compose.*.dev.yml
 docker-stack.yml
 
 .env
+# AI working files (never committed)
+docs/superpowers/
+.claude/settings.local.json
+CLAUDE.local.md
+AGENTS.md
