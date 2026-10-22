@@ -5,6 +5,15 @@ services:
       dockerfile: Dockerfile
     image: wg-chores:latest
     container_name: wg-chores-app
+    # Own uid; primary gid 65037 is the group shared with sqlite-web for the DB volume.
+    user: "65035:65037"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     mem_limit: 512m
     ports:
       - 8084:8080
@@ -12,6 +21,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__Default=Data Source=/app/data/wgchores.db
+      - HOME=/tmp   # ASP.NET DataProtection keys (rootfs is read-only)
     volumes:
       - wgchores-data:/app/data
     restart: unless-stopped
@@ -23,6 +33,14 @@ services:
       context: ./sqlite-web
     image: wg-chores-sqliteweb:local
     container_name: wg-chores-sqliteweb
+    user: "65036:65037"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     mem_limit: 128m
     ports:
       - 8088:8080
