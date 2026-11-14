@@ -10,12 +10,20 @@
     else if (!open && dialog.open) dialog.close();
   });
 
+  // the click after a long press that opened this sheet lands on the backdrop; only a press that started there closes it
+  let pressedBackdrop = false;
+
+  function press(e: PointerEvent) {
+    pressedBackdrop = e.target === dialog;
+  }
+
   function backdrop(e: MouseEvent) {
-    if (e.target === dialog) onclose();
+    if (e.target === dialog && pressedBackdrop) onclose();
+    pressedBackdrop = false;
   }
 </script>
 
-<dialog bind:this={dialog} class="sheet" aria-label={label} onclose={onclose} onclick={backdrop}>
+<dialog bind:this={dialog} class="sheet" aria-label={label} onclose={onclose} onpointerdown={press} onclick={backdrop}>
   {#if open}
     <div class="body">
       <div class="grab" aria-hidden="true"></div>
