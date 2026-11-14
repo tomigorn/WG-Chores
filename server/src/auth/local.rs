@@ -346,7 +346,10 @@ fn username_taken() -> ApiError {
     )
 }
 
-async fn drop_incoming_session(st: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
+pub(crate) async fn drop_incoming_session(
+    st: &AppState,
+    headers: &HeaderMap,
+) -> Result<(), ApiError> {
     if let Some(raw) = super::session_cookie(headers) {
         session::delete(&st.db, &raw).await?;
     }

@@ -68,6 +68,8 @@ impl IpNet {
 #[derive(Debug, Clone)]
 pub struct OidcConfig {
     pub issuer: Url,
+    /// The issuer exactly as configured; OIDC compares it as a string.
+    pub issuer_id: String,
     pub client_id: String,
     pub client_secret: Sec,
     pub name: String,
@@ -165,6 +167,7 @@ impl Config {
             let sv = Sec(value);
             Some(OidcConfig {
                 issuer: parse_url("OIDC_ISSUER", &issuer)?,
+                issuer_id: issuer.trim().to_string(),
                 client_id: client_id.ok_or(ConfigError::Missing("OIDC_CLIENT_ID"))?,
                 client_secret: sv,
                 name: get("OIDC_NAME").unwrap_or_else(|| "SSO".into()),
@@ -342,6 +345,27 @@ mod tests {
         assert!(o.required_group.is_none());
         assert!(Config::from_env(env(&full[..3])).is_err());
         assert!(Config::from_env(env(&[URL, ("OIDC_CLIENT_ID", "id")])).is_err());
+    }
+
+    #[test]
+    fn issuer_id_kept_verbatim() {
+        let with = |iss: &'static str| {
+            Config::from_env(env(&[
+                URL,
+                ("OIDC_ISSUER", iss),
+                ("OIDC_CLIENT_ID", "id"),
+                ("OIDC_CLIENT_SECRET", "s"),
+            ]))
+            .unwrap()
+            .oidc
+            .unwrap()
+            .issuer_id
+        };
+        assert_eq!(with("https://sso.example.com"), "https://sso.example.com");
+        assert_eq!(
+            with(" https://sso.example.com/application/o/wg/ "),
+            "https://sso.example.com/application/o/wg/"
+        );
     }
 
     #[test]

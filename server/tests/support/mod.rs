@@ -17,6 +17,8 @@ use wg_chores::clock::FixedClock;
 use wg_chores::config::Config;
 use wg_chores::db::Db;
 
+pub mod fake_oidc;
+
 pub const ORIGIN: &str = "https://chores.example.com";
 
 pub struct TestApp {

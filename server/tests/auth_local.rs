@@ -40,7 +40,10 @@ async fn config_is_public() {
         ("OIDC_NAME", "Holy Grail"),
     ]);
     let r = app.client().get("/api/v1/config").await;
-    assert_eq!(r.body["oidc"], json!({"name": "Holy Grail"}));
+    assert_eq!(
+        r.body["oidc"],
+        json!({"name": "Holy Grail", "account_url": null})
+    );
     assert!(!r.body.to_string().contains("topsecret"));
 }
 

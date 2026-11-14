@@ -1,5 +1,6 @@
 pub mod csrf;
 pub mod local;
+pub mod oidc;
 pub mod session;
 
 use crate::app::AppState;
@@ -27,7 +28,11 @@ pub struct CurrentUser {
 }
 
 pub(crate) fn session_cookie(headers: &HeaderMap) -> Option<String> {
-    let prefix = format!("{}=", session::COOKIE_NAME);
+    cookie(headers, session::COOKIE_NAME)
+}
+
+pub(crate) fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
+    let prefix = format!("{name}=");
     headers
         .get_all(header::COOKIE)
         .iter()

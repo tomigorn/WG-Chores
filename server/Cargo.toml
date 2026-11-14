@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "form"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "serde", "clock"] }
 chrono-tz = "0.10"
 serde = { version = "1", features = ["derive"] }
@@ -17,13 +17,28 @@ argon2 = "0.6.0"
 sha2 = "0.11.1"
 base64 = "0.23.1"
 getrandom = "0.4.3"
+openidconnect = { version = "4.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
+hmac = "0.13"
+rsa = { version = "0.9", optional = true, features = ["sha2"] }
+rand = { version = "0.8", optional = true }
+tower-service = { version = "0.3", optional = true }
 
 [features]
-test-util = []
+test-util = ["dep:rsa", "dep:rand", "dep:tower-service"]
+
+[[bin]]
+name = "fake-oidc"
+required-features = ["test-util"]
 
 [dev-dependencies]
 wg-chores = { path = ".", features = ["test-util"] }
 tower = { version = "0.5", features = ["util"] }
+
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
+
+[profile.dev.package.rsa]
+opt-level = 3
 
 [profile.release]
 lto = true

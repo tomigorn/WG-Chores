@@ -24,10 +24,21 @@ async fn main() {
             std::process::exit(2);
         }
     };
+    let secret_path = cfg.data_dir.join("secret.key"); // leak-check: ok
+    #[rustfmt::skip]
+    let secret = match wg_chores::secret::load_or_create(&secret_path) { // leak-check: ok
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("cannot use {}: {e}", secret_path.display());
+            std::process::exit(2);
+        }
+    };
     let addr = cfg.listen;
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     eprintln!("listening on {addr}, public url {}", cfg.public_url);
-    let app = router(AppState::new(cfg, db));
+    let mut state = AppState::new(cfg, db);
+    state.secret = std::sync::Arc::new(secret); // leak-check: ok
+    let app = router(state);
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
