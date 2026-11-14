@@ -1,4 +1,4 @@
-use super::{Outcome, SUB_COLS, Sub, deliver, payload, texts};
+use super::{Outcome, SUB_COLS, Sub, deliver, join_logged, payload, texts};
 use crate::app::AppState;
 use crate::domain::{DueLevel, Interval, due_level, interval_days};
 use chrono::{DateTime, Duration, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
@@ -30,6 +30,12 @@ pub fn next_run(now: DateTime<Utc>, tz: Tz, times: &[NaiveTime]) -> DateTime<Utc
         .unwrap_or(now + Duration::days(1))
 }
 
+/// Starts one check as tracked push work, isolated from the scheduler loop.
+pub fn tick(st: &AppState, at: DateTime<Utc>) -> tokio::task::JoinHandle<()> {
+    let st2 = st.clone();
+    st.push.spawn(async move { run_due(&st2, at).await })
+}
+
 /// Wakes at every `NOTIFY_TIMES` in `TZ` and sends due notifications.
 pub fn spawn(st: AppState) {
     if st.cfg.notify_times.is_empty() {
@@ -42,7 +48,9 @@ pub fn spawn(st: AppState) {
             let next = next_run(now, st.cfg.tz, &st.cfg.notify_times);
             let wait = (next - st.clock.now()).to_std().unwrap_or_default();
             tokio::time::sleep(wait).await;
-            run_due(&st, st.clock.now().max(next)).await;
+            if let Err(e) = tick(&st, st.clock.now().max(next)).await {
+                eprintln!("due check failed: {e}");
+            }
             floor = next;
         }
     });
@@ -127,7 +135,7 @@ pub async fn run_due(st: &AppState, now: DateTime<Utc>) {
         set.spawn(async move { (deliver(&st, &g.sub, &p).await, g) });
     }
     let mut sent = Vec::new();
-    for (outcome, g) in set.join_all().await {
+    for (outcome, g) in join_logged(set).await {
         if outcome == Outcome::Sent {
             sent.extend(g.chores.into_iter().map(|(c, _, p)| (g.sub.id, c, p)));
         }

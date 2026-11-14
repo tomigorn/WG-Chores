@@ -91,6 +91,8 @@ pub struct Config {
     pub trusted_proxies: Vec<IpNet>,
     /// Lets push endpoints use plain http to loopback hosts; never set from the environment.
     pub push_allow_loopback_http: bool,
+    /// Extra push service host suffixes beyond the built-in browser services.
+    pub push_allowed_hosts: Vec<String>,
 }
 
 fn parse_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
@@ -192,6 +194,33 @@ impl Config {
                 .collect::<Result<Vec<_>, _>>()?,
         };
 
+        let push_allowed_hosts = match get("PUSH_ALLOWED_HOSTS") {
+            None => Vec::new(),
+            Some(v) => v
+                .split(',')
+                .map(|s| {
+                    let h = s.trim().trim_start_matches('.').to_ascii_lowercase();
+                    let valid = h.contains('.')
+                        && !h.contains("..")
+                        && !h.ends_with('.')
+                        && h.chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+                        && !h
+                            .rsplit('.')
+                            .next()
+                            .is_some_and(|l| l.chars().all(|c| c.is_ascii_digit()));
+                    if valid {
+                        Ok(h)
+                    } else {
+                        Err(ConfigError::Invalid(
+                            "PUSH_ALLOWED_HOSTS",
+                            format!("{s}: not a host name"),
+                        ))
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+
         Ok(Config {
             public_url,
             tz,
@@ -212,6 +241,7 @@ impl Config {
                 })?,
             trusted_proxies,
             push_allow_loopback_http: false,
+            push_allowed_hosts,
         })
     }
 }
@@ -421,6 +451,35 @@ mod tests {
         assert!(t.iter().any(|n| n.contains("10.0.0.1".parse().unwrap())));
         assert!(t.iter().any(|n| n.contains("172.16.5.5".parse().unwrap())));
         assert!(!t.iter().any(|n| n.contains("172.32.5.5".parse().unwrap())));
+    }
+
+    #[test]
+    fn push_allowed_hosts_parsed() {
+        assert!(
+            Config::from_env(env(&[URL]))
+                .unwrap()
+                .push_allowed_hosts
+                .is_empty()
+        );
+        let c = Config::from_env(env(&[
+            URL,
+            ("PUSH_ALLOWED_HOSTS", " Push.Example.org, .other.example "),
+        ]))
+        .unwrap();
+        assert_eq!(c.push_allowed_hosts, ["push.example.org", "other.example"]);
+        for bad in [
+            "a/b",
+            "*.example.org",
+            "push.example.org:443",
+            "x,,y",
+            "localhost",
+            "10.0.0.1",
+        ] {
+            assert!(
+                Config::from_env(env(&[URL, ("PUSH_ALLOWED_HOSTS", bad)])).is_err(),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

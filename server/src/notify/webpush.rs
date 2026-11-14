@@ -1,8 +1,5 @@
 use crate::secret::write_once; // leak-check: ok
-use base64::{
-    Engine,
-    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
-};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration, Utc};
 use ring::{
     aead, agreement, hmac,
@@ -15,8 +12,14 @@ use std::path::Path;
 use url::{Host, Url};
 
 const RECORD_SIZE: u32 = 4096;
-const PEM_BEGIN: &str = concat!("-----BEGIN ", "PRIVATE KEY-----");
-const PEM_END: &str = "-----END PRIVATE KEY-----";
+/// Push services of the major browsers; a host must equal one or end with "." + one.
+pub const PUSH_HOSTS: &[&str] = &[
+    "fcm.googleapis.com",
+    "updates.push.services.mozilla.com",
+    "push.services.mozilla.com",
+    "push.apple.com",
+    "notify.windows.com",
+];
 
 pub struct Vapid {
     key: EcdsaKeyPair,
@@ -40,22 +43,19 @@ impl Vapid {
         Some(Vapid { key })
     }
 
-    /// Loads the P-256 key from a PKCS#8 PEM file, creating it (mode 0600) on first start.
+    /// Loads the P-256 key from a PKCS#8 DER file, creating it (mode 0600) on first start.
     pub fn load_or_create(path: &Path) -> std::io::Result<Vapid> {
-        match std::fs::read_to_string(path) {
-            Ok(pem) => return parse_pem(path, &pem),
+        match std::fs::read(path) {
+            Ok(der) => return parse(path, &der),
             Err(e) if e.kind() != ErrorKind::NotFound => return Err(e),
             Err(_) => {}
         }
         let rng = SystemRandom::new();
         let doc = EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P256_SHA256_FIXED_SIGNING, &rng)
             .map_err(|_| std::io::Error::other("cannot generate a P-256 key"))?;
-        let pem = to_pem(doc.as_ref());
-        match write_once(path, pem.as_bytes()) {
-            Ok(()) => parse_pem(path, &pem),
-            Err(e) if e.kind() == ErrorKind::AlreadyExists => {
-                parse_pem(path, &std::fs::read_to_string(path)?)
-            }
+        match write_once(path, doc.as_ref()) {
+            Ok(()) => parse(path, doc.as_ref()),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => parse(path, &std::fs::read(path)?),
             Err(e) => Err(e),
         }
     }
@@ -86,34 +86,13 @@ impl Vapid {
     }
 }
 
-fn to_pem(der: &[u8]) -> String {
-    let b = STANDARD.encode(der);
-    let lines: Vec<&str> = b
-        .as_bytes()
-        .chunks(64)
-        .map(|c| std::str::from_utf8(c).expect("base64 is ascii"))
-        .collect();
-    format!("{PEM_BEGIN}\n{}\n{PEM_END}\n", lines.join("\n"))
-}
-
-fn parse_pem(path: &Path, pem: &str) -> std::io::Result<Vapid> {
-    let body: String = pem
-        .lines()
-        .map(str::trim)
-        .skip_while(|l| *l != PEM_BEGIN)
-        .skip(1)
-        .take_while(|l| *l != PEM_END)
-        .collect();
-    STANDARD
-        .decode(body)
-        .ok()
-        .and_then(|der| Vapid::from_pkcs8(&der))
-        .ok_or_else(|| {
-            std::io::Error::other(format!(
-                "{} is not a P-256 private key (PKCS#8 PEM); delete it to create a new one (every browser then has to enable notifications again)",
-                path.display()
-            ))
-        })
+fn parse(path: &Path, der: &[u8]) -> std::io::Result<Vapid> {
+    Vapid::from_pkcs8(der).ok_or_else(|| {
+        std::io::Error::other(format!(
+            "{} is not a P-256 private key (PKCS#8 DER); delete it to create a new one (every browser then has to enable notifications again)",
+            path.display()
+        ))
+    })
 }
 
 /// Decodes base64url with or without padding.
@@ -134,22 +113,37 @@ pub fn valid_public_key(bytes: &[u8]) -> bool {
     agreement::agree_ephemeral(eph, &peer, |_| ()).is_ok()
 }
 
-/// Push endpoints must be https on a host name; plain http only to loopback when allowed (tests).
-pub fn check_endpoint(raw: &str, allow_loopback_http: bool) -> Option<Url> {
+fn host_allowed(host: &str, extra: &[String]) -> bool {
+    PUSH_HOSTS
+        .iter()
+        .copied()
+        .chain(extra.iter().map(String::as_str))
+        .any(|s| {
+            host == s
+                || host
+                    .strip_suffix(s)
+                    .is_some_and(|p| p.len() > 1 && p.ends_with('.'))
+        })
+}
+
+/// Push endpoints must be https on port 443 at a known push service (plus `extra` suffixes); plain http to loopback only when allowed (tests).
+pub fn check_endpoint(raw: &str, extra: &[String], allow_loopback_http: bool) -> Option<Url> {
     if raw.len() > 2048 {
         return None;
     }
     let u = Url::parse(raw).ok()?;
-    let loopback = match u.host()? {
-        Host::Domain(d) => d.eq_ignore_ascii_case("localhost"),
-        Host::Ipv4(ip) => IpAddr::V4(ip).is_loopback(),
-        Host::Ipv6(ip) => IpAddr::V6(ip).is_loopback(),
+    let host = u.host()?;
+    let loopback = match &host {
+        Host::Domain(_) => false,
+        Host::Ipv4(ip) => IpAddr::V4(*ip).is_loopback(),
+        Host::Ipv6(ip) => IpAddr::V6(*ip).is_loopback(),
     };
-    let ok = match (u.scheme(), loopback) {
-        ("http" | "https", true) => allow_loopback_http,
-        ("https", false) => matches!(u.host()?, Host::Domain(_)),
-        _ => false,
-    };
+    if loopback {
+        return (allow_loopback_http && matches!(u.scheme(), "http" | "https")).then_some(u);
+    }
+    let ok = u.scheme() == "https"
+        && u.port().is_none()
+        && matches!(&host, Host::Domain(d) if host_allowed(&d.to_ascii_lowercase(), extra));
     ok.then_some(u)
 }
 
@@ -316,16 +310,37 @@ mod tests {
 
     #[test]
     fn endpoints_checked() {
-        assert!(check_endpoint("https://fcm.googleapis.com/fcm/send/abc", false).is_some());
-        assert!(check_endpoint("http://fcm.googleapis.com/x", false).is_none());
-        assert!(check_endpoint("http://127.0.0.1:9/x", false).is_none());
-        assert!(check_endpoint("http://127.0.0.1:9/x", true).is_some());
-        assert!(check_endpoint("https://localhost/x", false).is_none());
-        assert!(check_endpoint("https://192.168.1.2/x", false).is_none());
-        assert!(check_endpoint("https://[::1]/x", false).is_none());
-        assert!(check_endpoint("ftp://127.0.0.1/x", true).is_none());
-        let long = format!("https://push.example.com/{}", "a".repeat(2030));
-        assert!(check_endpoint(&long, false).is_none());
+        let none: &[String] = &[];
+        let ok = |u: &str| check_endpoint(u, none, false).is_some();
+        assert!(ok("https://fcm.googleapis.com/fcm/send/abc"));
+        assert!(ok("https://FCM.googleapis.com/fcm/send/abc"));
+        assert!(ok("https://updates.push.services.mozilla.com/wpush/v2/x"));
+        assert!(ok("https://web.push.apple.com/x"));
+        assert!(ok("https://wns2-par02p.notify.windows.com/w/?token=x"));
+        for bad in [
+            "http://fcm.googleapis.com/x",
+            "https://fcm.googleapis.com:8443/x",
+            "https://xfcm.googleapis.com/x",
+            "https://fcm.googleapis.com.evil.example/x",
+            "https://fcm.googleapis.com./x",
+            "https://authentik-server/x",
+            "https://localhost/x",
+            "https://localhost./x",
+            "https://foo.localhost/x",
+            "https://192.168.1.2/x",
+            "https://[::1]/x",
+        ] {
+            assert!(!ok(bad), "{bad}");
+        }
+        assert!(check_endpoint("http://127.0.0.1:9/x", none, false).is_none());
+        assert!(check_endpoint("http://127.0.0.1:9/x", none, true).is_some());
+        assert!(check_endpoint("ftp://127.0.0.1/x", none, true).is_none());
+        assert!(check_endpoint("https://internal.example.com/x", none, true).is_none());
+        let extra = ["push.example.org".to_string()];
+        assert!(check_endpoint("https://a.push.example.org/x", &extra, false).is_some());
+        assert!(check_endpoint("https://evilpush.example.org/x", &extra, false).is_none());
+        let long = format!("https://fcm.googleapis.com/{}", "a".repeat(2030));
+        assert!(!ok(&long));
     }
 
     #[test]
@@ -333,18 +348,25 @@ mod tests {
         let d = std::env::temp_dir().join(format!("wgc-vapid-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
-        let p = d.join("vapid.pem");
+        let p = d.join("vapid.key");
         let a = Vapid::load_or_create(&p).unwrap();
         assert_eq!(
             std::fs::metadata(&p).unwrap().permissions().mode() & 0o777,
             0o600
         );
-        assert!(std::fs::read_to_string(&p).unwrap().starts_with(PEM_BEGIN));
+        let der = std::fs::read(&p).unwrap();
+        assert_eq!(der[0], 0x30);
+        assert!(Vapid::from_pkcs8(&der).is_some());
         assert_eq!(b(&a.public_b64()).len(), 65);
         assert_eq!(
             Vapid::load_or_create(&p).unwrap().public_b64(),
             a.public_b64()
         );
+        let names: Vec<_> = std::fs::read_dir(&d)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, vec![std::ffi::OsString::from("vapid.key")]);
         std::fs::write(&p, "junk").unwrap();
         let msg = Vapid::load_or_create(&p).err().unwrap().to_string();
         assert!(msg.contains("delete it"), "{msg}");

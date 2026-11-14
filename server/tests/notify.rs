@@ -437,9 +437,11 @@ async fn subscription_validation_and_rebinding() {
         v
     };
     let bad = [
-        with(&|v| v["endpoint"] = json!("http://push.example.com/x")),
+        with(&|v| v["endpoint"] = json!("http://fcm.googleapis.com/x")),
         with(&|v| v["endpoint"] = json!("ftp://127.0.0.1/x")),
-        with(&|v| v["endpoint"] = json!(format!("https://push.example.com/{}", "a".repeat(2048)))),
+        with(&|v| {
+            v["endpoint"] = json!(format!("https://fcm.googleapis.com/{}", "a".repeat(2048)))
+        }),
         with(&|v| v["endpoint"] = json!("https://10.0.0.1/x")),
         with(&|v| v["keys"]["p256dh"] = json!(URL_SAFE_NO_PAD.encode([4u8; 64]))),
         with(&|v| v["keys"]["p256dh"] = json!(URL_SAFE_NO_PAD.encode([4u8; 65]))),
@@ -467,4 +469,160 @@ async fn subscription_validation_and_rebinding() {
     let mut anon = w.app.client();
     assert_eq!(anon.post(path, d.json(&fake, "en")).await.status, 401);
     assert_eq!(anon.get("/api/v1/push/key").await.status, 200);
+}
+
+async fn post_endpoint(c: &mut Client, endpoint: &str) -> u16 {
+    let fake = Fake {
+        base: String::new(),
+        ..Fake::default()
+    };
+    let mut v = Device::new("x", 7).json(&fake, "en");
+    v["endpoint"] = json!(endpoint);
+    c.post("/api/v1/push/subscriptions", v).await.status
+}
+
+#[tokio::test]
+async fn endpoint_allowlist() {
+    let app = TestApp::new();
+    let (mut a, _) = signup(&app, "anna").await;
+    for bad in [
+        "https://authentik-server/x",
+        "https://foo.localhost/x",
+        "https://localhost./x",
+        "https://nas.homelab.example.com/x",
+        "https://fcm.googleapis.com:8443/fcm/send/x",
+        "https://evilfcm.googleapis.com.example.com/x",
+        "https://notfcm.googleapis.com.evil.example/x",
+        "https://xfcm.googleapis.com/x",
+        "http://fcm.googleapis.com/x",
+    ] {
+        assert_eq!(post_endpoint(&mut a, bad).await, 400, "{bad}");
+    }
+    for good in [
+        "https://fcm.googleapis.com/fcm/send/abc",
+        "https://fcm.googleapis.com:443/wp/abc",
+        "https://updates.push.services.mozilla.com/wpush/v2/abc",
+        "https://web.push.apple.com/abc",
+        "https://wns2-par02p.notify.windows.com/w/?token=abc",
+    ] {
+        assert_eq!(post_endpoint(&mut a, good).await, 204, "{good}");
+    }
+    assert_eq!(
+        post_endpoint(&mut a, "https://push.example.org/x").await,
+        400
+    );
+    let app = TestApp::with_env(&[("PUSH_ALLOWED_HOSTS", " Push.Example.org ,.other.example")]);
+    let (mut a, _) = signup(&app, "anna").await;
+    for good in [
+        "https://push.example.org/x",
+        "https://eu.push.example.org/x",
+        "https://other.example/x",
+    ] {
+        assert_eq!(post_endpoint(&mut a, good).await, 204, "{good}");
+    }
+    assert_eq!(
+        post_endpoint(&mut a, "https://evilpush.example.org/x").await,
+        400
+    );
+}
+
+async fn failures(app: &TestApp, name: &str) -> Option<i64> {
+    let suffix = format!("/push/{name}");
+    app.db(move |c| {
+        use rusqlite::OptionalExtension;
+        c.query_row(
+            "SELECT failures FROM push_subscriptions WHERE endpoint LIKE '%' || ?1",
+            [suffix],
+            |r| r.get(0),
+        )
+        .optional()
+    })
+    .await
+}
+
+#[tokio::test]
+async fn disallowed_endpoint_rechecked_at_delivery() {
+    let mut w = world().await;
+    let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
+    subscribe(&mut w.a, &w.fake, &Device::new("anna", 1), "en").await;
+    w.app
+        .db(|c| {
+            c.execute(
+                "UPDATE push_subscriptions SET endpoint = 'https://internal.example.com/push/anna'",
+                [],
+            )
+        })
+        .await;
+    assert_eq!(done(&mut w.b, c, 1, "2025-12-20").await.status, 201);
+    w.app.state.push.wait_idle().await;
+    assert!(w.fake.take().is_empty());
+    assert_eq!(failures(&w.app, "anna").await, Some(1));
+}
+
+#[tokio::test]
+async fn failing_subscription_dropped_after_5() {
+    let mut w = world().await;
+    let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
+    subscribe(&mut w.a, &w.fake, &Device::new("broken", 1), "en").await;
+    subscribe(&mut w.a, &w.fake, &Device::new("flaky", 2), "en").await;
+    w.fake.fail("broken", 500);
+    w.fake.fail("flaky", 503);
+    assert_eq!(done(&mut w.a, c, 1, "2025-12-20").await.status, 201);
+    w.app.state.push.wait_idle().await;
+    for day in 1..=4 {
+        let got = run_due(&w, &format!("2026-01-0{day}T13:00:00Z")).await;
+        assert_eq!(names(&got), ["broken", "flaky"]);
+    }
+    assert_eq!(failures(&w.app, "broken").await, Some(4));
+    w.fake.fail("flaky", 201);
+    assert_eq!(
+        names(&run_due(&w, "2026-01-05T13:00:00Z").await),
+        ["broken", "flaky"]
+    );
+    assert_eq!(failures(&w.app, "broken").await, None);
+    assert_eq!(failures(&w.app, "flaky").await, Some(0));
+}
+
+#[tokio::test]
+async fn scheduled_run_is_tracked_for_shutdown() {
+    let mut w = world().await;
+    let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
+    subscribe(&mut w.a, &w.fake, &Device::new("anna", 1), "en").await;
+    assert_eq!(done(&mut w.a, c, 1, "2025-12-20").await.status, 201);
+    w.app.state.push.wait_idle().await;
+    let _detached = scheduler::tick(&w.app.state, at("2026-01-01T13:00:00Z"));
+    w.app.state.push.wait_idle().await;
+    assert_eq!(names(&w.fake.take()), ["anna"]);
+}
+
+async fn state_rows(app: &TestApp) -> i64 {
+    app.db(|c| c.query_row("SELECT COUNT(*) FROM notification_state", [], |r| r.get(0)))
+        .await
+}
+
+#[tokio::test]
+async fn rebinding_resets_state_same_user_keeps_it() {
+    let mut w = world().await;
+    let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
+    subscribe(&mut w.a, &w.fake, &Device::new("dev", 1), "en").await;
+    assert_eq!(done(&mut w.b, c, 1, "2025-12-20").await.status, 201);
+    w.app.state.push.wait_idle().await;
+    w.fake.take();
+    assert_eq!(run_due(&w, "2026-01-01T13:00:00Z").await.len(), 1);
+    assert_eq!(state_rows(&w.app).await, 1);
+
+    let new_key = Device::new("dev", 9);
+    subscribe(&mut w.a, &w.fake, &new_key, "de").await;
+    assert_eq!(state_rows(&w.app).await, 1);
+    assert!(run_due(&w, "2026-01-01T18:00:00Z").await.is_empty());
+    assert_eq!(done(&mut w.b, c, 2, "2025-12-21").await.status, 201);
+    w.app.state.push.wait_idle().await;
+    let got = w.fake.take();
+    assert_eq!(new_key.open(&got[0].body)["body"], "✓ Bins");
+
+    subscribe(&mut w.b, &w.fake, &new_key, "de").await;
+    assert_eq!(state_rows(&w.app).await, 0);
+    let got = run_due(&w, "2026-01-02T13:00:00Z").await;
+    assert_eq!(names(&got), ["dev"]);
+    assert_eq!(new_key.open(&got[0].body)["title"], "Bins ist fällig");
 }

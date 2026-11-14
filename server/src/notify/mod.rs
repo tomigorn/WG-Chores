@@ -11,9 +11,11 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::sync::Notify;
+use tokio::task::{JoinHandle, JoinSet};
 use webpush::Vapid;
 
 pub const TTL_SECS: u32 = 12 * 3600;
+const MAX_FAILURES: i64 = 5;
 
 pub struct Push {
     pub vapid: Vapid,
@@ -48,14 +50,17 @@ impl Push {
         }
     }
 
-    /// Runs push work in the background without blocking the caller.
-    pub fn spawn(self: &Arc<Self>, f: impl Future<Output = ()> + Send + 'static) {
+    /// Runs push work in the background; `wait_idle` waits for it.
+    pub fn spawn<T: Send + 'static>(
+        self: &Arc<Self>,
+        f: impl Future<Output = T> + Send + 'static,
+    ) -> JoinHandle<T> {
         self.inflight.fetch_add(1, Ordering::SeqCst);
         let guard = Inflight(self.clone());
         tokio::spawn(async move {
             let _guard = guard;
-            f.await;
-        });
+            f.await
+        })
     }
 
     /// Waits until no background push work is left.
@@ -102,6 +107,45 @@ pub enum Outcome {
     Failed,
 }
 
+/// Results of all tasks; a panicked task is logged and skipped.
+pub async fn join_logged<T: 'static>(mut set: JoinSet<T>) -> Vec<T> {
+    let mut out = Vec::new();
+    while let Some(r) = set.join_next().await {
+        match r {
+            Ok(v) => out.push(v),
+            Err(e) => eprintln!("push task failed: {e}"),
+        }
+    }
+    out
+}
+
+async fn set_failures(st: &AppState, id: i64, ok: bool) {
+    let r = st
+        .db
+        .run(move |c| {
+            if ok {
+                c.execute(
+                    "UPDATE push_subscriptions SET failures = 0 WHERE id = ?1 AND failures != 0",
+                    [id],
+                )?;
+            } else {
+                c.execute(
+                    "UPDATE push_subscriptions SET failures = failures + 1 WHERE id = ?1",
+                    [id],
+                )?;
+                c.execute(
+                    "DELETE FROM push_subscriptions WHERE id = ?1 AND failures >= ?2",
+                    params![id, MAX_FAILURES],
+                )?;
+            }
+            Ok(())
+        })
+        .await;
+    if let Err(e) = r {
+        eprintln!("{e}");
+    }
+}
+
 pub fn payload(title: String, body: String, household: i64, tag: String) -> Value {
     json!({"title": title, "body": body, "url": format!("/households/{household}"), "tag": tag})
 }
@@ -112,9 +156,13 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &Value) -> Outcome {
         .ok()
         .and_then(|u| u.host_str().map(str::to_string))
         .unwrap_or_default();
-    let Some(endpoint) = webpush::check_endpoint(&sub.endpoint, st.cfg.push_allow_loopback_http)
-    else {
+    let Some(endpoint) = webpush::check_endpoint(
+        &sub.endpoint,
+        &st.cfg.push_allowed_hosts,
+        st.cfg.push_allow_loopback_http,
+    ) else {
         eprintln!("push to {host} skipped: endpoint not allowed");
+        set_failures(st, sub.id, false).await;
         return Outcome::Failed;
     };
     let body = match (
@@ -126,6 +174,7 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &Value) -> Outcome {
     };
     let Some(body) = body else {
         eprintln!("push to {host} skipped: subscription keys unusable");
+        set_failures(st, sub.id, false).await;
         return Outcome::Failed;
     };
     let auth = st
@@ -145,7 +194,10 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &Value) -> Outcome {
         .send()
         .await;
     match res.map(|r| r.status().as_u16()) {
-        Ok(200..=299) => Outcome::Sent,
+        Ok(200..=299) => {
+            set_failures(st, sub.id, true).await;
+            Outcome::Sent
+        }
         Ok(404 | 410) => {
             let id = sub.id;
             if let Err(e) = st
@@ -159,6 +211,7 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &Value) -> Outcome {
         }
         Ok(s) => {
             eprintln!("push to {host} failed: status {s}");
+            set_failures(st, sub.id, false).await;
             Outcome::Failed
         }
         Err(e) => {
@@ -208,13 +261,29 @@ async fn send_done(st: &AppState, completion: String) -> crate::db::Result<()> {
     let Some((hid, chore, who, completion, subs)) = found else {
         return Ok(());
     };
-    let mut set = tokio::task::JoinSet::new();
+    let mut set = JoinSet::new();
     for sub in subs {
         let (title, body) = texts::done(&sub.lang, &who, &chore);
         let p = payload(title, body, hid, format!("done-{completion}"));
         let st = st.clone();
         set.spawn(async move { deliver(&st, &sub, &p).await });
     }
-    set.join_all().await;
+    join_logged(set).await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn panicking_task_is_logged_not_fatal() {
+        let mut set = tokio::task::JoinSet::new();
+        set.spawn(async { 1 });
+        set.spawn(async { panic!("boom") });
+        set.spawn(async { 2 });
+        let mut got = join_logged(set).await;
+        got.sort();
+        assert_eq!(got, [1, 2]);
+    }
 }

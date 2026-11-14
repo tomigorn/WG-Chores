@@ -33,7 +33,7 @@ async fn main() {
             std::process::exit(2);
         }
     };
-    let vapid_path = cfg.data_dir.join("vapid.pem");
+    let vapid_path = cfg.data_dir.join("vapid.key");
     let vapid = match wg_chores::notify::webpush::Vapid::load_or_create(&vapid_path) {
         Ok(v) => v,
         Err(e) => {

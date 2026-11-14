@@ -88,6 +88,7 @@ CREATE TABLE invites (
 );
 
 -- completion_cursor: created_at of the newest completion this device was already told about
+-- failures: consecutive failed deliveries; the subscription is dropped at 5
 CREATE TABLE push_subscriptions (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -96,6 +97,7 @@ CREATE TABLE push_subscriptions (
     auth TEXT NOT NULL,
     lang TEXT NOT NULL DEFAULT 'en',
     completion_cursor TEXT,
+    failures INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 CREATE INDEX push_subscriptions_user ON push_subscriptions(user_id);

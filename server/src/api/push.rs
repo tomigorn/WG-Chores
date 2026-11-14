@@ -45,7 +45,12 @@ pub async fn subscribe(
     u: CurrentUser,
     ApiJson(b): ApiJson<Subscribe>,
 ) -> Result<StatusCode, ApiError> {
-    check_endpoint(&b.endpoint, st.cfg.push_allow_loopback_http).ok_or_else(invalid)?;
+    check_endpoint(
+        &b.endpoint,
+        &st.cfg.push_allowed_hosts,
+        st.cfg.push_allow_loopback_http,
+    )
+    .ok_or_else(invalid)?;
     let p256dh = b64_decode(&b.keys.p256dh)
         .filter(|k| valid_public_key(k))
         .ok_or_else(invalid)?;
