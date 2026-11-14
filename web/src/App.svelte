@@ -37,6 +37,8 @@
   let pushChecked = false;
 
   function toLogin() {
+    forgetSession();
+    if (me) void sync().clearCache();
     me = null;
     if (route.name === 'invite' || route.name === 'login') return;
     rememberNext(location.pathname + location.search);

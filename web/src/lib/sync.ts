@@ -57,6 +57,11 @@ export class Sync {
     return (await this.outbox.items()).length;
   }
 
+  /** Login ended without sign-out: cached lists go, waiting marks stay for the same user's next sign-in. */
+  async clearCache(): Promise<void> {
+    await this.deps.cache.clearPrefix(`${this.user}:`).catch(() => {});
+  }
+
   async discard(): Promise<void> {
     await this.outbox.clear();
     await this.deps.cache.clearPrefix(`${this.user}:`).catch(() => {});

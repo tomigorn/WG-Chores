@@ -40,6 +40,8 @@ export function serviceWorker(): Plugin {
         const sw = bundle['sw.js'];
         const placeholder = /(["'`])__WGC_BUILD__\1/;
         if (!sw || sw.type !== 'chunk' || !placeholder.test(sw.code)) return this.error('sw.js build placeholder missing');
+        // a classic service worker cannot load other chunks
+        if (sw.imports.length || sw.dynamicImports.length) return this.error(`sw.js must be self-contained, it imports ${[...sw.imports, ...sw.dynamicImports].join(', ')}`);
         sw.code = sw.code.replace(placeholder, () => JSON.stringify(JSON.stringify(build)));
       },
     },

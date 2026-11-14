@@ -18,7 +18,8 @@ export interface ContainerLike {
 }
 
 export interface UpdateHooks {
-  onUpdate(apply: () => void): void;
+  /** null: another tab already switched to the new version, nothing left to offer */
+  onUpdate(apply: (() => void) | null): void;
   reload(): void;
   navigate(path: string): void;
 }
@@ -26,8 +27,13 @@ export interface UpdateHooks {
 /** Registers /sw.js; a new version waits until the user chooses to reload, nothing reloads on its own. */
 export async function watchUpdates(c: ContainerLike, h: UpdateHooks): Promise<RegistrationLike> {
   let asked = false;
+  let switched = false;
   c.addEventListener('controllerchange', () => {
     if (asked) h.reload();
+    else {
+      switched = true;
+      h.onUpdate(null);
+    }
   });
   c.addEventListener('message', (e) => {
     const d = e.data as { type?: string; url?: unknown } | null | undefined;
@@ -37,6 +43,7 @@ export async function watchUpdates(c: ContainerLike, h: UpdateHooks): Promise<Re
   const reg = await c.register('/sw.js', { scope: '/' });
   const offer = (w: WorkerLike) =>
     h.onUpdate(() => {
+      if (switched) return h.reload();
       asked = true;
       w.postMessage({ type: 'skip-waiting' });
     });

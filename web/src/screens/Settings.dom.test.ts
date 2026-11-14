@@ -82,11 +82,31 @@ describe('Settings', () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
-  it('blocked_at_start_shows_off', () => {
+  it('blocked_shows_account_state_and_allows_off', async () => {
     vi.spyOn(push, 'status').mockReturnValue('blocked');
+    const enable = vi.spyOn(push, 'enable');
+    const patch = vi.spyOn(api, 'patchMe').mockResolvedValue({ ...me, notify_done: false });
     open();
-    expect(document.querySelector<HTMLInputElement>('#notify-done')!.checked).toBe(false);
-    expect(text()).toContain('Blocked in browser settings');
+    const done = document.querySelector<HTMLInputElement>('#notify-done')!;
+    expect(done.checked).toBe(true);
+    expect(done.disabled).toBe(false);
+    expect(text()).toContain('Blocked in browser settings on this device');
+    done.click();
+    await vi.waitFor(() => expect(patch).toHaveBeenCalledWith({ notify_done: false }));
+    expect(enable).not.toHaveBeenCalled();
+    expect(done.checked).toBe(false);
+  });
+
+  it('dismissed_prompt_explains', async () => {
+    vi.spyOn(push, 'status').mockReturnValue('ready');
+    vi.spyOn(push, 'enable').mockResolvedValue('dismissed');
+    const patch = vi.spyOn(api, 'patchMe');
+    open({ notify_due: false });
+    const due = document.querySelector<HTMLInputElement>('#notify-due')!;
+    due.click();
+    await vi.waitFor(() => expect(text()).toContain('Notifications were not allowed'));
+    expect(due.checked).toBe(false);
+    expect(patch).not.toHaveBeenCalled();
   });
 
   it('both_off_unsubscribes', async () => {

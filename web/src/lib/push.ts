@@ -1,6 +1,6 @@
 import { api, type PushSubscriptionInput } from './api';
 import type { Lang } from './i18n';
-import { isIos, isStandalone } from './install';
+import { isIos, isStandalone, touchPoints } from './install';
 
 export type PushStatus = 'ready' | 'blocked' | 'needs-install' | 'unsupported';
 export type EnableResult = 'subscribed' | 'blocked' | 'dismissed' | 'unsupported';
@@ -28,8 +28,8 @@ export interface PushDeps {
   };
 }
 
-export function pushStatus(env: { ua: string; standalone: boolean; supported: boolean; permission: NotificationPermission }): PushStatus {
-  if (isIos(env.ua) && !env.standalone) return 'needs-install';
+export function pushStatus(env: { ua: string; standalone: boolean; supported: boolean; permission: NotificationPermission; touchPoints?: number }): PushStatus {
+  if (isIos(env.ua, env.touchPoints) && !env.standalone) return 'needs-install';
   if (!env.supported) return 'unsupported';
   return env.permission === 'denied' ? 'blocked' : 'ready';
 }
@@ -102,6 +102,7 @@ export function currentPushStatus(): PushStatus {
     standalone: isStandalone(),
     supported: supported(),
     permission: supported() ? Notification.permission : 'default',
+    touchPoints: touchPoints(),
   });
 }
 

@@ -55,7 +55,6 @@ describe('service worker updates', () => {
     const s = setup(true, waiting);
     await s.start();
     expect(s.onUpdate).toHaveBeenCalledTimes(1);
-    s.container.emit('controllerchange');
     expect(s.reload).not.toHaveBeenCalled();
     const apply = s.onUpdate.mock.calls[0]![0] as () => void;
     apply();
@@ -71,5 +70,18 @@ describe('service worker updates', () => {
     s.container.emit('message', { data: { type: 'navigate', url: 'https://evil.example.org/' } });
     expect(s.navigate).toHaveBeenCalledTimes(1);
     expect(s.navigate).toHaveBeenCalledWith('/households/3');
+  });
+
+  it('other_tab_updated_hides_bar_and_reload_just_reloads', async () => {
+    const waiting = new Worker();
+    const s = setup(true, waiting);
+    await s.start();
+    const apply = s.onUpdate.mock.calls[0]![0] as () => void;
+    s.container.emit('controllerchange');
+    expect(s.onUpdate).toHaveBeenLastCalledWith(null);
+    expect(s.reload).not.toHaveBeenCalled();
+    apply();
+    expect(s.reload).toHaveBeenCalledTimes(1);
+    expect(waiting.postMessage).not.toHaveBeenCalled();
   });
 });

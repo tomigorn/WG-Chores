@@ -7,14 +7,19 @@ const KEY = 'wgc.install-dismissed';
 // set once the Play Store listing exists; the Android banner then also links there
 export const PLAY_STORE_URL: string | null = null;
 
-export function isIos(ua: string): boolean {
-  return /iPhone|iPad|iPod/.test(ua);
+// iPadOS Safari sends a Mac UA; only the touch points give it away
+export function isIos(ua: string, touchPoints = 0): boolean {
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1);
 }
 
-export function installBannerMode(ua: string, standalone: boolean, dismissedAt: number | null, now: number): BannerMode {
+export function touchPoints(): number {
+  return typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints || 0;
+}
+
+export function installBannerMode(ua: string, standalone: boolean, dismissedAt: number | null, now: number, touch = 0): BannerMode {
   if (standalone) return 'none';
   if (dismissedAt !== null && dismissedAt <= now && now - dismissedAt < DISMISS_DAYS * DAY) return 'none';
-  if (isIos(ua)) {
+  if (isIos(ua, touch)) {
     const safari = /Version\/[\d.]+.*Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|FBAN|FBAV|Instagram|Line\//.test(ua);
     return safari ? 'ios-safari' : 'ios-other';
   }

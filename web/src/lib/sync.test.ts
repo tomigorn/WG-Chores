@@ -70,4 +70,14 @@ describe('sync per user', () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(d.sent.length).toBe(2);
   });
+
+  it('expiry_clears_cache_keeps_outbox', async () => {
+    const d = deps({ v: false });
+    const a = new Sync(1, d);
+    await a.done.mark(5, '2026-11-14', null);
+    await a.setList(9, { x: 1 });
+    await a.clearCache();
+    expect(await a.getList(9)).toBeUndefined();
+    expect((await a.outbox.items()).length).toBe(1);
+  });
 });

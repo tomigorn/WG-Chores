@@ -41,4 +41,11 @@ describe('installBannerMode', () => {
     expect(installBannerMode(UA.desktopChrome, false, NOW - 400 * DAY, NOW)).toBe('desktop');
     expect(installBannerMode(UA.androidChrome, false, NOW + DAY, NOW)).toBe('android');
   });
+
+  it('ipados_desktop_ua_counts_as_ios', () => {
+    expect(installBannerMode(UA.macSafari, false, null, NOW, 5)).toBe('ios-safari');
+    expect(installBannerMode(UA.macSafari, false, null, NOW, 0)).toBe('desktop');
+    expect(installBannerMode(UA.macSafari, true, null, NOW, 5)).toBe('none');
+    expect(installBannerMode(UA.desktopChrome, false, null, NOW, 10)).toBe('desktop');
+  });
 });

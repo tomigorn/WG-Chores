@@ -15,6 +15,7 @@
   let pushState = $state(push.status());
   const blocked = $derived(pushState === 'blocked');
   const needsInstall = $derived(pushState === 'needs-install');
+  let notAllowed = $state(false);
 
   const THEMES: ThemeSetting[] = ['system', 'light', 'dark'];
   const LANGS: { v: LangSetting; key: string }[] = [
@@ -30,11 +31,13 @@
 
   async function toggle(kind: 'done' | 'due', on: boolean, input: HTMLInputElement) {
     notify[kind] = on;
+    notAllowed = false;
     try {
       if (on && pushState !== 'unsupported') {
         const r = await push.enable(currentLanguage());
         if (r === 'blocked' || r === 'dismissed') {
           if (r === 'blocked') pushState = 'blocked';
+          else notAllowed = true;
           notify[kind] = false;
           input.checked = false;
           return;
@@ -81,13 +84,15 @@
               <span class="label">{t(n.label)}</span>
               <span class="hint">{t(n.hint)}</span>
             </span>
-            <input id="notify-{n.k}" type="checkbox" role="switch" checked={notify[n.k] && !blocked} disabled={needsInstall} onchange={(e) => toggle(n.k, e.currentTarget.checked, e.currentTarget)} />
+            <input id="notify-{n.k}" type="checkbox" role="switch" checked={notify[n.k]} disabled={needsInstall} onchange={(e) => toggle(n.k, e.currentTarget.checked, e.currentTarget)} />
           </label>
         </li>
       {/each}
     </ul>
     {#if blocked}
       <p class="note"><Icon name="bell-off" size={16} /><span>{t('settings.blocked')}</span></p>
+    {:else if notAllowed}
+      <p class="note"><Icon name="bell-off" size={16} /><span>{t('settings.not_allowed')}</span></p>
     {:else if needsInstall}
       <p class="note"><Icon name="smartphone" size={16} /><span>{t('settings.install_first')}</span></p>
     {:else}

@@ -3,15 +3,15 @@
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
   import { t } from '../lib/i18n';
-  import { PLAY_STORE_URL, canPromptInstall, dismissBanner, dismissedAt, installBannerMode, isStandalone, onInstallPrompt, promptInstall } from '../lib/install';
+  import { PLAY_STORE_URL, canPromptInstall, touchPoints, dismissBanner, dismissedAt, installBannerMode, isStandalone, onInstallPrompt, promptInstall } from '../lib/install';
 
-  let { ua = navigator.userAgent, standalone = isStandalone(), inset = false }: { ua?: string; standalone?: boolean; inset?: boolean } = $props();
+  let { ua = navigator.userAgent, standalone = isStandalone(), touch = touchPoints(), inset = false }: { ua?: string; standalone?: boolean; touch?: number; inset?: boolean } = $props();
 
   let dismissed = $state(dismissedAt());
   let prompt = $state(canPromptInstall());
   let guide = $state(false);
 
-  const mode = $derived(installBannerMode(ua, standalone, dismissed, Date.now()));
+  const mode = $derived(installBannerMode(ua, standalone, dismissed, Date.now(), touch));
   // Android and desktop only offer what the browser can really install
   const visible = $derived(mode === 'ios-safari' || mode === 'ios-other' || ((mode === 'android' || mode === 'desktop') && prompt));
   const text = $derived(mode === 'ios-safari' ? t('install.ios') : mode === 'ios-other' ? t('install.ios_other') : t(`install.${mode === 'desktop' ? 'desktop' : 'android'}`));

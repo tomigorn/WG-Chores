@@ -322,8 +322,9 @@
     "notify_due_hint": "Einmal, wenn eine Aufgabe fällig wird",
     "notify_note": "Benachrichtigungen kommen, sobald die App installiert ist.",
     "saved": "Gespeichert",
-    "blocked": "In den Browser-Einstellungen blockiert",
-    "install_first": "Zuerst die App installieren (Teilen → Zum Home-Bildschirm)"
+    "blocked": "Auf diesem Gerät in den Browser-Einstellungen blockiert – dort erlauben, um sie hier zu bekommen.",
+    "install_first": "Zuerst die App installieren (Teilen → Zum Home-Bildschirm)",
+    "not_allowed": "Benachrichtigungen wurden nicht erlaubt. Schalter wieder einschalten, um erneut gefragt zu werden."
   },
   "install": {
     "android": "WG Chores installieren – für Benachrichtigungen",

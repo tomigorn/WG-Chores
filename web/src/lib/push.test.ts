@@ -118,5 +118,8 @@ describe('push', () => {
     expect(pushStatus({ ua: android, standalone: false, supported: true, permission: 'denied' })).toBe('blocked');
     expect(pushStatus({ ua: android, standalone: false, supported: true, permission: 'granted' })).toBe('ready');
     expect(pushStatus({ ua: android, standalone: false, supported: false, permission: 'default' })).toBe('unsupported');
+    const ipad = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15';
+    expect(pushStatus({ ua: ipad, standalone: false, supported: false, permission: 'default', touchPoints: 5 })).toBe('needs-install');
+    expect(pushStatus({ ua: ipad, standalone: false, supported: true, permission: 'default', touchPoints: 0 })).toBe('ready');
   });
 });
