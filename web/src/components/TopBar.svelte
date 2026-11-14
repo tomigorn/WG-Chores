@@ -42,11 +42,11 @@
   </button>
   {#if pending > 0}
     <button class="chip" type="button" aria-label={t('sync.waiting_label', { n: pending })} onclick={() => onstatus(t('sync.waiting', { n: pending }))}>
-      <Icon name="hourglass" size={14} /><span data-nowrap>{pending}</span><span class="long" data-nowrap>{t('sync.short')}</span>
+      <span class="pill"><Icon name="hourglass" size={14} /><span data-nowrap>{pending}</span><span class="long" data-nowrap>{t('sync.short')}</span></span>
     </button>
   {:else if offline}
     <button class="chip" type="button" aria-label={t('list.offline_note')} onclick={() => onstatus(t('list.offline_note'))}>
-      <Icon name="wifi-off" size={14} /><span class="long" data-nowrap>{t('list.offline')}</span>
+      <span class="pill"><Icon name="wifi-off" size={14} /><span class="long" data-nowrap>{t('list.offline')}</span></span>
     </button>
   {/if}
   <button class="icon-btn" type="button" data-menu-button aria-label={t('menu.open')} aria-haspopup="menu" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
@@ -104,11 +104,22 @@
   }
 
   .chip {
-    display: inline-flex;
+    display: grid;
     flex: none;
+    place-items: center;
+    min-width: var(--tap);
+    height: var(--tap);
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+
+  .pill {
+    display: inline-flex;
     align-items: center;
     gap: var(--s1);
-    height: 28px;
+    min-height: 28px;
     padding: 0 var(--s2);
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -119,7 +130,6 @@
     font-variant-numeric: tabular-nums;
     line-height: 1;
     white-space: nowrap;
-    cursor: pointer;
   }
 
   .chip .long {

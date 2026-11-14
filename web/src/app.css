@@ -77,6 +77,8 @@ body {
   font-family: var(--font);
   font-size: var(--fs-md);
   line-height: var(--lh);
+  overflow-wrap: break-word;
+  hyphens: auto;
   -webkit-font-smoothing: antialiased;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -104,7 +106,8 @@ input {
   outline-offset: 2px;
 }
 
-.nowrap {
+.nowrap,
+[data-nowrap] {
   white-space: nowrap;
 }
 
@@ -121,8 +124,11 @@ input {
   color: var(--text);
   font-weight: 600;
   font-size: var(--fs-md);
+  line-height: 1.25;
+  text-align: center;
   text-decoration: none;
-  white-space: nowrap;
+  text-wrap: balance;
+  max-width: 100%;
   cursor: pointer;
   transition: background-color var(--motion) ease, border-color var(--motion) ease;
 }
@@ -172,7 +178,7 @@ input {
 }
 
 .btn-sm {
-  min-height: 36px;
+  min-height: 40px;
   padding: 0 var(--s3);
   font-size: var(--fs-sm);
 }
@@ -241,6 +247,7 @@ input {
 
 .seg {
   display: flex;
+  flex-wrap: wrap;
   padding: 2px;
   border-radius: var(--radius);
   background: var(--bg);
@@ -248,8 +255,8 @@ input {
 }
 
 .seg button {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: max-content;
   min-height: 40px;
   padding: 0 var(--s2);
   border: 0;
