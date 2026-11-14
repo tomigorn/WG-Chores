@@ -8,6 +8,32 @@ mod embedded {
     include!(concat!(env!("OUT_DIR"), "/embedded.rs"));
 }
 
+#[derive(Clone, Copy)]
+pub struct TextOnly;
+
+pub fn text_only() -> TextOnly {
+    TextOnly
+}
+
+impl tower_http::compression::predicate::Predicate for TextOnly {
+    fn should_compress<B>(&self, response: &axum::http::Response<B>) -> bool
+    where
+        B: axum::body::HttpBody,
+    {
+        let ct = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        let essence = ct.split(';').next().unwrap_or("").trim();
+        essence.starts_with("text/")
+            || matches!(
+                essence,
+                "application/json" | "application/manifest+json" | "image/svg+xml"
+            )
+    }
+}
+
 const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 
 pub fn embedded_paths() -> Vec<&'static str> {
@@ -74,9 +100,10 @@ pub async fn serve(method: Method, uri: Uri) -> Response {
         return not_found();
     }
     let path = uri.path().trim_start_matches('/');
-    let api = ["api/", "auth/", "healthz"]
-        .iter()
-        .any(|p| path.starts_with(p));
+    let api = ["api", "auth", "healthz"].iter().any(|p| {
+        path.strip_prefix(p)
+            .is_some_and(|r| r.is_empty() || r.starts_with('/'))
+    }) || path.starts_with("healthz");
     if api {
         return not_found();
     }

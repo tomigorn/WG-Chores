@@ -6,7 +6,7 @@ use crate::db::Db;
 use crate::notify::{Push, webpush::Vapid};
 use axum::{Router, handler::Handler, middleware, routing::get};
 use std::sync::Arc;
-use tower_http::compression::CompressionLayer;
+use tower_http::compression::{CompressionLayer, DefaultPredicate, predicate::Predicate};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -43,7 +43,12 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/oidc/callback", get(oidc::callback))
         .route("/api/v1/openapi.json", get(crate::openapi::get))
         .merge(crate::api::router(state.clone()))
-        .fallback(crate::web::serve.layer(CompressionLayer::new()))
+        .fallback(
+            crate::web::serve.layer(
+                CompressionLayer::new()
+                    .compress_when(DefaultPredicate::new().and(crate::web::text_only())),
+            ),
+        )
         .layer(middleware::from_fn(crate::headers::apply))
         .with_state(state)
 }

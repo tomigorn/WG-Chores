@@ -71,11 +71,11 @@ It prints the `OIDC_*` values to use.
 ## Web app, headers, API doc
 | Topic | Detail |
 |---|---|
-| Web app | `web/dist` is embedded at build time (`server/build.rs`); without a build a placeholder page is embedded, so `cargo test` needs no Node |
-| Routes | unknown GET/HEAD paths outside `/api/`, `/auth/`, `/healthz` serve `index.html` (SPA); a missing `/assets/...` is 404 |
+| Web app | `web/dist` is embedded at build time (`server/build.rs`); without a build a placeholder page is embedded in debug and test builds, so `cargo test` needs no Node; a release build fails when `web/dist/index.html` is missing unless `WGC_ALLOW_PLACEHOLDER=1` is set; after building the web app run `touch server/build.rs` once if a placeholder build came before |
+| Routes | unknown GET/HEAD paths outside `/api`, `/auth`, `/healthz` serve `index.html` (SPA); a missing `/assets/...` is 404 |
 | Cache | `/assets/*` immutable for a year; `index.html`, `sw.js`, `manifest.webmanifest` `no-cache`; API JSON `no-store` |
 | Headers | strict CSP (no `unsafe-*`), `nosniff`, referrer, permissions, COOP, `X-Frame-Options: DENY` on every response; HSTS is the reverse proxy's job |
-| Compression | gzip for the embedded web files only, never API JSON |
+| Compression | gzip for text types (html, js, css, json, svg, webmanifest) of the embedded web files only, never API JSON or images/fonts |
 | API doc | `GET /api/v1/openapi.json` = hand-kept `server/openapi.json`; the test `openapi_lists_all_routes` fails when a route or method is missing or extra |
 
 ## Operations

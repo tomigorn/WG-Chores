@@ -55,7 +55,14 @@ async fn spa_fallback_serves_index() {
 #[tokio::test]
 async fn api_404_stays_json() {
     let app = TestApp::new();
-    for path in ["/api/v1/nope", "/api/nothing", "/auth/nope", "/healthz/x"] {
+    for path in [
+        "/api/v1/nope",
+        "/api/nothing",
+        "/api",
+        "/auth",
+        "/auth/nope",
+        "/healthz/x",
+    ] {
         let (status, headers, body) = raw(&app, Method::GET, path).await;
         assert_eq!(status, 404, "{path}");
         assert!(
@@ -176,6 +183,37 @@ async fn text_assets_are_gzipped() {
         .await
         .unwrap();
     assert!(res.headers().get(header::CONTENT_ENCODING).is_none());
+}
+
+#[test]
+fn only_text_types_are_compressed() {
+    use tower_http::compression::predicate::Predicate;
+    let p = wg_chores::web::text_only();
+    let with = |ct: &str| {
+        axum::http::Response::builder()
+            .header(header::CONTENT_TYPE, ct)
+            .body(Body::from(vec![0u8; 4096]))
+            .unwrap()
+    };
+    for yes in [
+        "text/html; charset=utf-8",
+        "text/javascript; charset=utf-8",
+        "text/css; charset=utf-8",
+        "application/json",
+        "image/svg+xml",
+        "application/manifest+json",
+    ] {
+        assert!(p.should_compress(&with(yes)), "{yes}");
+    }
+    for no in [
+        "image/png",
+        "image/webp",
+        "font/woff2",
+        "application/octet-stream",
+        "image/x-icon",
+    ] {
+        assert!(!p.should_compress(&with(no)), "{no}");
+    }
 }
 
 fn source_routes() -> Vec<String> {
