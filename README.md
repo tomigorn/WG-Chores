@@ -76,8 +76,22 @@ Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
 | `npm ci` | install |
 | `npm run dev` | dev server on :5173; `/api` and `/auth` go to `WGC_SERVER` (default `http://localhost:8080`) |
 | `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, words, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
-| `npm run check` | svelte-check (types) |
+| `npm run check` | svelte-check (types), and tsc for `e2e/` |
 | `npm run build` | `web/dist`, then `touch ../server/build.rs` and rebuild the server to embed it |
+| `npm run e2e:build` | web build + `cargo build --features test-util --bins` (server with the web app embedded, plus `fake-oidc`); on fastpi prefix the cargo step with the rust-build flock |
+| `npm run e2e` | browser suite (Playwright, Chromium only, about 3 min on fastpi); not part of `npm test` |
+| `npm run e2e:layout` | only the layout matrix |
+
+Browser suite (`web/e2e/`):
+
+| What | Detail |
+|---|---|
+| Projects | `desktop`, `iphone` (iPhone 13 emulated in Chromium), `pixel` (Pixel 7), `layout`; WebKit is not installed, so real iOS Safari still needs a phone test |
+| Servers | every spec file starts its own `wg-chores` (temp `DATA_DIR` under `~/.cache/claude-work/wgc-e2e/`, free port, `PUBLIC_URL=http://localhost:<port>`) and, for SSO, `fake-oidc`; data is seeded through the API |
+| Specs | `auth`, `households`, `chores`, `invites` (sign-up via invite with `OPEN_REGISTRATION=false`, SSO from an invite), `offline` (queue, cached list, `resume_after_idle_offline_and_server_restart`), `push` (fake `PushManager`) |
+| Layout | every screen at 320, 375, 414, 768, 1280 px, light + dark, root font 100 % and 200 % (plus German at 320 px): no wrap in `[data-nowrap]`, no sideways scroll, no overlapping controls, controls ≥ 40×40 px at 100 %, fixed bars never cover controls at the page end; screenshots in `~/.cache/claude-work/wgc-layout/` |
+| Always failing on | any browser dialog, any uncaught page error |
+| Playwright | `@playwright/test` pinned to the preinstalled Chromium build; never `playwright install`; traces off |
 
 Dev with a local server:
 ```

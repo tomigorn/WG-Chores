@@ -1,0 +1,87 @@
+import { Api, PASSWORD, uniqueName } from './support/api';
+import { expect, test, useServer } from './support/fixtures';
+
+test.describe('local accounts with SSO', () => {
+  const box = useServer({ OIDC_NAME: 'Holy Grail', OIDC_REQUIRED_GROUP: 'WG' }, { oidc: true });
+
+  test('register, sign out, sign in again opens the last household', async ({ page }) => {
+    const username = uniqueName('anna');
+    await page.goto(box.server.url + '/');
+    await expect(page).toHaveURL(/\/login$/);
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await page.getByLabel('Your name').fill('Anna');
+    await page.getByLabel('Username').fill(username);
+    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Create account' }).first().click();
+    await expect(page).toHaveURL(/\/households$/);
+    await expect(page.getByText('No household yet')).toBeVisible();
+
+    await page.getByRole('button', { name: 'New household' }).click();
+    await page.getByLabel('New household').fill('WG Zürich');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await expect(page).toHaveURL(/\/households\/\d+$/);
+    const hhUrl = page.url();
+
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/login$/);
+
+    await page.getByLabel('Username').fill(username);
+    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(hhUrl);
+  });
+
+  test('wrong password shows a message and stays on the login page', async ({ page }) => {
+    const a = await Api.register(box.server.url);
+    await page.goto(box.server.url + '/login');
+    await page.getByLabel('Username').fill(a.username);
+    await page.getByLabel('Password').fill('not the right password');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('Wrong username or password.');
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('a deep link returns to the wanted page after sign-in', async ({ page }) => {
+    const a = await Api.register(box.server.url);
+    const h = await a.household('Deep link WG');
+    await page.goto(`${box.server.url}/households/${h.id}/settings`);
+    await expect(page).toHaveURL(/\/login$/);
+    await page.getByLabel('Username').fill(a.username);
+    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/households/${h.id}/settings$`));
+  });
+
+  test('SSO sign-in via the provider creates the account', async ({ page }) => {
+    await box.oidc!.setUser({ sub: uniqueName('sub'), name: 'Jane Doe', preferred_username: uniqueName('jane'), groups: ['WG'] });
+    await page.goto(box.server.url + '/login');
+    await page.getByRole('link', { name: 'Sign in with Holy Grail' }).click();
+    await expect(page).toHaveURL(/\/households$/);
+    await page.goto(box.server.url + '/account');
+    await expect(page.getByText('Jane Doe')).toBeVisible();
+  });
+
+  test('SSO user without the required group is refused with a clear message', async ({ page }) => {
+    await box.oidc!.setUser({ sub: uniqueName('sub'), name: 'Jane Doe', groups: ['Guests'] });
+    await page.goto(box.server.url + '/login');
+    await page.getByRole('link', { name: 'Sign in with Holy Grail' }).click();
+    await expect(page).toHaveURL(/\/login\?error=not_allowed/);
+    await expect(page.getByRole('alert')).toContainText('not allowed on this server');
+    const me = await page.evaluate(() => fetch('/api/v1/me', { headers: { 'X-WGC': '1' } }).then((r) => r.status));
+    expect(me).toBe(401);
+  });
+});
+
+test.describe('SSO only', () => {
+  const box = useServer({ LOCAL_ACCOUNTS: 'false', OIDC_NAME: 'Holy Grail' }, { oidc: true });
+
+  test('no password form, and the local login API is refused', async ({ page }) => {
+    await page.goto(box.server.url + '/login');
+    await expect(page.getByRole('link', { name: 'Sign in with Holy Grail' })).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Create account' })).toHaveCount(0);
+    const r = await new Api(box.server.url).req('POST', '/api/v1/auth/login', { username: 'anna', password: PASSWORD }); // leak-check: ok
+    expect(r.status).toBe(403);
+  });
+});
