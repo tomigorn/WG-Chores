@@ -141,7 +141,10 @@ mod tests {
             serde_json::from_str(include_str!("../../docs/test-vectors/due-level.json")).unwrap();
         assert!(cases.len() >= 20);
         for c in cases {
-            let i = c.interval.as_deref().map(|s| Interval::from_code(s).unwrap());
+            let i = c
+                .interval
+                .as_deref()
+                .map(|s| Interval::from_code(s).unwrap());
             assert_eq!(
                 due_level(c.days_since, interval_days(i)),
                 c.level,
@@ -207,6 +210,9 @@ mod tests {
 
     #[test]
     fn level_serializes_snake_case() {
-        assert_eq!(serde_json::to_string(&DueLevel::LongOverdue).unwrap(), "\"long_overdue\"");
+        assert_eq!(
+            serde_json::to_string(&DueLevel::LongOverdue).unwrap(),
+            "\"long_overdue\""
+        );
     }
 }

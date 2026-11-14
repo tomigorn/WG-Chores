@@ -257,7 +257,10 @@ mod tests {
     fn newer_database_is_refused() {
         let mut conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "user_version", 99).unwrap();
-        assert!(matches!(migrate(&mut conn), Err(DbError::SchemaTooNew { .. })));
+        assert!(matches!(
+            migrate(&mut conn),
+            Err(DbError::SchemaTooNew { .. })
+        ));
     }
 
     struct TempDir(std::path::PathBuf);
