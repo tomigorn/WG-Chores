@@ -34,6 +34,14 @@ export class Sync {
     return `${this.user}:household:${hid}`;
   }
 
+  getCached<T>(key: string): Promise<T | undefined> {
+    return this.deps.cache.get<T>(`${this.user}:${key}`).catch(() => undefined);
+  }
+
+  setCached(key: string, v: unknown): Promise<void> {
+    return this.deps.cache.set(`${this.user}:${key}`, v).catch(() => {});
+  }
+
   getList<T>(hid: number): Promise<T | undefined> {
     return this.deps.cache.get<T>(this.key(hid)).catch(() => undefined);
   }

@@ -5,6 +5,7 @@ import type { Chore } from '../lib/api';
 
 const c: Chore = {
   id: 1,
+  household_id: 1,
   name: 'Clean toilet',
   category: 'Bad',
   interval: '1w',

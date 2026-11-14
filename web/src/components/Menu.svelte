@@ -10,6 +10,7 @@
     ontheme,
     onnavigate,
     onlogout,
+    householdId = null,
   }: {
     open: boolean;
     onclose: () => void;
@@ -17,16 +18,18 @@
     ontheme: (s: ThemeSetting) => void;
     onnavigate: (path: string) => void;
     onlogout: () => void;
+    householdId?: number | null;
   } = $props();
 
   let panel: HTMLDivElement | undefined = $state();
 
-  const items: { icon: IconName; key: string; path: string }[] = [
+  const items: { icon: IconName; key: string; path: string }[] = $derived([
     { icon: 'house', key: 'nav.households', path: '/households' },
     { icon: 'plus', key: 'menu.new_household', path: '/households?new=1' },
+    ...(householdId ? [{ icon: 'users' as const, key: 'menu.household_settings', path: `/households/${householdId}/settings` }] : []),
     { icon: 'settings', key: 'nav.settings', path: '/settings' },
     { icon: 'user-round', key: 'nav.account', path: '/account' },
-  ];
+  ]);
 
   $effect(() => {
     if (!open || !panel) return;
@@ -39,11 +42,7 @@
   });
 
   function keydown(e: KeyboardEvent) {
-    if (e.key === 'Tab') {
-      onclose();
-      return;
-    }
-    if (e.key === 'Escape') {
+    if (e.key === 'Tab' || e.key === 'Escape') {
       e.preventDefault();
       onclose();
       document.querySelector<HTMLElement>('[data-menu-button]')?.focus();

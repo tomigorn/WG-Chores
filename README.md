@@ -75,7 +75,7 @@ Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
 |---|---|
 | `npm ci` | install |
 | `npm run dev` | dev server on :5173; `/api` and `/auth` go to `WGC_SERVER` (default `http://localhost:8080`) |
-| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
+| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, words, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
 | `npm run check` | svelte-check (types) |
 | `npm run build` | `web/dist`, then `touch ../server/build.rs` and rebuild the server to embed it |
 
@@ -87,7 +87,12 @@ cd web && npm run dev
 
 | Topic | Detail |
 |---|---|
-| Routes | `/` (→ last household, else `/households`), `/login`, `/households`, `/households/:id`, `/households/:id/new-chore`, `/chores/:id`, `/invite/:token`, `/settings`, `/account`; unknown → `/` |
+| Routes | `/` (→ last household, else `/households`), `/login`, `/households` (`?new=1` opens the create form), `/households/:id`, `/households/:id/settings`, `/households/:id/new-chore`, `/chores/:id`, `/chores/:id/edit`, `/invite/:token`, `/settings`, `/account`; unknown → `/` |
+| Chore page | last done (days, date, who, "N days overdue"), "Usually done every ~N days" (server median, hidden below 3 completions), history 20 per page, more on scroll; tap an entry = change date/note or delete (confirm); footer Done today / Other date…; read-only from the IndexedDB cache when offline |
+| Add / edit chore | name, category (existing ones offered, or a new one), interval chips (tap again = none = every month); renaming a category for all its chores is a checkbox when the category text changes; archive with confirm, restore in household settings |
+| Household settings | rename, members (add by exact username, or search when `MEMBER_DIRECTORY=true`: detected from `GET /api/v1/users` answering 404), remove (confirm), invite links (create → Copy / Share, list with creator and expiry, cancel), archived chores (Restore), leave (confirm; last member: deletes the household) |
+| Invite page | public preview (household, inviter, expiry or why invalid); signed out: SSO (`/auth/oidc/start?invite=…`), sign in, create account when the server allows it (joins at once); signed in: Join → household |
+| Account / settings | SSO: picture, name, link to `OIDC_ACCOUNT_URL`; local: change name and password; delete account (type username, SSO: display name); theme, language, notification toggles (`PATCH /api/v1/me`) |
 | Chore list | grouped by category, categories and chores A–Z with `Intl.Collator` (accent/case-insensitive), no category last ("Other"); "today" = server `TZ` from `/api/v1/config`; refetch on tab visible and every 60 s while visible |
 | Marking done | ✓ = done today at once (optimistic), bar 6 s with Undo / Other date; long press 500 ms (≤ 10 px movement), right click, context-menu key or Shift+F10 = date sheet (today, yesterday, 2 days ago, pick date ≤ today, note) |
 | Offline | done marks go to an IndexedDB outbox (`wgc` → `outbox`, per user id) with a client UUID, sent at app start, on `online` and after each successful load; 4xx (not 401/429) drops the item with a message and reloads the list; sign out tries to send first and warns when marks would be lost, then clears that user's outbox and cache; top bar shows the waiting count; other edits offline say "Connect to the internet to save this"; last list per user and household cached in IndexedDB (`cache`) and shown offline |

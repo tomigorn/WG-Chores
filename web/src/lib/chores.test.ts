@@ -8,6 +8,7 @@ const rafi: By = { id: 2, display_name: 'Rafi', former: false };
 function chore(id: number, name: string, category: string | null, extra: Partial<Chore> = {}): Chore {
   return {
     id,
+    household_id: 1,
     name,
     category,
     interval: '1w',

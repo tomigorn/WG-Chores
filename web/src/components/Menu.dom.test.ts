@@ -34,4 +34,29 @@ describe('Menu', () => {
     expect(onclose).toHaveBeenCalledTimes(2);
     unmount(app);
   });
+
+  it('tab_returns_focus_to_the_menu_button', () => {
+    const btn = document.createElement('button');
+    btn.dataset.menuButton = '';
+    document.body.append(btn);
+    const { app, menu } = open();
+    const ev = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    menu.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(btn);
+    unmount(app);
+  });
+
+  it('household_settings_item_only_with_a_household', () => {
+    const onnavigate = vi.fn();
+    const app = mount(Menu, { target: document.body, props: { open: true, onclose: () => {}, theme: 'dark', ontheme: () => {}, onnavigate, onlogout: () => {}, householdId: 4 } });
+    flushSync();
+    const item = [...document.querySelectorAll<HTMLElement>('[role=menuitem]')].find((e) => e.textContent?.includes('Household settings'))!;
+    item.click();
+    expect(onnavigate).toHaveBeenCalledWith('/households/4/settings');
+    unmount(app);
+    const { app: plain } = open();
+    expect(document.body.textContent).not.toContain('Household settings');
+    unmount(plain);
+  });
 });

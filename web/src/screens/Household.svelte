@@ -2,7 +2,6 @@
   import { onMount, untrack } from 'svelte';
   import ChoreRow from '../components/ChoreRow.svelte';
   import DoneSheet from '../components/DoneSheet.svelte';
-  import DoneSnackbar, { type Snack } from '../components/DoneSnackbar.svelte';
   import Icon from '../components/Icon.svelte';
   import Sheet from '../components/Sheet.svelte';
   import TopBar from '../components/TopBar.svelte';
@@ -12,6 +11,7 @@
   import { t, type Lang } from '../lib/i18n';
   import type { FlushResult } from '../lib/outbox';
   import { navigate } from '../lib/router';
+  import { clearSnack, rememberChores, showSnack, toast } from '../lib/snack';
   import { startSync } from '../lib/sync';
   import type { ThemeSetting } from '../lib/theme';
 
@@ -48,7 +48,6 @@
   let failed = $state(false);
   let pending = $state(0);
   let today = $state(untrack(() => todayIn(config.tz)));
-  let snack: Snack | null = $state(null);
   let switcherOpen = $state(false);
   let sheet: { chore: Chore; prev: Chore; uuid: string | null; initial: { doneOn: string; note: string | null } } | null = $state(null);
   let sheetOpen = $state(false);
@@ -57,25 +56,14 @@
   const { outbox, done } = store;
   let fetchSeq = 0;
   let mutations = 0;
-  let snackSeq = 0;
 
   const meBy: By = $derived({ id: me.id, display_name: me.display_name, former: false });
   const groups = $derived(groupChores(chores, lang === 'de' ? 'de-CH' : 'en-GB'));
 
-  function show(s: Omit<Snack, 'id'>) {
-    snack = { ...s, id: ++snackSeq };
-  }
-
-  function toast(text: string) {
-    show({ text });
-  }
+  const show = showSnack;
 
   function flushed(r: FlushResult) {
-    if (r.dropped.length === 1) {
-      const name = chores.find((c) => c.id === r.dropped[0]!.choreId)?.name ?? '';
-      toast(t('done.rejected', { name }));
-    } else if (r.dropped.length > 1) toast(t('done.rejected_many', { n: r.dropped.length }));
-    load();
+    if (r.sent || r.dropped.length) load();
   }
 
   async function load() {
@@ -88,6 +76,7 @@
       if (stale()) return;
       today = todayIn(config.tz);
       household = h;
+      rememberChores(list);
       chores = withPending(list, queued, meBy, today);
       offline = false;
       failed = false;
@@ -108,6 +97,7 @@
         if (c) {
           today = todayIn(config.tz);
           household = c.household;
+          rememberChores(c.chores);
           chores = withPending(rebase(c.chores, today), await outbox.items(), meBy, today);
           loaded = true;
         } else failed = true;
@@ -146,7 +136,7 @@
   }
 
   async function undo(id: number, prev: Chore, uuid: string) {
-    snack = null;
+    clearSnack();
     const now = current(id);
     setRow(prev);
     const r = await done.undo(uuid);
@@ -156,7 +146,7 @@
   }
 
   function openSheet(c: Chore, prev: Chore, uuid: string | null, initial: { doneOn: string; note: string | null }) {
-    snack = null;
+    clearSnack();
     today = todayIn(config.tz);
     sheet = { chore: c, prev, uuid, initial };
     sheetOpen = true;
@@ -230,7 +220,7 @@
   });
 </script>
 
-<TopBar title={household?.name ?? ''} {me} {pending} {offline} {theme} onswitch={openSwitcher} onstatus={toast} {ontheme} onnavigate={(p) => navigate(p)} {onlogout} />
+<TopBar title={household?.name ?? ''} householdId={hid} {me} {pending} {offline} {theme} onswitch={openSwitcher} onstatus={toast} {ontheme} onnavigate={(p) => navigate(p)} {onlogout} />
 
 <main class="page">
   {#if !loaded && failed}
@@ -257,7 +247,7 @@
         <h2 class="cat" data-nowrap>{g.category ?? t('list.other_category')}</h2>
         <ul class="list">
           {#each g.chores as c (c.id)}
-            <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, null, null)} onlong={() => openSheet(c, c, null, { doneOn: today, note: null })} />
+            <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, null, null)} onlong={() => openSheet(c, c, null, { doneOn: todayIn(config.tz), note: null })} />
           {/each}
         </ul>
       </section>
@@ -267,8 +257,6 @@
     </div>
   {/if}
 </main>
-
-<DoneSnackbar {snack} onexpire={() => (snack = null)} />
 
 {#if sheet}
   <DoneSheet open={sheetOpen} name={sheet.chore.name} {today} {lang} initial={sheet.initial} onsave={saveSheet} onclose={() => (sheetOpen = false)} />
@@ -287,7 +275,10 @@
       </li>
     {/each}
   </ul>
-  <button class="btn btn-block" type="button" onclick={() => go('/households?new=1')}><Icon name="plus" size={18} />{t('menu.new_household')}</button>
+  <div class="hh-actions">
+    <button class="btn" type="button" onclick={() => go(`/households/${hid}/settings`)}><Icon name="users" size={18} />{t('menu.household_settings')}</button>
+    <button class="btn" type="button" onclick={() => go('/households?new=1')}><Icon name="plus" size={18} />{t('menu.new_household')}</button>
+  </div>
 </Sheet>
 
 <style>
@@ -427,6 +418,11 @@
 
   .hh-item[aria-current] :global(svg:last-child) {
     color: var(--accent);
+  }
+
+  .hh-actions {
+    display: grid;
+    gap: var(--s2);
   }
 
   .hh-name {

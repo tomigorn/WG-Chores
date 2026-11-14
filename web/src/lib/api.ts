@@ -61,6 +61,7 @@ export interface By {
 
 export interface Chore {
   id: number;
+  household_id: number;
   name: string;
   category: string | null;
   interval: IntervalCode | null;
@@ -248,6 +249,7 @@ export const api = {
   chores: (hid: number, o: { archived?: boolean } = {}) =>
     request<Chore[]>('GET', `${H}/${id(hid)}/chores${query({ archived: o.archived || undefined })}`),
   createChore: (hid: number, c: ChoreInput) => request<Chore>('POST', `${H}/${id(hid)}/chores`, c),
+  chore: (choreId: number) => request<Chore>('GET', `/api/v1/chores/${id(choreId)}`),
   patchChore: (choreId: number, c: Partial<ChoreInput>) => request<Chore>('PATCH', `/api/v1/chores/${id(choreId)}`, c),
   archiveChore: (choreId: number) => request<Chore>('POST', `/api/v1/chores/${id(choreId)}/archive`),
   restoreChore: (choreId: number) => request<Chore>('POST', `/api/v1/chores/${id(choreId)}/restore`),

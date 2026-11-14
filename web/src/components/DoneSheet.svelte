@@ -12,6 +12,7 @@
     initial,
     onsave,
     onclose,
+    ondelete,
   }: {
     open: boolean;
     name: string;
@@ -20,6 +21,7 @@
     initial: { doneOn: string; note: string | null };
     onsave: (doneOn: string, note: string | null) => void;
     onclose: () => void;
+    ondelete?: () => void;
   } = $props();
 
   type Choice = 0 | 1 | 2 | 'pick';
@@ -88,6 +90,9 @@
       <input id="done-note" class="input" maxlength="500" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder={t('sheet.note_placeholder')} bind:value={note} />
     </div>
     <button class="btn btn-primary btn-block" type="submit" disabled={!valid}>{t('sheet.save')}</button>
+    {#if ondelete}
+      <button class="btn btn-danger btn-block" type="button" onclick={ondelete}><Icon name="trash-2" size={18} />{t('entry.delete')}</button>
+    {/if}
   </form>
 </Sheet>
 

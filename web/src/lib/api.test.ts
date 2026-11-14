@@ -149,4 +149,12 @@ describe('api request shapes', () => {
     vi.stubGlobal('fetch', respond(200, '<html>login portal</html>', 'text/html'));
     await expect(api.me()).rejects.toMatchObject({ code: 'invalid_response' });
   });
+
+  it('single_chore_route', async () => {
+    const f = respond(200, { id: 7, household_id: 1 });
+    vi.stubGlobal('fetch', f);
+    expect((await api.chore(7)).household_id).toBe(1);
+    expect(f.mock.calls[0]![0]).toBe('/api/v1/chores/7');
+    expect(f.mock.calls[0]![1].method).toBe('GET');
+  });
 });

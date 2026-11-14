@@ -2,9 +2,18 @@
   import { onMount } from 'svelte';
   import Icon from './components/Icon.svelte';
   import Sheet from './components/Sheet.svelte';
+  import SnackHost from './components/SnackHost.svelte';
+  import Account from './screens/Account.svelte';
+  import Chore from './screens/Chore.svelte';
+  import ChoreEdit from './screens/ChoreEdit.svelte';
   import Household from './screens/Household.svelte';
-  import { startSync, stopSync, sync } from './lib/sync';
+  import HouseholdSettings from './screens/HouseholdSettings.svelte';
+  import Households from './screens/Households.svelte';
+  import Invite from './screens/Invite.svelte';
   import Login from './screens/Login.svelte';
+  import Settings from './screens/Settings.svelte';
+  import { watchDropped } from './lib/snack';
+  import { startSync, stopSync, sync } from './lib/sync';
   import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
   import { bootFailure } from './lib/boot';
   import { currentLanguage, onLanguage, t } from './lib/i18n';
@@ -16,7 +25,7 @@
   let url: URL = $state(start.url);
   let lang = $state(currentLanguage());
   let config: ServerConfig | null = $state(null);
-  let me: Me | null | undefined = $state(undefined);
+  let me = $state<Me | null | undefined>(undefined);
   let failed: 'error.offline' | 'error.generic' | null = $state(null);
   let theme: ThemeSetting = $state(themeSetting());
 
@@ -42,9 +51,10 @@
     }
   }
 
-  async function signedIn() {
+  async function signedIn(): Promise<Me | null> {
     me = await api.me().catch(() => null);
     if (me && route.name !== 'invite') navigate(takeNext(), { replace: true });
+    return me;
   }
 
   let unsynced = $state(0);
@@ -58,12 +68,12 @@
     await signOut();
   }
 
-  async function signOut() {
+  async function signOut(serverSide = true) {
     unsynced = 0;
     if (me) await sync().discard();
     stopSync();
     try {
-      await api.logout();
+      if (serverSide) await api.logout();
     } catch {
       /* the cookie stays only when offline; the server ends it after 30 idle days */
     } finally {
@@ -99,6 +109,13 @@
     if (me) startSync(me.id);
   });
 
+  const meId = $derived(me?.id ?? null);
+
+  $effect(() => {
+    if (meId === null) return;
+    return watchDropped(startSync(meId).outbox, () => lang);
+  });
+
   $effect(() => {
     if (me && route.name === 'home') navigate(me.last_household_id ? `/households/${me.last_household_id}` : '/households', { replace: true });
   });
@@ -107,7 +124,11 @@
     if (me) me.last_household_id = hid;
   }
 
-  const showLogin = $derived(me === null && config !== null && (route.name === 'login' || route.name === 'invite'));
+  function updated(m: Me) {
+    me = m;
+  }
+
+  const showLogin = $derived(me === null && config !== null && route.name === 'login');
 </script>
 
 {#key lang}
@@ -118,36 +139,36 @@
       <button class="btn" type="button" onclick={boot}>{t('common.retry')}</button>
     </main>
   {:else if showLogin && config}
-    <Login
-      {config}
-      invite={route.name === 'invite' ? route.token : null}
-      serverError={url.searchParams.get('error')}
-      onSignedIn={signedIn}
-    />
-  {:else if me && config && route.name === 'household'}
-    {#key route.id}
-      <Household hid={route.id} {config} {me} {lang} {theme} ontheme={chooseTheme} onlogout={logout} onopened={opened} />
-    {/key}
-  {:else if me && route.name !== 'home'}
-    <header class="bar">
-      <a class="btn" href={me.last_household_id ? `/households/${me.last_household_id}` : '/'}><Icon name="house" size={18} />{t('nav.home')}</a>
-      <button class="btn" type="button" onclick={logout}><Icon name="log-out" size={18} />{t('nav.logout')}</button>
-    </header>
-    <main class="placeholder">
-      <p class="muted">{t('common.signed_in_as', { name: me.display_name })}</p>
-      <p class="muted">{t('common.coming_soon')}</p>
-      <div class="seg" role="group" aria-label={t('theme.label')}>
-        {#each ['system', 'light', 'dark'] as const as s (s)}
-          <button class="btn" class:on={theme === s} type="button" aria-pressed={theme === s} onclick={() => chooseTheme(s)}>{t(`theme.${s}`)}</button>
-        {/each}
-      </div>
-    </main>
+    <Login {config} serverError={url.searchParams.get('error')} onSignedIn={signedIn} />
+  {:else if config && me !== undefined && route.name === 'invite'}
+    <Invite invite={route.token} {config} {me} {lang} onsignedin={signedIn} />
+  {:else if me && config}
+    {#if route.name === 'household'}
+      {#key route.id}
+        <Household hid={route.id} {config} {me} {lang} {theme} ontheme={chooseTheme} onlogout={logout} onopened={opened} />
+      {/key}
+    {:else if route.name === 'households'}
+      <Households {me} {lang} {url} />
+    {:else if route.name === 'household-settings'}
+      {#key route.id}<HouseholdSettings hid={route.id} {config} {me} {lang} />{/key}
+    {:else if route.name === 'chore'}
+      {#key route.id}<Chore id={route.id} {config} {me} {lang} />{/key}
+    {:else if route.name === 'chore-edit'}
+      {#key route.id}<ChoreEdit choreId={route.id} householdId={null} {config} {me} {lang} />{/key}
+    {:else if route.name === 'new-chore'}
+      {#key route.householdId}<ChoreEdit choreId={null} householdId={route.householdId} {config} {me} {lang} />{/key}
+    {:else if route.name === 'settings'}
+      <Settings {me} {lang} {theme} ontheme={chooseTheme} onme={updated} />
+    {:else if route.name === 'account'}
+      <Account {config} {me} {lang} onlogout={logout} onme={updated} ondeleted={() => signOut(false)} />
+    {/if}
   {/if}
+  <SnackHost />
   <Sheet open={unsynced > 0} onclose={() => (unsynced = 0)} label={t('logout.title')}>
     <div class="confirm">
       <h2>{t('logout.title')}</h2>
       <p>{t(unsynced === 1 ? 'logout.unsynced_one' : 'logout.unsynced_other', { n: unsynced })}</p>
-      <button class="btn btn-primary btn-block" type="button" onclick={signOut}>{t('logout.anyway')}</button>
+      <button class="btn btn-primary btn-block" type="button" onclick={() => signOut()}>{t('logout.anyway')}</button>
       <button class="btn btn-block" type="button" onclick={() => (unsynced = 0)}>{t('logout.cancel')}</button>
     </div>
   </Sheet>
@@ -166,23 +187,6 @@
     color: var(--muted);
   }
 
-  .bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--s3);
-    padding: var(--s2) var(--s4);
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .placeholder {
-    padding: var(--s6) var(--s4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--s3);
-  }
-
   .confirm {
     display: flex;
     flex-direction: column;
@@ -197,19 +201,5 @@
   .confirm p {
     color: var(--muted);
     margin-bottom: var(--s2);
-  }
-
-  .muted {
-    color: var(--muted);
-  }
-
-  .seg {
-    display: flex;
-    gap: var(--s2);
-  }
-
-  .seg .on {
-    border-color: var(--accent);
-    color: var(--accent);
   }
 </style>

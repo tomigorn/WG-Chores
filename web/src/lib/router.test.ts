@@ -12,10 +12,12 @@ describe('router', () => {
     expect(matchRoute('/households/12/new-chore')).toEqual({ name: 'new-chore', householdId: 12 });
     expect(matchRoute('/settings')).toEqual({ name: 'settings' });
     expect(matchRoute('/account')).toEqual({ name: 'account' });
+    expect(matchRoute('/chores/7/edit')).toEqual({ name: 'chore-edit', id: 7 });
+    expect(matchRoute('/households/12/settings')).toEqual({ name: 'household-settings', id: 12 });
   });
 
   it('unknown_paths_are_null', () => {
-    for (const p of ['/nope', '/households/x', '/chores/', '/invite/../x', '/households/1/2', '/households/x/new-chore', '/households/1/new-chore/2']) expect(matchRoute(p), p).toBeNull();
+    for (const p of ['/nope', '/households/x', '/chores/', '/invite/../x', '/households/1/2', '/households/x/new-chore', '/households/1/new-chore/2', '/chores/7/nope', '/chores/x/edit', '/households/1/edit', '/chores/7/settings']) expect(matchRoute(p), p).toBeNull();
   });
 
   it('next_path_only_local', () => {

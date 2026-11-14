@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Avatar from './Avatar.svelte';
   import Icon from './Icon.svelte';
   import Menu from './Menu.svelte';
   import type { Me } from '../lib/api';
@@ -16,6 +17,7 @@
     ontheme,
     onnavigate,
     onlogout,
+    householdId = null,
   }: {
     title: string;
     me: Me;
@@ -27,19 +29,10 @@
     ontheme: (s: ThemeSetting) => void;
     onnavigate: (path: string) => void;
     onlogout: () => void;
+    householdId?: number | null;
   } = $props();
 
   let menuOpen = $state(false);
-  let pictureFailed = $state(false);
-
-  const initials = $derived(
-    me.display_name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => [...w][0]?.toLocaleUpperCase() ?? '')
-      .join('') || '?',
-  );
 </script>
 
 <header class="bar">
@@ -60,13 +53,9 @@
     <Icon name="menu" size={22} />
   </button>
   <a class="icon-btn avatar-link" href="/account" aria-label={t('nav.account')}>
-    {#if me.picture_url && !pictureFailed}
-      <img class="avatar" src={me.picture_url} alt="" referrerpolicy="no-referrer" onerror={() => (pictureFailed = true)} />
-    {:else}
-      <span class="avatar initials" aria-hidden="true">{initials}</span>
-    {/if}
+    <Avatar name={me.display_name} picture={me.picture_url} size={32} />
   </a>
-  <Menu open={menuOpen} onclose={() => (menuOpen = false)} {theme} {ontheme} {onnavigate} {onlogout} />
+  <Menu open={menuOpen} onclose={() => (menuOpen = false)} {theme} {ontheme} {onnavigate} {onlogout} {householdId} />
 </header>
 
 <style>
@@ -161,25 +150,7 @@
     background: var(--surface);
   }
 
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid var(--border);
-  }
-
   .avatar-link {
     text-decoration: none;
-  }
-
-  .initials {
-    display: grid;
-    place-items: center;
-    background: var(--surface);
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    font-weight: 650;
-    letter-spacing: 0.02em;
   }
 </style>

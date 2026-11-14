@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import { api, ApiError, OfflineError, ssoStartUrl, type ServerConfig } from '../lib/api';
   import { t } from '../lib/i18n';
@@ -7,8 +8,17 @@
     config,
     invite = null,
     serverError = null,
+    registration = null,
+    header,
     onSignedIn,
-  }: { config: ServerConfig; invite?: string | null; serverError?: string | null; onSignedIn: () => void } = $props();
+  }: {
+    config: ServerConfig;
+    invite?: string | null;
+    serverError?: string | null;
+    registration?: boolean | null;
+    header?: Snippet;
+    onSignedIn: (mode: 'login' | 'register') => void;
+  } = $props();
 
   const PW_AUTOCOMPLETE = { login: 'current-password', register: 'new-password' } as const;
   const SERVER_ERRORS = ['not_allowed', 'sso_failed', 'sso_unavailable'];
@@ -20,7 +30,7 @@
   let busy = $state(false);
   let failure: string | null = $state(null);
 
-  const canRegister = $derived(config.local_accounts && (config.open_registration || !!invite));
+  const canRegister = $derived(registration ?? (config.local_accounts && (config.open_registration || !!invite)));
   const shown = $derived(
     failure ?? (serverError ? t(SERVER_ERRORS.includes(serverError) ? `error.${serverError}` : 'error.generic') : null),
   );
@@ -48,7 +58,7 @@
           display_name: displayName.trim(),
           ...(invite ? { invite } : {}),
         });
-      onSignedIn();
+      onSignedIn(mode);
     } catch (e) {
       failure = message(e);
       password = '';
@@ -64,16 +74,20 @@
 </script>
 
 <main class="login">
-  <header class="brand">
-    <span class="mark"><Icon name="list-checks" size={24} /></span>
-    <h1>{t('app.name')}</h1>
-    <p class="tagline">{t('app.tagline')}</p>
-  </header>
+  {#if header}
+    {@render header()}
+  {:else}
+    <header class="brand">
+      <span class="mark"><Icon name="list-checks" size={24} /></span>
+      <h1>{t('app.name')}</h1>
+      <p class="tagline">{t('app.tagline')}</p>
+    </header>
+  {/if}
 
   <section class="card" aria-labelledby="login-title">
     <h2 id="login-title">{mode === 'login' ? t('login.title') : t('login.register_title')}</h2>
 
-    {#if invite}
+    {#if invite && !header}
       <p class="note">{t('login.invite_note')}</p>
     {/if}
 

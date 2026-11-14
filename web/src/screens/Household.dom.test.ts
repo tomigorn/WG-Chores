@@ -3,7 +3,9 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Household from './Household.svelte';
 import { api, ApiError, OfflineError, type Chore, type Completion, type Me, type ServerConfig } from '../lib/api';
-import { stopSync } from '../lib/sync';
+import { clearSnack, watchDropped } from '../lib/snack';
+import { startSync, stopSync } from '../lib/sync';
+import SnackHost from '../components/SnackHost.svelte';
 
 const config: ServerConfig = { name: 'WG Chores', local_accounts: true, open_registration: false, oidc: null, notify_times: [], tz: 'Europe/Zurich', version: 'test' };
 const me: Me = { id: 1, username: 'anna', display_name: 'Anna', kind: 'local', picture_url: null, account_url: null, last_household_id: 1, notify_due: true, notify_done: true };
@@ -11,6 +13,7 @@ const rafi = { id: 2, display_name: 'Rafi', former: false };
 
 const toilet = (): Chore => ({
   id: 7,
+  household_id: 1,
   name: 'Clean toilet',
   category: 'Bad',
   interval: '1w',
@@ -35,8 +38,12 @@ function deferred<T>() {
 const completion = (id: string, done_on: string): Completion => ({ id, done_on, note: null, by: { id: 1, display_name: 'Anna', former: false }, created_at: '' });
 
 let app: ReturnType<typeof mount> | null = null;
+let host: ReturnType<typeof mount> | null = null;
+let unwatch: (() => void) | null = null;
 
 async function open() {
+  host = mount(SnackHost, { target: document.body });
+  unwatch = watchDropped(startSync(me.id).outbox, () => 'en');
   app = mount(Household, {
     target: document.body,
     props: { hid: 1, config, me, lang: 'en', theme: 'system', ontheme: () => {}, onlogout: () => {}, onopened: () => {} },
@@ -62,7 +69,10 @@ beforeEach(() => {
 
 afterEach(() => {
   if (app) unmount(app);
-  app = null;
+  if (host) unmount(host);
+  unwatch?.();
+  app = host = unwatch = null;
+  clearSnack();
   stopSync();
   vi.restoreAllMocks();
   vi.useRealTimers();
@@ -157,6 +167,18 @@ describe('Household screen', () => {
     await open();
     vi.setSystemTime(new Date('2026-11-14T23:01:00Z'));
     button('Mark Clean toilet done').click();
+    await vi.waitFor(() => expect(complete).toHaveBeenCalled());
+    expect(complete.mock.calls[0]![1].done_on).toBe('2026-11-15');
+  });
+
+  it('long_press_sheet_uses_current_today', async () => {
+    vi.setSystemTime(new Date('2026-11-14T22:59:00Z'));
+    const complete = vi.spyOn(api, 'complete').mockImplementation(async (_c, b) => completion(b.id, b.done_on!));
+    await open();
+    vi.setSystemTime(new Date('2026-11-14T23:01:00Z'));
+    document.querySelector('.row a')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    flushSync();
+    document.querySelector('form')!.requestSubmit();
     await vi.waitFor(() => expect(complete).toHaveBeenCalled());
     expect(complete.mock.calls[0]![1].done_on).toBe('2026-11-15');
   });
