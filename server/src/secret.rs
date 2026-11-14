@@ -11,33 +11,37 @@ pub fn load_or_create(path: &Path) -> std::io::Result<[u8; 32]> {
     }
     let mut key = [0u8; 32];
     getrandom::fill(&mut key).map_err(|e| std::io::Error::other(e.to_string()))?;
+    match write_once(path, &key) {
+        Ok(()) => Ok(key),
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => check(path, std::fs::read(path)?),
+        Err(e) => Err(e),
+    }
+}
+
+/// Creates `path` with mode 0600 atomically; `AlreadyExists` if another process won the race.
+pub fn write_once(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let mut suffix = [0u8; 8];
     getrandom::fill(&mut suffix).map_err(|e| std::io::Error::other(e.to_string()))?;
     let name = path
         .file_name()
         .map_or("secret.key".into(), |n| n.to_string_lossy());
     let tmp = path.with_file_name(format!(".{name}.{:016x}.tmp", u64::from_le_bytes(suffix)));
-    let written = write_new(&tmp, &key).and_then(|()| std::fs::hard_link(&tmp, path));
+    let written = write_new(&tmp, bytes).and_then(|()| std::fs::hard_link(&tmp, path));
     let _ = std::fs::remove_file(&tmp);
-    match written {
-        Ok(()) => {
-            if let Some(dir) = path.parent() {
-                std::fs::File::open(dir)?.sync_all()?;
-            }
-            Ok(key)
-        }
-        Err(e) if e.kind() == ErrorKind::AlreadyExists => check(path, std::fs::read(path)?),
-        Err(e) => Err(e),
+    written?;
+    if let Some(dir) = path.parent() {
+        std::fs::File::open(dir)?.sync_all()?;
     }
+    Ok(())
 }
 
-fn write_new(path: &Path, key: &[u8; 32]) -> std::io::Result<()> {
+fn write_new(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let mut f = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .mode(0o600)
         .open(path)?;
-    f.write_all(key)?;
+    f.write_all(bytes)?;
     f.sync_all()
 }
 

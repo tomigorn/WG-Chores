@@ -33,11 +33,22 @@ async fn main() {
             std::process::exit(2);
         }
     };
+    let vapid_path = cfg.data_dir.join("vapid.pem");
+    let vapid = match wg_chores::notify::webpush::Vapid::load_or_create(&vapid_path) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("cannot use {}: {e}", vapid_path.display());
+            std::process::exit(2);
+        }
+    };
     let addr = cfg.listen;
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     eprintln!("listening on {addr}, public url {}", cfg.public_url);
     let mut state = AppState::new(cfg, db);
     state.secret = std::sync::Arc::new(secret); // leak-check: ok
+    state.push = std::sync::Arc::new(wg_chores::notify::Push::new(vapid));
+    wg_chores::notify::scheduler::spawn(state.clone());
+    let push = state.push.clone();
     let app = router(state);
     axum::serve(
         listener,
@@ -46,6 +57,7 @@ async fn main() {
     .with_graceful_shutdown(shutdown_signal())
     .await
     .expect("serve");
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(10), push.wait_idle()).await;
 }
 
 async fn shutdown_signal() {

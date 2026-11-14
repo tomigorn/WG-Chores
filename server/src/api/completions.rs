@@ -101,8 +101,9 @@ pub async fn create(
     let id = parse_uuid(&b.id)
         .ok_or_else(|| ApiError::bad_request("invalid_id", "The id must be a UUID."))?;
     let today = today(&st);
-    let (uid, now) = (u.id, ts(st.clock.now()));
-    st.db
+    let (uid, now, cid) = (u.id, ts(st.clock.now()), id.clone());
+    let (status, v) = st
+        .db
         .run(move |c| {
             let tx = c.transaction()?;
             if member_chore(&tx, chore, uid)?.is_none() {
@@ -143,8 +144,11 @@ pub async fn create(
             tx.commit()?;
             Ok(Ok((StatusCode::CREATED, v)))
         })
-        .await?
-        .map(|(s, v)| (s, Json(v)))
+        .await??;
+    if status == StatusCode::CREATED {
+        crate::notify::completion_created(&st, cid);
+    }
+    Ok((status, Json(v)))
 }
 
 pub async fn history(

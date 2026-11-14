@@ -40,7 +40,8 @@ impl TestApp {
         for (k, v) in pairs {
             env.insert(k.to_string(), v.to_string());
         }
-        let cfg = Config::from_env(|k| env.get(k).cloned()).unwrap();
+        let mut cfg = Config::from_env(|k| env.get(k).cloned()).unwrap();
+        cfg.push_allow_loopback_http = true;
         let clock = Arc::new(FixedClock::new(
             Utc.with_ymd_and_hms(2026, 1, 1, 12, 0, 0).unwrap(),
         ));
@@ -203,6 +204,19 @@ impl Client {
         )
         .await
     }
+}
+
+pub async fn login_as(app: &TestApp, c: &mut Client, id: i64) {
+    let sid = wg_chores::auth::session::create(
+        &app.state.db,
+        &*app.state.clock,
+        id,
+        wg_chores::auth::session::SessionKind::Web,
+    )
+    .await
+    .unwrap();
+    c.jar
+        .insert(wg_chores::auth::session::COOKIE_NAME.into(), sid);
 }
 
 pub const PW: &str = "correct horse battery";

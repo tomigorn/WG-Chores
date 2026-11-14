@@ -19,6 +19,8 @@ struct Row {
     picture_url: Option<String>,
     hash: Option<String>,
     last_household_id: Option<i64>,
+    notify_due: bool,
+    notify_done: bool,
 }
 
 async fn load(st: &AppState, id: i64) -> Result<Row, ApiError> {
@@ -28,7 +30,7 @@ async fn load(st: &AppState, id: i64) -> Result<Row, ApiError> {
             c.query_row(
                 "SELECT u.username, u.display_name, u.picture_url,
                         (SELECT password_hash FROM identities WHERE user_id = u.id AND kind = 'local'),
-                        u.last_household_id
+                        u.last_household_id, u.notify_due, u.notify_done
                  FROM users u WHERE u.id = ?1",
                 [id],
                 |r| {
@@ -38,6 +40,8 @@ async fn load(st: &AppState, id: i64) -> Result<Row, ApiError> {
                         picture_url: r.get(2)?,
                         hash: r.get(3)?,
                         last_household_id: r.get(4)?,
+                        notify_due: r.get(5)?,
+                        notify_done: r.get(6)?,
                     })
                 },
             )
@@ -58,6 +62,8 @@ fn render(st: &AppState, u: &CurrentUser, r: &Row) -> Value {
         account_url.map(|u| u.as_str()),
     );
     v["last_household_id"] = r.last_household_id.into();
+    v["notify_due"] = r.notify_due.into();
+    v["notify_done"] = r.notify_done.into();
     v
 }
 
@@ -74,6 +80,8 @@ pub struct PatchMe {
     current: Option<String>,
     #[serde(rename = "new_password")]
     new: Option<String>,
+    notify_due: Option<bool>,
+    notify_done: Option<bool>,
 }
 
 pub async fn patch(
@@ -82,13 +90,14 @@ pub async fn patch(
     u: CurrentUser,
     ApiJson(b): ApiJson<PatchMe>,
 ) -> Result<Json<Value>, ApiError> {
-    if b.display_name.is_none() && b.current.is_none() && b.new.is_none() {
+    let account_change = b.display_name.is_some() || b.current.is_some() || b.new.is_some();
+    if !account_change && b.notify_due.is_none() && b.notify_done.is_none() {
         return Err(ApiError::bad_request(
             "nothing_to_change",
             "Nothing to change.",
         ));
     }
-    if u.kind == AccountKind::Sso {
+    if account_change && u.kind == AccountKind::Sso {
         return Err(ApiError::forbidden(
             "sso_managed",
             "This account is managed by the single sign-on provider.",
@@ -131,9 +140,16 @@ pub async fn patch(
         new_hash = Some(st.hasher.hash(new).await.ok_or_else(ApiError::internal)?);
     }
     let (id, keep, dn, nh) = (u.id, u.session_hash.clone(), display_name.clone(), new_hash);
+    let (due, done) = (b.notify_due, b.notify_done);
     st.db
         .run(move |c| {
             let tx = c.transaction()?;
+            if let Some(v) = due {
+                tx.execute("UPDATE users SET notify_due = ?2 WHERE id = ?1", rusqlite::params![id, v])?;
+            }
+            if let Some(v) = done {
+                tx.execute("UPDATE users SET notify_done = ?2 WHERE id = ?1", rusqlite::params![id, v])?;
+            }
             if let Some(dn) = dn {
                 tx.execute("UPDATE users SET display_name = ?2 WHERE id = ?1", rusqlite::params![id, dn])?;
             }

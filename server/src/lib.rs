@@ -9,4 +9,5 @@ pub mod error;
 #[cfg(feature = "test-util")]
 pub mod fake_oidc;
 pub mod model;
+pub mod notify;
 pub mod secret;

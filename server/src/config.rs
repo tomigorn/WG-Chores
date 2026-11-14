@@ -89,6 +89,8 @@ pub struct Config {
     pub data_dir: PathBuf,
     pub listen: SocketAddr,
     pub trusted_proxies: Vec<IpNet>,
+    /// Lets push endpoints use plain http to loopback hosts; never set from the environment.
+    pub push_allow_loopback_http: bool,
 }
 
 fn parse_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
@@ -209,6 +211,7 @@ impl Config {
                     ConfigError::Invalid("LISTEN", e.to_string())
                 })?,
             trusted_proxies,
+            push_allow_loopback_http: false,
         })
     }
 }

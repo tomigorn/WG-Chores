@@ -4,6 +4,7 @@ pub mod config;
 pub mod households;
 pub mod invites;
 pub mod me;
+pub mod push;
 pub mod users;
 
 use crate::app::AppState;
@@ -71,5 +72,10 @@ pub fn router(state: AppState) -> Router<AppState> {
             patch(completions::patch).delete(completions::delete),
         )
         .route("/api/v1/users", get(users::search))
+        .route("/api/v1/push/key", get(push::key))
+        .route(
+            "/api/v1/push/subscriptions",
+            post(push::subscribe).delete(push::unsubscribe),
+        )
         .layer(middleware::from_fn_with_state(state, csrf::check))
 }

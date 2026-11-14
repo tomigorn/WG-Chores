@@ -3,6 +3,7 @@ use crate::auth::oidc::{self, Provider};
 use crate::clock::{Clock, SystemClock};
 use crate::config::Config;
 use crate::db::Db;
+use crate::notify::{Push, webpush::Vapid};
 use axum::{Router, routing::get};
 use std::sync::Arc;
 
@@ -14,10 +15,11 @@ pub struct AppState {
     pub hasher: Arc<Hasher>,
     pub oidc: Option<Arc<Provider>>,
     pub secret: Arc<[u8; 32]>,
+    pub push: Arc<Push>,
 }
 
 impl AppState {
-    /// Uses a random cookie secret; `main` replaces it with the persistent one.
+    /// Uses a random cookie secret and VAPID key; `main` replaces them with the persistent ones.
     pub fn new(cfg: Config, db: Db) -> AppState {
         let mut secret = [0u8; 32];
         getrandom::fill(&mut secret).expect("os randomness");
@@ -28,6 +30,7 @@ impl AppState {
             db,
             clock: Arc::new(SystemClock),
             hasher: Hasher::new(),
+            push: Arc::new(Push::new(Vapid::generate())),
         }
     }
 }
