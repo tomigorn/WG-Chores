@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from './components/Icon.svelte';
+  import Household from './screens/Household.svelte';
   import Login from './screens/Login.svelte';
   import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
   import { bootFailure } from './lib/boot';
@@ -76,6 +77,14 @@
     };
   });
 
+  $effect(() => {
+    if (me && route.name === 'home') navigate(me.last_household_id ? `/households/${me.last_household_id}` : '/households', { replace: true });
+  });
+
+  function opened(hid: number) {
+    if (me) me.last_household_id = hid;
+  }
+
   const showLogin = $derived(me === null && config !== null && (route.name === 'login' || route.name === 'invite'));
 </script>
 
@@ -93,9 +102,13 @@
       serverError={url.searchParams.get('error')}
       onSignedIn={signedIn}
     />
-  {:else if me}
+  {:else if me && config && route.name === 'household'}
+    {#key route.id}
+      <Household hid={route.id} {config} {me} {lang} {theme} ontheme={chooseTheme} onlogout={logout} onopened={opened} />
+    {/key}
+  {:else if me && route.name !== 'home'}
     <header class="bar">
-      <span class="title nowrap">{t('app.name')}</span>
+      <a class="btn" href={me.last_household_id ? `/households/${me.last_household_id}` : '/'}><Icon name="house" size={18} />{t('nav.home')}</a>
       <button class="btn" type="button" onclick={logout}><Icon name="log-out" size={18} />{t('nav.logout')}</button>
     </header>
     <main class="placeholder">
@@ -131,11 +144,6 @@
     padding: var(--s2) var(--s4);
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-  }
-
-  .title {
-    font-weight: 650;
-    font-size: var(--fs-lg);
   }
 
   .placeholder {

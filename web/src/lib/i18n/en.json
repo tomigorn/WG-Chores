@@ -67,5 +67,67 @@
     "overdue": "Overdue",
     "long_overdue": "Long overdue",
     "never": "Never done"
+  },
+  "day": {
+    "today": "today",
+    "yesterday": "yesterday",
+    "two_days": "2 days ago",
+    "on": "on {date}"
+  },
+  "badge": {
+    "days": "{n} d",
+    "never": "never",
+    "since_one": "1 day since",
+    "since_other": "{n} days since",
+    "overdue_one": "1 day overdue",
+    "overdue_other": "{n} days overdue",
+    "never_label": "never done"
+  },
+  "list": {
+    "other_category": "Other",
+    "empty_title": "No chores yet",
+    "empty_text": "Add the first thing your household keeps an eye on.",
+    "add_chore": "Add chore",
+    "mark_done": "Mark {name} done",
+    "never_done": "never done",
+    "who_when": "{who} · {when}",
+    "offline": "Offline",
+    "offline_note": "Offline – showing the last known list",
+    "loading": "Loading chores…"
+  },
+  "done": {
+    "snack": "– done {when}",
+    "undo": "Undo",
+    "other_date": "Other date",
+    "undone": "Undone",
+    "saved": "Saved",
+    "rejected": "{name} could not be saved and was removed from the queue.",
+    "connect": "Connect to the internet to save this",
+    "failed": "Could not save. Please try again."
+  },
+  "sheet": {
+    "title": "{name} – done on",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "two_days": "2 days ago",
+    "pick": "Pick date",
+    "date": "Date",
+    "note": "Note (optional)",
+    "note_placeholder": "e.g. used the new cleaner",
+    "save": "Save",
+    "cancel": "Cancel",
+    "done_on": "– done on"
+  },
+  "sync": {
+    "waiting": "{n} waiting to sync",
+    "waiting_label": "{n} done marks waiting to sync",
+    "short": "waiting to sync"
+  },
+  "menu": {
+    "open": "Menu",
+    "new_household": "New household",
+    "switch": "Switch household",
+    "your_households": "Your households",
+    "profile": "Account"
   }
 }

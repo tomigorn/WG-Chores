@@ -67,5 +67,67 @@
     "overdue": "Überfällig",
     "long_overdue": "Lange überfällig",
     "never": "Nie erledigt"
+  },
+  "day": {
+    "today": "heute",
+    "yesterday": "gestern",
+    "two_days": "vorgestern",
+    "on": "am {date}"
+  },
+  "badge": {
+    "days": "{n} T",
+    "never": "nie",
+    "since_one": "vor 1 Tag",
+    "since_other": "vor {n} Tagen",
+    "overdue_one": "1 Tag überfällig",
+    "overdue_other": "{n} Tage überfällig",
+    "never_label": "nie erledigt"
+  },
+  "list": {
+    "other_category": "Sonstiges",
+    "empty_title": "Noch keine Aufgaben",
+    "empty_text": "Füg die erste Sache hinzu, die euer Haushalt im Blick behält.",
+    "add_chore": "Aufgabe hinzufügen",
+    "mark_done": "{name} als erledigt markieren",
+    "never_done": "nie erledigt",
+    "who_when": "{who} · {when}",
+    "offline": "Offline",
+    "offline_note": "Offline – zuletzt geladene Liste",
+    "loading": "Aufgaben laden…"
+  },
+  "done": {
+    "snack": "– {when} erledigt",
+    "undo": "Rückgängig",
+    "other_date": "Anderes Datum",
+    "undone": "Rückgängig gemacht",
+    "saved": "Gespeichert",
+    "rejected": "{name} konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.",
+    "connect": "Verbinde dich mit dem Internet, um das zu speichern",
+    "failed": "Speichern hat nicht geklappt. Bitte versuch es noch einmal."
+  },
+  "sheet": {
+    "title": "{name} – erledigt am",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "two_days": "Vorgestern",
+    "pick": "Datum wählen",
+    "date": "Datum",
+    "note": "Notiz (optional)",
+    "note_placeholder": "z. B. neuen Reiniger benutzt",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "done_on": "– erledigt am"
+  },
+  "sync": {
+    "waiting": "{n} warten auf Sync",
+    "waiting_label": "{n} Erledigt-Markierungen warten auf Sync",
+    "short": "warten auf Sync"
+  },
+  "menu": {
+    "open": "Menü",
+    "new_household": "Neuer Haushalt",
+    "switch": "Haushalt wechseln",
+    "your_households": "Deine Haushalte",
+    "profile": "Konto"
   }
 }

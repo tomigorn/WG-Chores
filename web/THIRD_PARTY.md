@@ -1,7 +1,7 @@
 # Third-party material
 
 ## Lucide icons
-Source: https://lucide.dev (lucide-static 1.73.0). Copied SVG paths in `src/components/Icon.svelte`: `list-checks`, `circle-alert`, `log-out`, `wifi-off`. `log-out` is derived from Feather.
+Source: https://lucide.dev (lucide-static 1.73.0). Copied SVG paths in `src/components/Icon.svelte`: `list-checks`, `circle-alert`, `log-out`, `wifi-off`, `menu`, `chevron-down`, `check`, `plus`, `settings`, `user-round`, `house`, `calendar`, `hourglass`, `sun-moon`. `log-out` is derived from Feather.
 
 ```
 ISC License

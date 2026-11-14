@@ -78,3 +78,7 @@ export function formatDate(isoDate: string, l: Lang = lang, opts: Intl.DateTimeF
   const [y, m, d] = isoDate.split('-').map(Number);
   return f.format(new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1)));
 }
+
+export function tIn(l: Lang, key: string, params?: Record<string, string | number>): string {
+  return translate(dicts[l], key, params);
+}

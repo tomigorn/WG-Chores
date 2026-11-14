@@ -3,6 +3,7 @@ export type Route =
   | { name: 'login' }
   | { name: 'households' }
   | { name: 'household'; id: number }
+  | { name: 'new-chore'; householdId: number }
   | { name: 'chore'; id: number }
   | { name: 'invite'; token: string } // leak-check: ok
   | { name: 'settings' }
@@ -13,8 +14,9 @@ const INVITE_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 export function matchRoute(path: string): Route | null {
   const parts = path.split('/').filter((p, i, a) => p !== '' || (i > 0 && i < a.length - 1));
-  const [a, b, ...rest] = parts;
+  const [a, b, c, ...rest] = parts;
   if (rest.length) return null;
+  if (c !== undefined) return a === 'households' && b !== undefined && ID.test(b) && c === 'new-chore' ? { name: 'new-chore', householdId: Number(b) } : null;
   if (a === undefined) return { name: 'home' };
   if (b === undefined) {
     if (a === 'login' || a === 'households' || a === 'settings' || a === 'account') return { name: a };

@@ -19,6 +19,7 @@
   --radius: 8px;
   --radius-sm: 6px;
   --tap: 44px;
+  --bar-h: 56px;
   --motion: 120ms;
   --bg: light-dark(#f7f7f8, #111214);
   --surface: light-dark(#ffffff, #18191c);
@@ -223,6 +224,8 @@ input {
   font-size: var(--fs-xs);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
 }
 
 .due-fresh { background: var(--due-fresh-bg); color: var(--due-fresh-fg); }
