@@ -1,11 +1,13 @@
 pub mod config;
+pub mod households;
 pub mod me;
+pub mod users;
 
 use crate::app::AppState;
 use crate::auth::{csrf, local};
 use axum::{
     Router, middleware,
-    routing::{get, post},
+    routing::{delete, get, post, put},
 };
 
 pub fn router(state: AppState) -> Router<AppState> {
@@ -18,5 +20,24 @@ pub fn router(state: AppState) -> Router<AppState> {
             "/api/v1/me",
             get(me::get).patch(me::patch).delete(me::delete),
         )
+        .route("/api/v1/me/last-household", put(me::set_last_household))
+        .route(
+            "/api/v1/households",
+            get(households::list).post(households::create),
+        )
+        .route(
+            "/api/v1/households/{id}",
+            get(households::get).patch(households::patch),
+        )
+        .route("/api/v1/households/{id}/leave", post(households::leave))
+        .route(
+            "/api/v1/households/{id}/members",
+            get(households::members).post(households::add_member),
+        )
+        .route(
+            "/api/v1/households/{id}/members/{user_id}",
+            delete(households::remove_member),
+        )
+        .route("/api/v1/users", get(users::search))
         .layer(middleware::from_fn_with_state(state, csrf::check))
 }

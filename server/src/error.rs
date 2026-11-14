@@ -31,6 +31,14 @@ impl ApiError {
         Self::new(StatusCode::FORBIDDEN, code, message)
     }
 
+    pub fn not_found(code: &'static str, message: &'static str) -> ApiError {
+        Self::new(StatusCode::NOT_FOUND, code, message)
+    }
+
+    pub fn conflict(code: &'static str, message: &'static str) -> ApiError {
+        Self::new(StatusCode::CONFLICT, code, message)
+    }
+
     pub fn unauthenticated() -> ApiError {
         Self::new(
             StatusCode::UNAUTHORIZED,

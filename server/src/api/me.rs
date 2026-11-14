@@ -18,6 +18,7 @@ struct Row {
     display_name: String,
     picture_url: Option<String>,
     hash: Option<String>,
+    last_household_id: Option<i64>,
 }
 
 async fn load(st: &AppState, id: i64) -> Result<Row, ApiError> {
@@ -26,7 +27,8 @@ async fn load(st: &AppState, id: i64) -> Result<Row, ApiError> {
         .run(move |c| {
             c.query_row(
                 "SELECT u.username, u.display_name, u.picture_url,
-                        (SELECT password_hash FROM identities WHERE user_id = u.id AND kind = 'local')
+                        (SELECT password_hash FROM identities WHERE user_id = u.id AND kind = 'local'),
+                        u.last_household_id
                  FROM users u WHERE u.id = ?1",
                 [id],
                 |r| {
@@ -35,6 +37,7 @@ async fn load(st: &AppState, id: i64) -> Result<Row, ApiError> {
                         display_name: r.get(1)?,
                         picture_url: r.get(2)?,
                         hash: r.get(3)?,
+                        last_household_id: r.get(4)?,
                     })
                 },
             )
@@ -46,14 +49,16 @@ fn render(st: &AppState, u: &CurrentUser, r: &Row) -> Value {
     let account_url = (u.kind == AccountKind::Sso)
         .then(|| st.cfg.oidc.as_ref().and_then(|o| o.account_url.as_ref()))
         .flatten();
-    user_json(
+    let mut v = user_json(
         u.id,
         r.username.as_deref(),
         &r.display_name,
         u.kind,
         r.picture_url.as_deref(),
         account_url.map(|u| u.as_str()),
-    )
+    );
+    v["last_household_id"] = r.last_household_id.into();
+    v
 }
 
 pub async fn get(State(st): State<AppState>, u: CurrentUser) -> Result<Json<Value>, ApiError> {
@@ -195,4 +200,32 @@ pub async fn delete(
         })
         .await?;
     Ok(local::clear_session_response(StatusCode::NO_CONTENT).into_response())
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LastHousehold {
+    id: i64,
+}
+
+pub async fn set_last_household(
+    State(st): State<AppState>,
+    u: CurrentUser,
+    ApiJson(b): ApiJson<LastHousehold>,
+) -> Result<StatusCode, ApiError> {
+    let (uid, hid) = (u.id, b.id);
+    let n = st
+        .db
+        .run(move |c| {
+            c.execute(
+                "UPDATE users SET last_household_id = ?2
+                 WHERE id = ?1 AND EXISTS (SELECT 1 FROM memberships WHERE user_id = ?1 AND household_id = ?2)",
+                rusqlite::params![uid, hid],
+            )
+        })
+        .await?;
+    if n == 0 {
+        return Err(super::households::not_found());
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
