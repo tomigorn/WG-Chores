@@ -217,7 +217,7 @@ mod tests {
     #[tokio::test]
     async fn user_with_completions_cannot_be_hard_deleted() {
         let db = Db::open_memory().unwrap();
-        let failed = db
+        let failed: (bool, i64) = db
             .run(|c| {
                 c.execute_batch(
                     "INSERT INTO users (id, display_name, created_at) VALUES (1, 'n', 'x');
@@ -225,11 +225,15 @@ mod tests {
                      INSERT INTO chores (id, household_id, name, created_at) VALUES (1, 1, 'c', 'x');
                      INSERT INTO completions (id, chore_id, user_id, done_on, created_at) VALUES ('u', 1, 1, '2026-01-01', 'x');",
                 )?;
-                Ok(c.execute("DELETE FROM users WHERE id = 1", []).is_err())
+                let err = c.execute("DELETE FROM users WHERE id = 1", []).unwrap_err();
+                let fk = matches!(err, rusqlite::Error::SqliteFailure(ref e, _)
+                    if e.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_FOREIGNKEY);
+                let rows: i64 = c.query_row("SELECT count(*) FROM users WHERE id = 1", [], |r| r.get(0))?;
+                Ok((fk, rows))
             })
             .await
             .unwrap();
-        assert!(failed);
+        assert_eq!(failed, (true, 1));
     }
 
     #[tokio::test]

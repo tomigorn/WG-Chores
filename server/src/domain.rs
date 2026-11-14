@@ -71,7 +71,7 @@ pub fn due_level(days_since: Option<i64>, interval_days: i64) -> DueLevel {
     let Some(d) = days_since else {
         return DueLevel::Never;
     };
-    let iv = interval_days;
+    let iv = if interval_days > 0 { interval_days } else { 30 };
     if d * 2 < iv {
         DueLevel::Fresh
     } else if d * 5 < iv * 4 {
@@ -88,10 +88,12 @@ pub fn due_level(days_since: Option<i64>, interval_days: i64) -> DueLevel {
 }
 
 pub fn days_overdue(days_since: i64, interval_days: i64) -> i64 {
-    (days_since - interval_days).max(0)
+    let iv = if interval_days > 0 { interval_days } else { 30 };
+    (days_since - iv).max(0)
 }
 
 pub fn usual_interval(done_dates_newest_first: &[NaiveDate]) -> Option<i64> {
+    debug_assert!(done_dates_newest_first.windows(2).all(|w| w[0] >= w[1]));
     let dates = &done_dates_newest_first[..done_dates_newest_first.len().min(10)];
     if dates.len() < 3 {
         return None;
@@ -155,7 +157,7 @@ mod tests {
         let cases: Vec<UsualCase> =
             serde_json::from_str(include_str!("../../docs/test-vectors/usual-interval.json"))
                 .unwrap();
-        assert!(cases.len() >= 10);
+        assert!(cases.len() >= 20);
         for c in cases {
             assert_eq!(usual_interval(&c.dates), c.usual, "dates {:?}", c.dates);
         }
@@ -180,6 +182,27 @@ mod tests {
     fn days_overdue_floors_at_zero() {
         assert_eq!(days_overdue(5, 7), 0);
         assert_eq!(days_overdue(10, 7), 3);
+    }
+
+    #[test]
+    fn negative_days_since_is_fresh() {
+        assert_eq!(due_level(Some(-5), 7), DueLevel::Fresh);
+        assert_eq!(days_overdue(-5, 7), 0);
+    }
+
+    #[test]
+    fn non_positive_interval_uses_default() {
+        assert_eq!(due_level(Some(30), 0), DueLevel::Due);
+        assert_eq!(due_level(Some(10), -7), DueLevel::Fresh);
+        assert_eq!(days_overdue(40, 0), 10);
+    }
+
+    #[test]
+    #[should_panic]
+    #[cfg(debug_assertions)]
+    fn usual_interval_rejects_oldest_first() {
+        let d = |s: &str| s.parse::<NaiveDate>().unwrap();
+        usual_interval(&[d("2026-03-01"), d("2026-03-08"), d("2026-03-15")]);
     }
 
     #[test]
