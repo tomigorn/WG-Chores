@@ -32,8 +32,8 @@ pub async fn search(
             let mut s = c.prepare(
                 "SELECT id, display_name, username, picture_url FROM users
                  WHERE former = 0 AND id != ?1
-                   AND (instr(lower(display_name), ?2) > 0 OR instr(lower(coalesce(username, '')), ?2) > 0)
-                 ORDER BY lower(display_name), id LIMIT 20",
+                   AND (instr(ulower(display_name), ?2) > 0 OR instr(ulower(coalesce(username, '')), ?2) > 0)
+                 ORDER BY ulower(display_name), id LIMIT 20",
             )?;
             s.query_map(rusqlite::params![uid, q], |r| {
                 Ok(json!({

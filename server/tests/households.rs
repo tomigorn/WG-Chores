@@ -366,3 +366,46 @@ async fn last_household_remembered() {
         json!(null)
     );
 }
+
+#[tokio::test]
+async fn unicode_search_and_sorting() {
+    let app = TestApp::with_env(&[("MEMBER_DIRECTORY", "true")]);
+    let (mut a, _) = user(&app, "anna").await;
+    app.seed_sso_user("Ärger").await;
+    for q in ["%C3%84R", "%C3%A4r", "%C3%A4R"] {
+        let r = a.get(&format!("/api/v1/users?q={q}")).await;
+        assert_eq!(r.body.as_array().map(|v| v.len()), Some(1), "q={q}");
+    }
+    for n in ["Zürich", "älpli", "Bern"] {
+        household(&mut a, n).await;
+    }
+    let list = a.get("/api/v1/households").await;
+    let names: Vec<_> = list
+        .body
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["Bern", "Zürich", "älpli"]);
+}
+
+#[tokio::test]
+async fn member_edge_cases() {
+    let app = TestApp::with_env(&[("MEMBER_DIRECTORY", "true")]);
+    let (mut a, _) = user(&app, "anna").await;
+    let (_, bid) = user(&app, "ben").await;
+    let h = household(&mut a, "Home").await;
+    let base = format!("/api/v1/households/{h}");
+    let r = a.delete(&format!("{base}/members/{bid}"), json!({})).await;
+    assert_eq!(r.status, 404);
+    let r = a
+        .post(
+            &format!("{base}/members"),
+            json!({"user_id": bid, "username": "ben"}),
+        )
+        .await;
+    assert_eq!(r.status, 400);
+    let r = a.patch(&base, json!({"name": "  Flat  "})).await;
+    assert_eq!(r.body["name"], "Flat");
+}

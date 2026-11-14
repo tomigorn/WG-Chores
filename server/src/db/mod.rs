@@ -35,6 +35,13 @@ impl Db {
 
     fn init(mut conn: Connection) -> Result<Db> {
         conn.pragma_update(None, "foreign_keys", "ON")?;
+        conn.create_scalar_function(
+            "ulower",
+            1,
+            rusqlite::functions::FunctionFlags::SQLITE_UTF8
+                | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+            |ctx| Ok(ctx.get::<Option<String>>(0)?.map(|s| s.to_lowercase())),
+        )?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrate(&mut conn)?;
         Ok(Db {
@@ -76,6 +83,16 @@ fn migrate(conn: &mut Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn ulower_folds_unicode() {
+        let db = Db::open_memory().unwrap();
+        let v: String = db
+            .run(|c| c.query_row("SELECT ulower('ÄRGER')", [], |r| r.get(0)))
+            .await
+            .unwrap();
+        assert_eq!(v, "ärger");
+    }
 
     #[tokio::test]
     async fn migrations_apply_twice_is_noop() {

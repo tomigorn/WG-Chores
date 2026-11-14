@@ -59,7 +59,7 @@ pub async fn list(State(st): State<AppState>, u: CurrentUser) -> Result<Json<Val
             let mut s = c.prepare(
                 "SELECT h.id, h.name, (SELECT COUNT(*) FROM memberships WHERE household_id = h.id)
                  FROM households h JOIN memberships m ON m.household_id = h.id
-                 WHERE m.user_id = ?1 ORDER BY lower(h.name), h.id",
+                 WHERE m.user_id = ?1 ORDER BY ulower(h.name), h.id",
             )?;
             s.query_map([uid], |r| {
                 Ok(json!({
@@ -179,9 +179,9 @@ fn member_rows(c: &Connection, hid: i64) -> rusqlite::Result<Vec<Value>> {
         "SELECT u.id, u.display_name, u.username, u.picture_url, m.joined_at
          FROM memberships m JOIN users u ON u.id = m.user_id
          WHERE m.household_id = ?1 AND u.former = 0
-         ORDER BY lower(u.display_name), u.id",
+         ORDER BY ulower(u.display_name), u.id",
     )?;
-    s.query_map([hid], |r| Ok(member_json(r)?))?
+    s.query_map([hid], member_json)?
         .collect::<rusqlite::Result<Vec<_>>>()
 }
 
