@@ -1,7 +1,7 @@
 mod support;
 use chrono::Duration;
 use serde_json::json;
-use support::fake_oidc::{FakeOidc, FakeUser};
+use support::fake_oidc::{FakeKey, FakeOidc, FakeUser};
 use support::*;
 use wg_chores::clock::Clock;
 
@@ -438,4 +438,74 @@ async fn oidc_off_means_not_found() {
         c.get("/auth/oidc/callback?code=x&state=y").await.status,
         404
     );
+}
+
+#[tokio::test]
+async fn wrong_audience_rejected() {
+    let (fake, app) = setup(&[]).await;
+    fake.set_audience(Some("someone-else".into()));
+    let mut c = app.client();
+    assert_eq!(sso_login(&fake, &mut c).await, "/login?error=sso_failed");
+    assert_eq!(count(&app, "SELECT count(*) FROM users").await, 0);
+}
+
+#[tokio::test]
+async fn wrong_issuer_claim_rejected() {
+    let (fake, app) = setup(&[]).await;
+    fake.set_issuer_claim(Some("https://evil.example.com".into()));
+    let mut c = app.client();
+    assert_eq!(sso_login(&fake, &mut c).await, "/login?error=sso_failed");
+    assert_eq!(count(&app, "SELECT count(*) FROM users").await, 0);
+}
+
+#[tokio::test]
+async fn foreign_signing_key_rejected() {
+    let (fake, app) = setup(&[]).await;
+    fake.set_keys(FakeKey::A, FakeKey::B);
+    let mut c = app.client();
+    assert_eq!(sso_login(&fake, &mut c).await, "/login?error=sso_failed");
+    assert_eq!(count(&app, "SELECT count(*) FROM users").await, 0);
+}
+
+#[tokio::test]
+async fn expired_id_token_rejected() {
+    let (fake, app) = setup(&[]).await;
+    fake.set_now(Some(app.clock.now() - Duration::minutes(10)));
+    let mut c = app.client();
+    assert_eq!(sso_login(&fake, &mut c).await, "/login?error=sso_failed");
+    assert_eq!(count(&app, "SELECT count(*) FROM users").await, 0);
+}
+
+#[tokio::test]
+async fn rotated_provider_key_is_fetched_again() {
+    let (fake, app) = setup(&[]).await;
+    let mut c = app.client();
+    assert_eq!(sso_login(&fake, &mut c).await, "/");
+    fake.set_keys(FakeKey::B, FakeKey::B);
+    let mut c = app.client();
+    assert_eq!(sso_login(&fake, &mut c).await, "/");
+}
+
+#[tokio::test]
+async fn discovery_failure_cached_for_30_seconds() {
+    let (fake, app) = setup(&[]).await;
+    fake.set_discovery_down(true);
+    let mut c = app.client();
+    assert_eq!(
+        location(&c.get("/auth/oidc/start").await),
+        "/login?error=sso_unavailable"
+    );
+    fake.set_discovery_down(false);
+    assert_eq!(
+        location(&c.get("/auth/oidc/start").await),
+        "/login?error=sso_unavailable"
+    );
+    app.clock.advance(Duration::seconds(29));
+    assert_eq!(
+        location(&c.get("/auth/oidc/start").await),
+        "/login?error=sso_unavailable"
+    );
+    app.clock.advance(Duration::seconds(2));
+    let loc = location(&c.get("/auth/oidc/start").await);
+    assert!(loc.starts_with(fake.issuer()), "{loc}");
 }

@@ -8,7 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use chrono::Duration;
+use chrono::{DateTime, Duration, Utc};
 use hmac::{Hmac, KeyInit, Mac};
 use openidconnect::core::{
     CoreAuthDisplay, CoreAuthPrompt, CoreErrorResponseType, CoreGenderClaim, CoreJsonWebKey,
@@ -17,19 +17,19 @@ use openidconnect::core::{
     CoreTokenIntrospectionResponse, CoreTokenType,
 };
 use openidconnect::{
-    AdditionalClaims, AuthenticationFlow, AuthorizationCode, Client, ClientId, ClientSecret,
-    CsrfToken, EmptyExtraTokenFields, EndpointMaybeSet, EndpointNotSet, EndpointSet, IdTokenFields,
-    IssuerUrl, Nonce, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, RequestTokenError, Scope,
-    StandardErrorResponse, StandardTokenResponse, TokenResponse,
+    AdditionalClaims, AuthenticationFlow, AuthorizationCode, ClaimsVerificationError, Client,
+    ClientId, ClientSecret, CsrfToken, EmptyExtraTokenFields, EndpointMaybeSet, EndpointNotSet,
+    EndpointSet, IdTokenFields, IssuerUrl, Nonce, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl,
+    RequestTokenError, Scope, StandardErrorResponse, StandardTokenResponse, TokenResponse,
 };
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::sync::Arc;
-use std::time::Instant;
 
 pub const STATE_COOKIE: &str = "__Host-wgc_oidc";
 const STATE_TTL: Duration = Duration::minutes(10);
-const DISCOVERY_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
+const DISCOVERY_TTL: Duration = Duration::hours(1);
+const DISCOVERY_RETRY: Duration = Duration::seconds(30);
 const MAC_CONTEXT: &[u8] = b"wgc-oidc-state-v1.";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -85,10 +85,15 @@ impl Fail {
     }
 }
 
-/// HTTP client and the provider metadata, discovered lazily and cached for an hour.
+enum Cached {
+    Ready(DateTime<Utc>, Arc<OidcClient>),
+    Failed(DateTime<Utc>),
+}
+
+/// HTTP client and the provider metadata, discovered lazily: cached for an hour, a failure for 30 s.
 pub struct Provider {
     http: openidconnect::reqwest::Client,
-    cached: tokio::sync::Mutex<Option<(Instant, Arc<OidcClient>)>>,
+    cached: tokio::sync::Mutex<Option<Cached>>,
 }
 
 impl Provider {
@@ -107,18 +112,23 @@ impl Provider {
 
     async fn client(&self, st: &AppState, cfg: &OidcConfig) -> Result<Arc<OidcClient>, Fail> {
         let mut cached = self.cached.lock().await;
-        if let Some((at, c)) = cached.as_ref()
-            && at.elapsed() < DISCOVERY_TTL
-        {
-            return Ok(c.clone());
+        let now = st.clock.now();
+        match cached.as_ref() {
+            Some(Cached::Ready(at, c)) if now - *at < DISCOVERY_TTL => return Ok(c.clone()),
+            Some(Cached::Failed(at)) if now - *at < DISCOVERY_RETRY => {
+                return Err(Fail::Unavailable);
+            }
+            _ => {}
         }
         let issuer = IssuerUrl::new(cfg.issuer_id.clone()).map_err(|_| Fail::Unavailable)?;
-        let meta = CoreProviderMetadata::discover_async(issuer, &self.http)
-            .await
-            .map_err(|e| {
-                eprintln!("oidc discovery failed: {e}");
-                Fail::Unavailable
-            })?;
+        let meta = match CoreProviderMetadata::discover_async(issuer, &self.http).await {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("oidc discovery failed: {}", chain(&e));
+                *cached = Some(Cached::Failed(now));
+                return Err(Fail::Unavailable);
+            }
+        };
         let redirect = format!(
             "{}/auth/oidc/callback",
             st.cfg.public_url.as_str().trim_end_matches('/')
@@ -130,8 +140,12 @@ impl Provider {
         )
         .set_redirect_uri(RedirectUrl::new(redirect).map_err(|_| Fail::Unavailable)?);
         let client = Arc::new(client);
-        *cached = Some((Instant::now(), client.clone()));
+        *cached = Some(Cached::Ready(now, client.clone()));
         Ok(client)
+    }
+
+    async fn forget(&self) {
+        *self.cached.lock().await = None;
     }
 }
 
@@ -280,23 +294,41 @@ async fn finish(
     let client = p.client(st, cfg).await?;
     let token = client // leak-check: ok
         .exchange_code(AuthorizationCode::new(code))
-        .map_err(|_| Fail::Failed)?
+        .map_err(|e| {
+            eprintln!("oidc token exchange not possible: {e}");
+            Fail::Failed
+        })?
         .set_pkce_verifier(PkceCodeVerifier::new(pending.verifier))
         .request_async(&p.http)
         .await
-        .map_err(|e| match e {
-            RequestTokenError::Request(_) => Fail::Unavailable, // leak-check: ok
-            _ => Fail::Failed,
+        .map_err(|e| {
+            eprintln!("oidc token exchange failed: {}", chain(&e));
+            match e {
+                RequestTokenError::Request(_) => Fail::Unavailable, // leak-check: ok
+                _ => Fail::Failed,
+            }
         })?;
     let id_token = token.id_token().ok_or(Fail::Failed)?; // leak-check: ok
-    let clock = st.clock.clone();
-    let verifier = client.id_token_verifier().set_time_fn(move || clock.now());
-    let claims = id_token
-        .claims(&verifier, &Nonce::new(pending.nonce))
-        .map_err(|e| {
-            eprintln!("oidc id token rejected: {e}");
-            Fail::Failed
-        })?;
+    let nonce = Nonce::new(pending.nonce);
+    let verify = |c: &OidcClient| {
+        let clock = st.clock.clone();
+        let verifier = c.id_token_verifier().set_time_fn(move || clock.now());
+        id_token.claims(&verifier, &nonce)
+    };
+    let claims = match verify(&client) {
+        Err(ClaimsVerificationError::SignatureVerification(e)) => {
+            eprintln!(
+                "oidc id token signature not verified ({e}), fetching the provider keys again"
+            );
+            p.forget().await;
+            verify(&*p.client(st, cfg).await?)
+        }
+        other => other,
+    }
+    .map_err(|e| {
+        eprintln!("oidc id token rejected: {e}");
+        Fail::Failed
+    })?;
 
     if let Some(required) = &cfg.required_group {
         let member = claims
@@ -347,17 +379,33 @@ async fn finish(
         Fail::Failed
     })?;
 
-    drop_incoming_session(st, headers)
-        .await
-        .map_err(|_| Fail::Failed)?;
+    drop_incoming_session(st, headers).await.map_err(|e| {
+        eprintln!("oidc login: dropping the old session failed: {}", e.code);
+        Fail::Failed
+    })?;
     let sid = session::create(&st.db, &*st.clock, id, SessionKind::Web)
         .await
-        .map_err(|_| Fail::Failed)?;
+        .map_err(|e| {
+            eprintln!("oidc login: creating the session failed: {e}");
+            Fail::Failed
+        })?;
     let target = match pending.invite {
         Some(t) => format!("/invite/{t}"),
         None => "/".into(),
     };
     Ok((sid, target))
+}
+
+/// An error with its causes, e.g. "Request failed: client error: connection refused".
+fn chain(e: &dyn std::error::Error) -> String {
+    let mut out = e.to_string();
+    let mut cur = e.source();
+    while let Some(c) = cur {
+        out.push_str(": ");
+        out.push_str(&c.to_string());
+        cur = c.source();
+    }
+    out
 }
 
 struct User {

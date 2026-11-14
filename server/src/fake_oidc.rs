@@ -25,7 +25,32 @@ use tower_service::Service;
 
 pub const CLIENT_ID: &str = "wgc-test-client";
 pub const CLIENT_SECRET: &str = "wgc-test-client-pass";
-const KID: &str = "test-key-1";
+
+/// Two provider keys: rotate by publishing and signing with B, or sign with a key that is not published.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FakeKey {
+    A,
+    B,
+}
+
+impl FakeKey {
+    fn kid(self) -> &'static str {
+        match self {
+            FakeKey::A => "test-key-a",
+            FakeKey::B => "test-key-b",
+        }
+    }
+
+    fn private(self) -> &'static RsaPrivateKey {
+        static A: OnceLock<RsaPrivateKey> = OnceLock::new();
+        static B: OnceLock<RsaPrivateKey> = OnceLock::new();
+        let cell = match self {
+            FakeKey::A => &A,
+            FakeKey::B => &B,
+        };
+        cell.get_or_init(|| RsaPrivateKey::new(&mut rand::rngs::OsRng, 2048).expect("rsa key"))
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct FakeUser {
@@ -59,7 +84,10 @@ struct Grant {
 
 struct Inner {
     issuer: String,
-    key: &'static RsaPrivateKey,
+    keys: Mutex<(FakeKey, FakeKey)>,
+    audience: Mutex<Option<String>>,
+    issuer_claim: Mutex<Option<String>>,
+    discovery_down: Mutex<bool>,
     user: Mutex<FakeUser>,
     grants: Mutex<HashMap<String, Grant>>,
     now: Mutex<Option<DateTime<Utc>>>,
@@ -67,11 +95,6 @@ struct Inner {
 }
 
 type Shared = Arc<Inner>;
-
-fn key() -> &'static RsaPrivateKey {
-    static KEY: OnceLock<RsaPrivateKey> = OnceLock::new();
-    KEY.get_or_init(|| RsaPrivateKey::new(&mut rand::rngs::OsRng, 2048).expect("rsa key"))
-}
 
 fn random() -> String {
     let mut b = [0u8; 24];
@@ -102,7 +125,10 @@ impl FakeOidc {
         let addr = listener.local_addr()?;
         let inner = Arc::new(Inner {
             issuer: format!("http://{addr}"),
-            key: key(),
+            keys: Mutex::new((FakeKey::A, FakeKey::A)),
+            audience: Mutex::new(None),
+            issuer_claim: Mutex::new(None),
+            discovery_down: Mutex::new(false),
             user: Mutex::new(FakeUser::new("fake-user-1")),
             grants: Mutex::new(HashMap::new()),
             now: Mutex::new(None),
@@ -149,6 +175,26 @@ impl FakeOidc {
     }
 
     /// Forces this nonce into the next ID tokens instead of the requested one.
+    /// Key published in the JWKS and key used to sign ID tokens.
+    pub fn set_keys(&self, published: FakeKey, signing: FakeKey) {
+        *lock(&self.inner.keys) = (published, signing);
+    }
+
+    /// Forces this `aud` into the next ID tokens.
+    pub fn set_audience(&self, aud: Option<String>) {
+        *lock(&self.inner.audience) = aud;
+    }
+
+    /// Forces this `iss` into the next ID tokens.
+    pub fn set_issuer_claim(&self, iss: Option<String>) {
+        *lock(&self.inner.issuer_claim) = iss;
+    }
+
+    /// Discovery answers 503 while down.
+    pub fn set_discovery_down(&self, down: bool) {
+        *lock(&self.inner.discovery_down) = down;
+    }
+
     pub fn set_nonce(&self, n: Option<String>) {
         *lock(&self.inner.nonce) = n;
     }
@@ -172,7 +218,10 @@ impl FakeOidc {
     }
 }
 
-async fn discovery(State(s): State<Shared>) -> Json<Value> {
+async fn discovery(State(s): State<Shared>) -> Response {
+    if *lock(&s.discovery_down) {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     let i = &s.issuer;
     Json(json!({
         "issuer": i,
@@ -186,15 +235,17 @@ async fn discovery(State(s): State<Shared>) -> Json<Value> {
         "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
         "code_challenge_methods_supported": ["S256"],
     }))
+    .into_response()
 }
 
 async fn jwks(State(s): State<Shared>) -> Json<Value> {
-    let pk = s.key.to_public_key();
+    let published = lock(&s.keys).0;
+    let pk = published.private().to_public_key();
     Json(json!({"keys": [{
         "kty": "RSA",
         "use": "sig",
         "alg": "RS256",
-        "kid": KID,
+        "kid": published.kid(),
         "n": URL_SAFE_NO_PAD.encode(pk.n().to_bytes_be()),
         "e": URL_SAFE_NO_PAD.encode(pk.e().to_bytes_be()),
     }]}))
@@ -283,9 +334,9 @@ async fn token(
     let nonce = lock(&s.nonce).clone().or(g.nonce);
     let u = g.user;
     let mut claims = json!({
-        "iss": s.issuer,
+        "iss": lock(&s.issuer_claim).clone().unwrap_or_else(|| s.issuer.clone()),
         "sub": u.sub,
-        "aud": CLIENT_ID,
+        "aud": lock(&s.audience).clone().unwrap_or_else(|| CLIENT_ID.into()),
         "iat": now,
         "exp": now + 300,
     });
@@ -305,7 +356,7 @@ async fn token(
     if let Some(g) = u.groups {
         m.insert("groups".into(), g.into());
     }
-    let id_token = sign(s.key, &claims); // leak-check: ok
+    let id_token = sign(lock(&s.keys).1, &claims); // leak-check: ok
     Json(json!({
         "access_token": random(), // leak-check: ok
         "token_type": "Bearer", // leak-check: ok
@@ -315,14 +366,14 @@ async fn token(
     .into_response()
 }
 
-fn sign(key: &RsaPrivateKey, claims: &Value) -> String {
-    let header = json!({"alg": "RS256", "typ": "JWT", "kid": KID});
+fn sign(key: FakeKey, claims: &Value) -> String {
+    let header = json!({"alg": "RS256", "typ": "JWT", "kid": key.kid()});
     let msg = format!(
         "{}.{}",
         URL_SAFE_NO_PAD.encode(header.to_string()),
         URL_SAFE_NO_PAD.encode(claims.to_string())
     );
-    let sig = SigningKey::<RsaSha256>::new(key.clone()).sign(msg.as_bytes());
+    let sig = SigningKey::<RsaSha256>::new(key.private().clone()).sign(msg.as_bytes());
     format!("{msg}.{}", URL_SAFE_NO_PAD.encode(sig.to_bytes()))
 }
 

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "form"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "serde", "clock"] }
 chrono-tz = "0.10"
 serde = { version = "1", features = ["derive"] }
@@ -24,7 +24,7 @@ rand = { version = "0.8", optional = true }
 tower-service = { version = "0.3", optional = true }
 
 [features]
-test-util = ["dep:rsa", "dep:rand", "dep:tower-service"]
+test-util = ["dep:rsa", "dep:rand", "dep:tower-service", "axum/query", "axum/form"]
 
 [[bin]]
 name = "fake-oidc"
