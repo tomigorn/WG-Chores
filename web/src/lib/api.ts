@@ -1,3 +1,5 @@
+import type { DueLevel, IntervalCode } from './due';
+
 export interface OidcInfo {
   name: string;
   account_url: string | null;
@@ -29,8 +31,6 @@ export interface Me extends User {
   notify_due: boolean;
   notify_done: boolean;
 }
-
-import type { DueLevel, IntervalCode } from './due';
 
 export interface Household {
   id: number;
