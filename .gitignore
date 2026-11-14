@@ -14,3 +14,7 @@ docs/superpowers/
 .claude/settings.local.json
 CLAUDE.local.md
 AGENTS.md
+*.db
+*.sqlite*
+*-wal
+*-shm
