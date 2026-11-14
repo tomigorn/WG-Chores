@@ -346,9 +346,10 @@ async fn register_via_invite_refused_when_local_off() {
     let hash = wg_chores::auth::session::hash_token(&t);
     app.db(move |c| {
         c.execute("INSERT INTO households (name, created_at) VALUES ('Home', ?1)", [now])?;
+        let hid = c.last_insert_rowid();
         c.execute(
-            "INSERT INTO invites (token_hash, household_id, created_by, created_at, expires_at) VALUES (?1, 1, ?2, ?3, '2026-01-08T12:00:00.000Z')",
-            rusqlite::params![hash, sso, now],
+            "INSERT INTO invites (token_hash, household_id, created_by, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, '2026-01-08T12:00:00.000Z')",
+            rusqlite::params![hash, hid, sso, now],
         )
     })
     .await;
@@ -493,5 +494,89 @@ async fn deleting_household_removes_invites() {
             .await
             .status,
         404
+    );
+}
+
+async fn assert_cancelled(app: &TestApp, t: &str) {
+    let p = app.client().get(&format!("/api/v1/invites/{t}")).await;
+    assert_eq!(
+        (p.body["valid"].clone(), p.body["reason"].clone()),
+        (json!(false), json!("cancelled"))
+    );
+    let (mut c, _) = user(
+        app,
+        &format!("late{}", t[..6].to_lowercase().replace(['-', '_'], "x")),
+    )
+    .await;
+    let r = c.post(&accept(t), json!({})).await;
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (410, Some("invite_cancelled"))
+    );
+}
+
+#[tokio::test]
+async fn removed_member_invites_cancelled() {
+    let app = TestApp::new();
+    let (mut a, _) = user(&app, "anna").await;
+    let (mut b, bid) = user(&app, "ben").await;
+    let h = household(&mut a, "Home").await;
+    let (_, tb) = invite(&mut a, h).await;
+    assert_eq!(b.post(&accept(&tb), json!({})).await.status, 200);
+    let (_, t_ben) = invite(&mut b, h).await;
+    let (_, t_anna) = invite(&mut a, h).await;
+    let r = a
+        .delete(&format!("/api/v1/households/{h}/members/{bid}"), json!({}))
+        .await;
+    assert_eq!(r.status, 204);
+    assert_cancelled(&app, &t_ben).await;
+    assert_eq!(
+        app.client()
+            .get(&format!("/api/v1/invites/{t_anna}"))
+            .await
+            .body["valid"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn leaving_member_invites_cancelled() {
+    let app = TestApp::new();
+    let (mut a, _) = user(&app, "anna").await;
+    let (mut b, _) = user(&app, "ben").await;
+    let h = household(&mut a, "Home").await;
+    let (_, tb) = invite(&mut a, h).await;
+    assert_eq!(b.post(&accept(&tb), json!({})).await.status, 200);
+    let (_, t_ben) = invite(&mut b, h).await;
+    assert_eq!(
+        b.post(&format!("/api/v1/households/{h}/leave"), json!({}))
+            .await
+            .status,
+        204
+    );
+    assert_cancelled(&app, &t_ben).await;
+}
+
+#[tokio::test]
+async fn deleted_account_invites_cancelled() {
+    let app = TestApp::new();
+    let (mut a, _) = user(&app, "anna").await;
+    let (mut b, _) = user(&app, "ben").await;
+    let h = household(&mut a, "Home").await;
+    let (_, tb) = invite(&mut a, h).await;
+    assert_eq!(b.post(&accept(&tb), json!({})).await.status, 200);
+    let (_, t_ben) = invite(&mut b, h).await;
+    let (_, t_anna) = invite(&mut a, h).await;
+    let r = b
+        .delete("/api/v1/me", json!({"confirm_username": "ben"}))
+        .await;
+    assert_eq!(r.status, 204);
+    assert_cancelled(&app, &t_ben).await;
+    assert_eq!(
+        app.client()
+            .get(&format!("/api/v1/invites/{t_anna}"))
+            .await
+            .body["valid"],
+        true
     );
 }

@@ -1,3 +1,4 @@
+use crate::api::households::is_member;
 use crate::app::AppState;
 use crate::auth::CurrentUser;
 use crate::auth::session::{hash_token, ts};
@@ -35,16 +36,6 @@ pub fn token_hash(raw: &str) -> Result<String, ApiError> {
     } else {
         Err(not_found())
     }
-}
-
-fn is_member(c: &Connection, hid: i64, uid: i64) -> rusqlite::Result<bool> {
-    c.query_row(
-        "SELECT 1 FROM memberships WHERE household_id = ?1 AND user_id = ?2",
-        [hid, uid],
-        |_| Ok(()),
-    )
-    .optional()
-    .map(|o| o.is_some())
 }
 
 #[derive(Clone, Copy, PartialEq)]

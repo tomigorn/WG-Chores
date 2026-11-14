@@ -30,7 +30,7 @@ fn household_json(c: &Connection, id: i64) -> rusqlite::Result<Value> {
     )
 }
 
-fn is_member(c: &Connection, hid: i64, uid: i64) -> rusqlite::Result<bool> {
+pub(crate) fn is_member(c: &Connection, hid: i64, uid: i64) -> rusqlite::Result<bool> {
     c.query_row(
         "SELECT 1 FROM memberships WHERE household_id = ?1 AND user_id = ?2",
         [hid, uid],
@@ -290,6 +290,7 @@ async fn remove(
     target: i64,
     confirm: bool,
 ) -> Result<StatusCode, ApiError> {
+    let now = ts(st.clock.now());
     st.db
         .run(move |c| {
             let tx = c.transaction()?;
@@ -313,6 +314,10 @@ async fn remove(
                 tx.execute(
                     "DELETE FROM memberships WHERE household_id = ?1 AND user_id = ?2",
                     [hid, target],
+                )?;
+                tx.execute(
+                    "UPDATE invites SET cancelled_at = ?3 WHERE household_id = ?1 AND created_by = ?2 AND used_at IS NULL AND cancelled_at IS NULL",
+                    params![hid, target, now],
                 )?;
                 tx.execute(
                     "UPDATE users SET last_household_id = NULL WHERE id = ?1 AND last_household_id = ?2",

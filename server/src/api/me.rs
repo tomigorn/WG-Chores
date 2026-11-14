@@ -184,6 +184,10 @@ pub async fn delete(
     st.db
         .run(move |c| {
             let tx = c.transaction()?;
+            tx.execute(
+                "UPDATE invites SET cancelled_at = ?2 WHERE created_by = ?1 AND used_at IS NULL AND cancelled_at IS NULL",
+                rusqlite::params![id, now],
+            )?;
             for sql in [
                 "DELETE FROM identities WHERE user_id = ?1",
                 "DELETE FROM sessions WHERE user_id = ?1",
