@@ -509,3 +509,35 @@ async fn discovery_failure_cached_for_30_seconds() {
     let loc = location(&c.get("/auth/oidc/start").await);
     assert!(loc.starts_with(fake.issuer()), "{loc}");
 }
+
+#[tokio::test]
+async fn failed_login_from_invite_keeps_invite() {
+    let (fake, app) = setup(&[("OIDC_REQUIRED_GROUP", "WG")]).await;
+    let mut u = FakeUser::new("outsider");
+    u.groups = Some(vec!["Family".into()]);
+    fake.set_user(u);
+    let mut c = app.client();
+    let cb = callback_url(&fake, &mut c, "/auth/oidc/start?invite=abc_DEF-123").await;
+    assert_eq!(
+        location(&c.get(&cb).await),
+        "/login?error=not_allowed&invite=abc_DEF-123"
+    );
+    let mut c = app.client();
+    let cb = callback_url(&fake, &mut c, "/auth/oidc/start?invite=..%2Fevil").await;
+    assert_eq!(location(&c.get(&cb).await), "/login?error=not_allowed");
+}
+
+#[tokio::test]
+async fn unreachable_provider_from_invite_keeps_invite() {
+    let app = TestApp::with_env(&[
+        ("OIDC_ISSUER", "http://127.0.0.1:9"),
+        ("OIDC_CLIENT_ID", "id"),
+        ("OIDC_CLIENT_SECRET", "s"),
+    ]);
+    let mut c = app.client();
+    let r = c.get("/auth/oidc/start?invite=abc_DEF-123").await;
+    assert_eq!(
+        location(&r),
+        "/login?error=sso_unavailable&invite=abc_DEF-123"
+    );
+}

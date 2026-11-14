@@ -214,8 +214,12 @@ fn redirect(to: &str, cookies: &[String]) -> Response {
     res
 }
 
-fn to_login(f: Fail, cookies: &[String]) -> Response {
-    redirect(&format!("/login?error={}", f.code()), cookies)
+fn to_login(f: Fail, invite: Option<&str>, cookies: &[String]) -> Response {
+    let to = match invite.filter(|t| valid_invite(t)) {
+        Some(t) => format!("/login?error={}&invite={t}", f.code()),
+        None => format!("/login?error={}", f.code()),
+    };
+    redirect(&to, cookies)
 }
 
 fn query_param(q: &Option<String>, name: &str) -> Option<String> {
@@ -228,9 +232,10 @@ pub async fn start(State(st): State<AppState>, RawQuery(q): RawQuery) -> Respons
     let (Some(cfg), Some(p)) = (st.cfg.oidc.as_ref(), st.oidc.as_ref()) else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    let invite = query_param(&q, "invite");
     let client = match p.client(&st, cfg).await {
         Ok(c) => c,
-        Err(f) => return to_login(f, &[]),
+        Err(f) => return to_login(f, invite.as_deref(), &[]),
     };
     let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
     let (url, state, nonce) = client
@@ -248,7 +253,7 @@ pub async fn start(State(st): State<AppState>, RawQuery(q): RawQuery) -> Respons
         state: state.secret().clone(),
         nonce: nonce.secret().clone(),
         verifier: verifier.secret().clone(),
-        invite: query_param(&q, "invite").filter(|t| valid_invite(t)),
+        invite: invite.filter(|t| valid_invite(t)),
         exp: (st.clock.now() + STATE_TTL).timestamp(),
     };
     let cookie = state_cookie(&seal(&st.secret, &pending), STATE_TTL.num_seconds());
@@ -266,7 +271,12 @@ pub async fn callback(
     let clear = state_cookie("", 0);
     match finish(&st, cfg, p, &headers, &q).await {
         Ok((sid, target)) => redirect(&target, &[clear, session::set_cookie(&sid)]),
-        Err(f) => to_login(f, &[clear]),
+        Err(f) => {
+            let invite = super::cookie(&headers, STATE_COOKIE)
+                .and_then(|raw| open(&st.secret, &raw))
+                .and_then(|p| p.invite);
+            to_login(f, invite.as_deref(), &[clear])
+        }
     }
 }
 

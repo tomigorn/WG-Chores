@@ -53,7 +53,7 @@ Config is by environment variables, see `server/src/config.rs`.
 | Scopes requested | `openid profile email groups` |
 | Client type | confidential, authorization code + PKCE (S256), ID token signed RS256 |
 | Login start | `GET /auth/oidc/start` (optional `?invite=<token>`) |
-| Errors | redirect to `/login?error=not_allowed` (group missing), `sso_failed`, `sso_unavailable` (retried after 30 s); details in the server log |
+| Errors | redirect to `/login?error=not_allowed` (group missing), `sso_failed`, `sso_unavailable` (retried after 30 s); details in the server log; a login started from an invite adds `&invite=<token>` |
 
 Authentik: the provider needs a signing key (RS256; without one it signs HS256, which is refused) and the `groups` claim in the ID token (scope mapping for `groups`, "Include claims in id_token" on).
 Two login tabs at once: only the one started last can finish; the other returns `sso_failed`.
