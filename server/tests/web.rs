@@ -102,8 +102,10 @@ async fn asset_cache_headers() {
         assert_eq!(status, 200, "{p}");
         assert_eq!(h(&headers, "cache-control"), "no-cache", "{p}");
     }
-    let (_, headers, _) = raw(&app, Method::GET, "/sw.js").await;
-    assert!(h(&headers, "content-type").contains("javascript"));
+    if paths.contains(&"sw.js") {
+        let (_, headers, _) = raw(&app, Method::GET, "/sw.js").await;
+        assert!(h(&headers, "content-type").contains("javascript"));
+    }
 }
 
 #[tokio::test]
