@@ -6,6 +6,59 @@ use wg_chores::{
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let cmd = match wg_chores::cli::parse(&args) {
+        Ok(c) => c,
+        Err(u) => {
+            eprintln!("error: {}\n{}\n{}", u.message, u.usage, u.hint);
+            std::process::exit(2);
+        }
+    };
+    match cmd {
+        wg_chores::cli::Command::Serve => serve().await,
+        cmd => admin(cmd).await,
+    }
+}
+
+async fn admin(cmd: wg_chores::cli::Command) {
+    use wg_chores::cli::{Command, Ctx};
+    let help = matches!(cmd, Command::Help(_));
+    let name = match &cmd {
+        Command::MigrateV1 { .. } => "migrate-v1",
+        Command::Backup { .. } => "backup",
+        Command::CreateUser { .. } => "create-user",
+        Command::DemoReset => "demo-reset",
+        _ => "",
+    };
+    let ctx = Ctx {
+        get: Box::new(|k| std::env::var(k).ok()),
+        hasher: wg_chores::auth::local::Hasher::new(),
+        now: chrono::Utc::now(),
+        prompt_password: Box::new(prompt_password), // leak-check: ok
+    };
+    match wg_chores::cli::run(cmd, ctx).await {
+        Ok(out) => println!("{out}"),
+        Err(e) if help => eprintln!("{e}"),
+        Err(e) => {
+            eprintln!("error: {e}\nNext: wg-chores {name} --help");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn prompt_password() -> Result<String, String> {
+    let first =
+        rpassword::prompt_password("Password: ") // leak-check: ok
+            .map_err(|e| format!("cannot read the password: {e}; use --password-file"))?;
+    let second = rpassword::prompt_password("Repeat password: ").map_err(|e| e.to_string())?; // leak-check: ok
+    if first == second {
+        Ok(first)
+    } else {
+        Err("the passwords do not match".into())
+    }
+}
+
+async fn serve() {
     let cfg = match Config::from_env(|k| std::env::var(k).ok()) {
         Ok(c) => c,
         Err(e) => {

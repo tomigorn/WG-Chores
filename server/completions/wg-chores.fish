@@ -1,0 +1,15 @@
+complete -c wg-chores -f
+set -l cmds serve migrate-v1 backup create-user demo-reset
+complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a serve -d 'Run the server (default)'
+complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a migrate-v1 -d 'Import one household from a v1 SQLite file'
+complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a backup -d 'Write a consistent copy of the database'
+complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a create-user -d 'Create a local account'
+complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a demo-reset -d 'Wipe all data and load the demo data (DEMO_MODE=true)'
+complete -c wg-chores -s h -l help -d 'Show help'
+complete -c wg-chores -n '__fish_seen_subcommand_from migrate-v1' -l from -r -F -d 'The v1 database file'
+complete -c wg-chores -n '__fish_seen_subcommand_from migrate-v1' -l household -x -d 'v1 household id or exact name'
+complete -c wg-chores -n '__fish_seen_subcommand_from migrate-v1' -l map -x -d 'old=username, repeatable or comma-separated'
+complete -c wg-chores -n '__fish_seen_subcommand_from migrate-v1 backup' -l force -d 'Overwrite / import again'
+complete -c wg-chores -n '__fish_seen_subcommand_from backup' -F -d 'Target file'
+complete -c wg-chores -n '__fish_seen_subcommand_from create-user' -l display-name -x -d 'Display name (default: the username)'
+complete -c wg-chores -n '__fish_seen_subcommand_from create-user' -l password-file -r -F -d 'Read the password from this file'

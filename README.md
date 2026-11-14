@@ -78,5 +78,18 @@ It prints the `OIDC_*` values to use.
 | Compression | gzip for text types (html, js, css, json, svg, webmanifest) of the embedded web files only, never API JSON or images/fonts |
 | API doc | `GET /api/v1/openapi.json` = hand-kept `server/openapi.json`; the test `openapi_lists_all_routes` fails when a route or method is missing or extra |
 
+## Admin commands
+`wg-chores <command> --help` shows flags and examples. Commands other than `serve` read only `DATA_DIR` and `TZ` (plus the variables named below), not `PUBLIC_URL`.
+
+| Command | What |
+|---|---|
+| `serve` | run the server (default) |
+| `migrate-v1 --from v1.db --household <id\|name> --map old=user[,…] [--force]` | import ONE household from a copy of the v1 file (opened read-only, one transaction); `--map` is repeatable, matches v1 member names and history names case-insensitively, targets must be active v2 users (else nothing is written); unmapped names become former members; room → category (empty → "Other"); `DoneAt` without offset = UTC, day in `TZ`; a same-named v2 household refuses the import unless `--force` |
+| `backup <file> [--force]` | online backup of `DATA_DIR/wg-chores.db` (safe while running); refuses to overwrite without `--force` |
+| `create-user <username> [--display-name N] [--password-file F]` | local account, same rules as registration; password asked twice without echo, or from a file; works with `LOCAL_ACCOUNTS=false` but warns |
+| `demo-reset` | needs `DEMO_MODE=true` and `DEMO_PASSWORD_FILE`; deletes ALL data, creates `reviewer`, household "Demo WG", 10 sample chores in 4 categories with history |
+
+Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/completions/`) and `wg-chores.bash` (source it).
+
 ## Operations
 - Edit data through the app or API, not with a plain `sqlite3` client: the `categories` table has a unique index on `ulower(name)`, a function only the server registers, so writes to it fail elsewhere.

@@ -1,14 +1,17 @@
 pub mod api;
 pub mod app;
 pub mod auth;
+pub mod cli;
 pub mod clock;
 pub mod config;
 pub mod db;
+pub mod demo;
 pub mod domain;
 pub mod error;
 #[cfg(feature = "test-util")]
 pub mod fake_oidc;
 pub mod headers;
+pub mod migrate_v1;
 pub mod model;
 pub mod notify;
 pub mod openapi;
