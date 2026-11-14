@@ -1,0 +1,160 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import Icon from './components/Icon.svelte';
+  import Login from './screens/Login.svelte';
+  import { api, OfflineError, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
+  import { currentLanguage, onLanguage, t } from './lib/i18n';
+  import { currentRoute, navigate, onRoute, rememberNext, startRouter, takeNext, type Route } from './lib/router';
+  import { setTheme, themeSetting, type ThemeSetting } from './lib/theme';
+
+  const start = currentRoute();
+  let route: Route = $state(start.route);
+  let url: URL = $state(start.url);
+  let lang = $state(currentLanguage());
+  let config: ServerConfig | null = $state(null);
+  let me: Me | null | undefined = $state(undefined);
+  let failed: 'error.offline' | 'error.generic' | null = $state(null);
+  let theme: ThemeSetting = $state(themeSetting());
+
+  function toLogin() {
+    me = null;
+    if (route.name === 'invite' || route.name === 'login') return;
+    rememberNext(location.pathname + location.search);
+    navigate('/login', { replace: true });
+  }
+
+  async function boot() {
+    failed = null;
+    try {
+      config ??= await api.config();
+      me = await api.me();
+      // SSO returns to /, so the page wanted before sign-in is picked up here too
+      const next = takeNext();
+      if (route.name === 'login' || (route.name === 'home' && next !== '/')) navigate(next, { replace: true });
+    } catch (e) {
+      if (e instanceof OfflineError) failed = 'error.offline';
+      else if (config === null) failed = 'error.generic';
+      else if (me === undefined) me = null;
+    }
+  }
+
+  async function signedIn() {
+    me = await api.me().catch(() => null);
+    if (me && route.name !== 'invite') navigate(takeNext(), { replace: true });
+  }
+
+  async function logout() {
+    try {
+      await api.logout();
+    } finally {
+      me = null;
+      navigate('/login', { replace: true });
+    }
+  }
+
+  function chooseTheme(s: ThemeSetting) {
+    theme = s;
+    setTheme(s);
+  }
+
+  onMount(() => {
+    setUnauthenticatedHandler(toLogin);
+    startRouter();
+    const offRoute = onRoute((r, u) => {
+      route = r;
+      url = u;
+    });
+    const offLang = onLanguage((l) => (lang = l));
+    const online = () => failed && boot();
+    addEventListener('online', online);
+    boot();
+    return () => {
+      offRoute();
+      offLang();
+      removeEventListener('online', online);
+    };
+  });
+
+  const showLogin = $derived(me === null && config !== null && (route.name === 'login' || route.name === 'invite'));
+</script>
+
+{#key lang}
+  {#if failed}
+    <main class="center">
+      <Icon name={failed === 'error.offline' ? 'wifi-off' : 'circle-alert'} size={28} />
+      <p>{t(failed)}</p>
+      <button class="btn" type="button" onclick={boot}>{t('common.retry')}</button>
+    </main>
+  {:else if showLogin && config}
+    <Login
+      {config}
+      invite={route.name === 'invite' ? route.token : null}
+      serverError={url.searchParams.get('error')}
+      onSignedIn={signedIn}
+    />
+  {:else if me}
+    <header class="bar">
+      <span class="title nowrap">{t('app.name')}</span>
+      <button class="btn" type="button" onclick={logout}><Icon name="log-out" size={18} />{t('nav.logout')}</button>
+    </header>
+    <main class="placeholder">
+      <p class="muted">{t('common.signed_in_as', { name: me.display_name })}</p>
+      <p class="muted">{t('common.coming_soon')}</p>
+      <div class="seg" role="group" aria-label={t('theme.label')}>
+        {#each ['system', 'light', 'dark'] as const as s (s)}
+          <button class="btn" class:on={theme === s} type="button" aria-pressed={theme === s} onclick={() => chooseTheme(s)}>{t(`theme.${s}`)}</button>
+        {/each}
+      </div>
+    </main>
+  {/if}
+{/key}
+
+<style>
+  .center {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s4);
+    padding: var(--s6);
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
+    padding: var(--s2) var(--s4);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .title {
+    font-weight: 650;
+    font-size: var(--fs-lg);
+  }
+
+  .placeholder {
+    padding: var(--s6) var(--s4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .seg {
+    display: flex;
+    gap: var(--s2);
+  }
+
+  .seg .on {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

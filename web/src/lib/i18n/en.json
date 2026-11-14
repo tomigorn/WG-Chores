@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "WG Chores",
+    "tagline": "Who did what, and how long ago."
+  },
+  "login": {
+    "title": "Sign in",
+    "sso": "Sign in with {name}",
+    "or": "or",
+    "username": "Username",
+    "pw": "Password",
+    "submit": "Sign in",
+    "create_account": "Create account",
+    "have_account": "Already have an account? Sign in",
+    "register_title": "Create account",
+    "display_name": "Your name",
+    "display_name_hint": "Shown to your housemates",
+    "new_pw_hint": "At least 12 characters",
+    "register_submit": "Create account",
+    "invite_note": "Sign in to join the household you were invited to.",
+    "nothing_enabled": "This server has no sign-in method enabled. Ask its admin."
+  },
+  "error": {
+    "not_allowed": "Your account is not allowed on this server. Ask its admin to add you to the right group.",
+    "sso_failed": "Signing in did not work. Please try again.",
+    "sso_unavailable": "The sign-in service is not reachable right now. Try again in a minute.",
+    "invalid_credentials": "Wrong username or password.",
+    "too_many_attempts": "Too many attempts. Try again in a few minutes.",
+    "local_accounts_disabled": "Username and password sign-in is turned off on this server.",
+    "registration_closed": "This server does not accept new accounts.",
+    "invalid_username": "Usernames are 3 to 32 characters: a–z, 0–9, dot, underscore, hyphen.",
+    "username_taken": "This username is already taken.",
+    "password_too_short": "The password needs at least 12 characters.",
+    "password_too_long": "The password is too long.",
+    "invalid_display_name": "Your name needs 1 to 60 characters.",
+    "invite_used": "This invite link was already used.",
+    "invite_expired": "This invite link has expired.",
+    "invite_cancelled": "This invite link was cancelled.",
+    "invite_not_found": "This invite link is not valid.",
+    "offline": "No connection. Check your internet and try again.",
+    "generic": "Something went wrong. Please try again."
+  },
+  "nav": {
+    "households": "My households",
+    "settings": "Settings",
+    "account": "Account",
+    "logout": "Sign out",
+    "home": "Chores"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "signed_in_as": "Signed in as {name}",
+    "coming_soon": "This screen is not built yet."
+  },
+  "due": {
+    "fresh": "Done recently",
+    "soon": "Due soon",
+    "close": "Almost due",
+    "due": "Due",
+    "overdue": "Overdue",
+    "long_overdue": "Long overdue",
+    "never": "Never done"
+  }
+}

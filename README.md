@@ -68,6 +68,31 @@ curl -X POST -H 'content-type: application/json' localhost:8081/_test/user \
 ```
 It prints the `OIDC_*` values to use.
 
+## Web app (`web/`)
+Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
+
+| Command (in `web/`) | What |
+|---|---|
+| `npm ci` | install |
+| `npm run dev` | dev server on :5173; `/api` and `/auth` go to `WGC_SERVER` (default `http://localhost:8080`) |
+| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme) |
+| `npm run check` | svelte-check (types) |
+| `npm run build` | `web/dist`, then `touch ../server/build.rs` and rebuild the server to embed it |
+
+Dev with a local server:
+```
+cd server && PUBLIC_URL=http://localhost:8080 DATA_DIR=./data OPEN_REGISTRATION=true cargo run
+cd web && npm run dev
+```
+
+| Topic | Detail |
+|---|---|
+| Routes | `/`, `/login`, `/households`, `/households/:id`, `/chores/:id`, `/invite/:token`, `/settings`, `/account`; unknown → `/` |
+| API client | `src/lib/api.ts`: always `X-WGC: 1`, same-origin cookie; `401 unauthenticated` → `/login` (back to the intended page after sign-in), network or gateway failure → `OfflineError`; never a "session expired" dialog |
+| Language | setting in `localStorage` `wgc.lang`, else browser language (`de*` → German); texts in `src/lib/i18n/{en,de}.json` (same keys, Swiss "ss") |
+| Theme | `localStorage` `wgc.theme` (`light`/`dark`, none = system); tokens incl. due colours in `src/app.css` |
+| Icons | Lucide, copied paths only; licences in `web/THIRD_PARTY.md` |
+
 ## Web app, headers, API doc
 | Topic | Detail |
 |---|---|

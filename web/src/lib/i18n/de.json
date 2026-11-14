@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "WG Chores",
+    "tagline": "Wer hat was gemacht, und wann."
+  },
+  "login": {
+    "title": "Anmelden",
+    "sso": "Mit {name} anmelden",
+    "or": "oder",
+    "username": "Benutzername",
+    "pw": "Passwort",
+    "submit": "Anmelden",
+    "create_account": "Konto erstellen",
+    "have_account": "Schon ein Konto? Anmelden",
+    "register_title": "Konto erstellen",
+    "display_name": "Dein Name",
+    "display_name_hint": "Für deine Mitbewohner sichtbar",
+    "new_pw_hint": "Mindestens 12 Zeichen",
+    "register_submit": "Konto erstellen",
+    "invite_note": "Melde dich an, um dem Haushalt beizutreten, zu dem du eingeladen wurdest.",
+    "nothing_enabled": "Auf diesem Server ist keine Anmeldung eingerichtet. Frag die Administration."
+  },
+  "error": {
+    "not_allowed": "Dein Konto ist auf diesem Server nicht zugelassen. Bitte die Administration, dich der richtigen Gruppe hinzuzufügen.",
+    "sso_failed": "Die Anmeldung hat nicht geklappt. Bitte versuch es noch einmal.",
+    "sso_unavailable": "Der Anmeldedienst ist gerade nicht erreichbar. Versuch es in einer Minute wieder.",
+    "invalid_credentials": "Benutzername oder Passwort falsch.",
+    "too_many_attempts": "Zu viele Versuche. Versuch es in ein paar Minuten wieder.",
+    "local_accounts_disabled": "Die Anmeldung mit Benutzername und Passwort ist auf diesem Server ausgeschaltet.",
+    "registration_closed": "Dieser Server nimmt keine neuen Konten an.",
+    "invalid_username": "Benutzernamen haben 3 bis 32 Zeichen: a–z, 0–9, Punkt, Unterstrich, Bindestrich.",
+    "username_taken": "Dieser Benutzername ist schon vergeben.",
+    "password_too_short": "Das Passwort braucht mindestens 12 Zeichen.",
+    "password_too_long": "Das Passwort ist zu lang.",
+    "invalid_display_name": "Dein Name braucht 1 bis 60 Zeichen.",
+    "invite_used": "Dieser Einladungslink wurde schon benutzt.",
+    "invite_expired": "Dieser Einladungslink ist abgelaufen.",
+    "invite_cancelled": "Dieser Einladungslink wurde zurückgezogen.",
+    "invite_not_found": "Dieser Einladungslink ist ungültig.",
+    "offline": "Keine Verbindung. Prüf dein Internet und versuch es noch einmal.",
+    "generic": "Etwas ist schiefgelaufen. Bitte versuch es noch einmal."
+  },
+  "nav": {
+    "households": "Meine Haushalte",
+    "settings": "Einstellungen",
+    "account": "Konto",
+    "logout": "Abmelden",
+    "home": "Aufgaben"
+  },
+  "theme": {
+    "label": "Design",
+    "system": "System",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
+  "common": {
+    "loading": "Lädt…",
+    "retry": "Noch einmal",
+    "signed_in_as": "Angemeldet als {name}",
+    "coming_soon": "Diese Seite gibt es noch nicht."
+  },
+  "due": {
+    "fresh": "Kürzlich erledigt",
+    "soon": "Bald fällig",
+    "close": "Fast fällig",
+    "due": "Fällig",
+    "overdue": "Überfällig",
+    "long_overdue": "Lange überfällig",
+    "never": "Nie erledigt"
+  }
+}
