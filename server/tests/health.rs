@@ -9,7 +9,10 @@ async fn healthz_returns_ok() {
     let cfg =
         Config::from_env(|k| (k == "PUBLIC_URL").then(|| "https://chores.example.com".to_string()))
             .unwrap();
-    let app = router(AppState { cfg: Arc::new(cfg) });
+    let app = router(AppState {
+        cfg: Arc::new(cfg),
+        db: wg_chores::db::Db::open_memory().unwrap(),
+    });
     let res = app
         .oneshot(Request::get("/healthz").body(Body::empty()).unwrap())
         .await
