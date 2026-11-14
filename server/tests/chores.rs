@@ -310,3 +310,30 @@ async fn membership_db_error_is_500_not_404() {
         .await;
     assert_eq!(r.status, 500);
 }
+
+#[tokio::test]
+async fn get_one_chore_with_household() {
+    let app = TestApp::new();
+    let (mut a, _) = signup(&app, "anna").await;
+    let h = new_household(&mut a, "Home").await;
+    let c = new_chore(&mut a, h, json!({"name": "Bins", "interval": "1w"})).await;
+    assert_eq!(done(&mut a, c, 1, "2025-12-25").await.status, 201);
+    let r = a.get(&format!("/api/v1/chores/{c}")).await;
+    assert_eq!(r.status, 200);
+    assert_eq!(r.body["id"], c);
+    assert_eq!(r.body["household_id"], h);
+    assert_eq!(r.body["name"], "Bins");
+    assert_eq!(r.body["days_since"], 7);
+    a.post(&format!("/api/v1/chores/{c}/archive"), json!({}))
+        .await;
+    let r = a.get(&format!("/api/v1/chores/{c}")).await;
+    assert_eq!(r.status, 200);
+    assert_eq!(r.body["archived"], true);
+    let list = a
+        .get(&format!("/api/v1/households/{h}/chores?archived=true"))
+        .await;
+    assert_eq!(list.body[0]["household_id"], h);
+    let mut b = signup(&app, "ben").await.0;
+    assert_eq!(b.get(&format!("/api/v1/chores/{c}")).await.status, 404);
+    assert_eq!(a.get("/api/v1/chores/9999").await.status, 404);
+}

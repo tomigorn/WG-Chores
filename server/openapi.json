@@ -152,6 +152,50 @@
    }
   },
   "/api/v1/chores/{id}": {
+   "get": {
+    "summary": "One chore with its household id",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Chore"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "chore id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
    "patch": {
     "summary": "Edit a chore",
     "tags": [

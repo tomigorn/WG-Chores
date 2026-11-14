@@ -60,7 +60,7 @@ pub fn router(state: AppState) -> Router<AppState> {
             "/api/v1/households/{id}/categories",
             get(chores::categories).patch(chores::rename_category),
         )
-        .route("/api/v1/chores/{id}", patch(chores::patch))
+        .route("/api/v1/chores/{id}", get(chores::get).patch(chores::patch))
         .route("/api/v1/chores/{id}/archive", post(chores::archive))
         .route("/api/v1/chores/{id}/restore", post(chores::restore))
         .route(

@@ -181,6 +181,7 @@ pub(crate) fn chore_views(
             let ivd = interval_days(iv);
             json!({
                 "id": ch.id,
+                "household_id": hid,
                 "name": ch.name,
                 "category": ch.category,
                 "interval": ch.interval,
@@ -319,6 +320,24 @@ pub async fn patch(
             let v = chore_views(&tx, today, hid, Some(id), false)?.remove(0);
             tx.commit()?;
             Ok(Some(v))
+        })
+        .await?
+        .map(Json)
+        .ok_or_else(not_found)
+}
+
+pub async fn get(
+    State(st): State<AppState>,
+    u: CurrentUser,
+    Path(id): Path<i64>,
+) -> Result<Json<Value>, ApiError> {
+    let (uid, today) = (u.id, today(&st));
+    st.db
+        .run(move |c| {
+            let Some(hid) = member_chore(c, id, uid)? else {
+                return Ok(None);
+            };
+            Ok(chore_views(c, today, hid, Some(id), false)?.pop())
         })
         .await?
         .map(Json)
