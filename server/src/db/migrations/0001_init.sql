@@ -6,7 +6,7 @@ CREATE TABLE users (
     former INTEGER NOT NULL DEFAULT 0 CHECK (former IN (0, 1)),
     notify_due INTEGER NOT NULL DEFAULT 1 CHECK (notify_due IN (0, 1)),
     notify_done INTEGER NOT NULL DEFAULT 1 CHECK (notify_done IN (0, 1)),
-    last_household_id INTEGER,
+    last_household_id INTEGER REFERENCES households(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     deleted_at TEXT
 );
