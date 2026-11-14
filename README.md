@@ -1,27 +1,13 @@
-# WG-Chores
+# WG Chores
 
-A Blazor Server app for managing household chores. .NET 8, SQLite, Entity Framework Core.
+Shared household chore tracker: who did what, how long ago. Rust server, web app (PWA), Android app.
 
-## Local Development
+**Status: v2 in development.** The previous .NET Blazor version is at tag `v1-dotnet-blazor-server`.
 
-**Requirements:** .NET 8 SDK
-
-```bash
-cd WG-Chores
-dotnet run
+## Run (skeleton)
 ```
-
-If using Homebrew's keg-only `dotnet@8`, run with:
-`PATH="/opt/homebrew/opt/dotnet@8/bin:$PATH" dotnet run`
-
-App runs at http://localhost:5245. SQLite DB (`wgchores.db`) is created automatically.
-
-## Deploy
-
-```bash
-docker-compose up -d
+cd server
+PUBLIC_URL=http://localhost:8080 cargo run
+curl localhost:8080/healthz
 ```
-
-App runs at http://localhost:8084. Data is persisted in the `wgchores-data` volume.
-
-> **Note:** `docker-compose.yml` references an external `traefik_proxy` network. Remove the `networks` section if you're not using Traefik.
+Config is by environment variables, see `server/src/config.rs`.
