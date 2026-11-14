@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { serviceWorker } from './sw-plugin.js';
 
 const server = process.env.WGC_SERVER ?? 'http://localhost:8080';
 
@@ -13,7 +14,7 @@ const proxy = {
 };
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), serviceWorker()],
   resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
   build: { outDir: 'dist', emptyOutDir: true, target: 'es2022', assetsInlineLimit: 0, modulePreload: { polyfill: false } },
   server: { proxy: { '/api': proxy, '/auth': proxy } },

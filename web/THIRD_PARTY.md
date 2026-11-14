@@ -1,7 +1,7 @@
 # Third-party material
 
 ## Lucide icons
-Source: https://lucide.dev (lucide-static 1.73.0). Copied SVG paths in `src/components/Icon.svelte`: `list-checks`, `circle-alert`, `log-out`, `wifi-off`, `menu`, `chevron-down`, `check`, `plus`, `settings`, `user-round`, `house`, `calendar`, `hourglass`, `sun-moon`, `arrow-left`, `pencil`, `archive`, `trash-2`, `copy`, `share-2`, `link`, `users`, `user-plus`, `x`, `search`, `external-link`, `rotate-ccw`, `chevron-right`, `bell`. `log-out` is derived from Feather.
+Source: https://lucide.dev (lucide-static 1.73.0). Copied SVG paths in `src/components/Icon.svelte`: `list-checks`, `circle-alert`, `log-out`, `wifi-off`, `menu`, `chevron-down`, `check`, `plus`, `settings`, `user-round`, `house`, `calendar`, `hourglass`, `sun-moon`, `arrow-left`, `pencil`, `archive`, `trash-2`, `copy`, `share-2`, `link`, `users`, `user-plus`, `x`, `search`, `external-link`, `rotate-ccw`, `chevron-right`, `bell`, `smartphone`, `download`, `share`, `square-plus`, `compass`, `refresh-cw`, `bell-off`. `log-out` is derived from Feather. The app icons in `public/icons/` are rendered from `list-checks` (`scripts/icons.mjs`).
 
 ```
 ISC License

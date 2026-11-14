@@ -95,17 +95,14 @@ async fn asset_cache_headers() {
     );
     assert!(!h(&headers, "content-type").starts_with("text/html"));
     for p in ["sw.js", "manifest.webmanifest", "index.html"] {
-        if !paths.contains(&p) {
-            continue;
-        }
         let (status, headers, _) = raw(&app, Method::GET, &format!("/{p}")).await;
         assert_eq!(status, 200, "{p}");
         assert_eq!(h(&headers, "cache-control"), "no-cache", "{p}");
     }
-    if paths.contains(&"sw.js") {
-        let (_, headers, _) = raw(&app, Method::GET, "/sw.js").await;
-        assert!(h(&headers, "content-type").contains("javascript"));
-    }
+    let (_, headers, _) = raw(&app, Method::GET, "/sw.js").await;
+    assert!(h(&headers, "content-type").contains("javascript"));
+    let (_, headers, _) = raw(&app, Method::GET, "/manifest.webmanifest").await;
+    assert_eq!(h(&headers, "content-type"), "application/manifest+json");
 }
 
 #[tokio::test]

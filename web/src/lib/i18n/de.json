@@ -321,6 +321,27 @@
     "notify_due": "Fällige Aufgaben",
     "notify_due_hint": "Einmal, wenn eine Aufgabe fällig wird",
     "notify_note": "Benachrichtigungen kommen, sobald die App installiert ist.",
-    "saved": "Gespeichert"
+    "saved": "Gespeichert",
+    "blocked": "In den Browser-Einstellungen blockiert",
+    "install_first": "Zuerst die App installieren (Teilen → Zum Home-Bildschirm)"
+  },
+  "install": {
+    "android": "WG Chores installieren – für Benachrichtigungen",
+    "desktop": "WG Chores installieren – für Benachrichtigungen",
+    "ios": "WG Chores zum Home-Bildschirm hinzufügen – für Benachrichtigungen",
+    "ios_other": "Um WG Chores zum Home-Bildschirm hinzuzufügen, öffne diese Seite zuerst in Safari.",
+    "install": "Installieren",
+    "how": "So geht’s",
+    "dismiss": "Ausblenden",
+    "play": "Bei Google Play holen",
+    "guide_title": "Zum Home-Bildschirm",
+    "step_share": "In der Safari-Leiste auf Teilen tippen",
+    "step_add": "„Zum Home-Bildschirm“ wählen",
+    "step_confirm": "Auf „Hinzufügen“ tippen",
+    "done": "Verstanden"
+  },
+  "update": {
+    "available": "Update verfügbar",
+    "reload": "Neu laden"
   }
 }

@@ -18,8 +18,10 @@ export function applyTheme(s: ThemeSetting = themeSetting()): void {
   const root = document.documentElement;
   if (s === 'system') delete root.dataset.theme;
   else root.dataset.theme = s;
-  const dark = s === 'dark' || (s === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#111214' : '#ffffff');
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
+    const dark = s === 'dark' || (s === 'system' && (m.getAttribute('media')?.includes('dark') ?? matchMedia('(prefers-color-scheme: dark)').matches));
+    m.setAttribute('content', dark ? '#111214' : '#ffffff');
+  }
 }
 
 export function setTheme(s: ThemeSetting): void {

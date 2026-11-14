@@ -3,6 +3,7 @@
   import ChoreRow from '../components/ChoreRow.svelte';
   import DoneSheet from '../components/DoneSheet.svelte';
   import Icon from '../components/Icon.svelte';
+  import InstallBanner from '../components/InstallBanner.svelte';
   import Sheet from '../components/Sheet.svelte';
   import TopBar from '../components/TopBar.svelte';
   import { api, ApiError, OfflineError, type By, type Chore, type Household, type Me, type ServerConfig } from '../lib/api';
@@ -223,6 +224,7 @@
 <TopBar title={household?.name ?? ''} householdId={hid} {me} {pending} {offline} {theme} onswitch={openSwitcher} onstatus={toast} {ontheme} onnavigate={(p) => navigate(p)} {onlogout} />
 
 <main class="page">
+  <InstallBanner inset />
   {#if !loaded && failed}
     <div class="state">
       <Icon name={offline ? 'wifi-off' : 'circle-alert'} size={28} />

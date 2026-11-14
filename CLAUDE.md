@@ -6,7 +6,7 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 | Folder | Content |
 |---|---|
 | `server/` | Rust server (`src/config.rs` env config incl. `LISTEN`, `src/app.rs` router, `src/auth/` sessions, CSRF, local accounts, OIDC, `src/fake_oidc.rs` + `src/bin/fake-oidc.rs` fake provider (feature `test-util`), `src/secret.rs` cookie secret, `src/web.rs` embedded web app + SPA fallback (`build.rs`), `src/headers.rs` security headers, `src/openapi.rs` + `openapi.json` (edit by hand with every route change), `src/api/` endpoints, `src/notify/` Web Push (VAPID key, encryption, due scheduler, texts), `src/db/` SQLite + migrations, `src/cli.rs` argument parser + admin commands, `src/migrate_v1.rs` v1 import, `src/demo.rs` demo data, `completions/` fish + bash; fixture `tests/fixtures/v1.sql`) |
-| `web/` | Svelte 5 web app (`src/lib/` api client, i18n, theme, router, due rules mirror; `src/screens/`, `src/components/`; `src/app.css` design tokens) |
+| `web/` | Svelte 5 web app (`src/lib/` api client, i18n, theme, router, due rules mirror, push, install banner logic; `src/screens/`, `src/components/`; `src/app.css` design tokens; `src/sw.ts` + `src/sw/core.ts` service worker built by `sw-plugin.ts`; `public/` manifest + icons from `scripts/icons.mjs`) |
 | `android/` | Kotlin app (later) |
 | `deploy/` | compose examples (later) |
 

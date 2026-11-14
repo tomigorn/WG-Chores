@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
+  import InstallBanner from '../components/InstallBanner.svelte';
   import PageBar from '../components/PageBar.svelte';
   import { api, OfflineError, type Household, type Me } from '../lib/api';
   import { t, type Lang } from '../lib/i18n';
@@ -67,6 +68,7 @@
 <PageBar title={t('households.title')} back={me.last_household_id ? `/households/${me.last_household_id}` : null} />
 
 <main class="screen">
+  <InstallBanner />
   {#if phase === 'loading'}
     <p class="muted" aria-busy="true">{t('common.loading')}</p>
   {:else if phase === 'failed'}

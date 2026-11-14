@@ -321,6 +321,27 @@
     "notify_due": "Chores due",
     "notify_due_hint": "Once when a chore becomes due",
     "notify_note": "Notifications arrive once the app is installed.",
-    "saved": "Saved"
+    "saved": "Saved",
+    "blocked": "Blocked in browser settings",
+    "install_first": "Install the app first (Share → Add to Home Screen)"
+  },
+  "install": {
+    "android": "Install WG Chores – for notifications",
+    "desktop": "Install WG Chores – for notifications",
+    "ios": "Add WG Chores to your home screen – for notifications",
+    "ios_other": "To add WG Chores to your home screen, open this page in Safari first.",
+    "install": "Install",
+    "how": "Show how",
+    "dismiss": "Dismiss",
+    "play": "Get it on Google Play",
+    "guide_title": "Add to Home Screen",
+    "step_share": "Tap Share in the Safari toolbar",
+    "step_add": "Choose “Add to Home Screen”",
+    "step_confirm": "Tap “Add”",
+    "done": "Got it"
+  },
+  "update": {
+    "available": "Update available",
+    "reload": "Reload"
   }
 }

@@ -3,7 +3,8 @@
   import Icon from '../components/Icon.svelte';
   import PageBar from '../components/PageBar.svelte';
   import { api, OfflineError, type Me } from '../lib/api';
-  import { languageSetting, setLanguage, t, type Lang, type LangSetting } from '../lib/i18n';
+  import { currentLanguage, languageSetting, setLanguage, t, type Lang, type LangSetting } from '../lib/i18n';
+  import { push } from '../lib/push';
   import { toast } from '../lib/snack';
   import type { ThemeSetting } from '../lib/theme';
 
@@ -11,6 +12,9 @@
 
   let language: LangSetting = $state(languageSetting());
   let notify = $state(untrack(() => ({ done: me.notify_done, due: me.notify_due })));
+  let pushState = $state(push.status());
+  const blocked = $derived(pushState === 'blocked');
+  const needsInstall = $derived(pushState === 'needs-install');
 
   const THEMES: ThemeSetting[] = ['system', 'light', 'dark'];
   const LANGS: { v: LangSetting; key: string }[] = [
@@ -24,10 +28,21 @@
     setLanguage(v);
   }
 
-  async function toggle(kind: 'done' | 'due', on: boolean) {
+  async function toggle(kind: 'done' | 'due', on: boolean, input: HTMLInputElement) {
     notify[kind] = on;
     try {
+      if (on && pushState !== 'unsupported') {
+        const r = await push.enable(currentLanguage());
+        if (r === 'blocked' || r === 'dismissed') {
+          if (r === 'blocked') pushState = 'blocked';
+          notify[kind] = false;
+          input.checked = false;
+          return;
+        }
+        pushState = push.status();
+      }
       onme(await api.patchMe(kind === 'done' ? { notify_done: on } : { notify_due: on }));
+      if (!notify.done && !notify.due && pushState === 'ready') push.disable().catch(() => {});
     } catch (e) {
       notify[kind] = !on;
       toast(t(e instanceof OfflineError ? 'done.connect' : 'done.failed'));
@@ -66,12 +81,18 @@
               <span class="label">{t(n.label)}</span>
               <span class="hint">{t(n.hint)}</span>
             </span>
-            <input id="notify-{n.k}" type="checkbox" role="switch" checked={notify[n.k]} onchange={(e) => toggle(n.k, e.currentTarget.checked)} />
+            <input id="notify-{n.k}" type="checkbox" role="switch" checked={notify[n.k] && !blocked} disabled={needsInstall} onchange={(e) => toggle(n.k, e.currentTarget.checked, e.currentTarget)} />
           </label>
         </li>
       {/each}
     </ul>
-    <p class="note"><Icon name="bell" size={16} /><span>{t('settings.notify_note')}</span></p>
+    {#if blocked}
+      <p class="note"><Icon name="bell-off" size={16} /><span>{t('settings.blocked')}</span></p>
+    {:else if needsInstall}
+      <p class="note"><Icon name="smartphone" size={16} /><span>{t('settings.install_first')}</span></p>
+    {:else}
+      <p class="note"><Icon name="bell" size={16} /><span>{t('settings.notify_note')}</span></p>
+    {/if}
   </section>
 </main>
 
@@ -125,6 +146,11 @@
     border-radius: 50%;
     background: var(--border-strong);
     transition: transform var(--motion) ease, background-color var(--motion) ease;
+  }
+
+  input[role='switch']:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   input[role='switch']:checked {

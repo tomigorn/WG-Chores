@@ -3,14 +3,15 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Settings from './Settings.svelte';
 import { api, OfflineError } from '../lib/api';
+import { push } from '../lib/push';
 import * as i18n from '../lib/i18n';
 import { clearSnack } from '../lib/snack';
 import { me, text } from './testkit';
 
 let app: ReturnType<typeof mount> | null = null;
 
-function open() {
-  const props = { me, lang: 'en' as const, theme: 'system' as const, ontheme: vi.fn(), onme: vi.fn() };
+function open(over: Partial<typeof me> = {}) {
+  const props = { me: { ...me, ...over }, lang: 'en' as const, theme: 'system' as const, ontheme: vi.fn(), onme: vi.fn() };
   app = mount(Settings, { target: document.body, props });
   flushSync();
   return props;
@@ -56,5 +57,52 @@ describe('Settings', () => {
     const due = document.querySelector<HTMLInputElement>('#notify-due')!;
     due.click();
     await vi.waitFor(() => expect(due.checked).toBe(true));
+  });
+
+  it('toggle_on_subscribes_first', async () => {
+    vi.spyOn(push, 'status').mockReturnValue('ready');
+    const order: string[] = [];
+    vi.spyOn(push, 'enable').mockImplementation(async () => (order.push('enable'), 'subscribed'));
+    vi.spyOn(api, 'patchMe').mockImplementation(async (p) => (order.push('patch'), { ...me, ...p }));
+    open({ notify_due: false });
+    document.querySelector<HTMLInputElement>('#notify-due')!.click();
+    await vi.waitFor(() => expect(order).toEqual(['enable', 'patch']));
+    expect(push.enable).toHaveBeenCalledWith('en');
+  });
+
+  it('blocked_permission_keeps_toggle_off', async () => {
+    vi.spyOn(push, 'status').mockReturnValue('ready');
+    vi.spyOn(push, 'enable').mockResolvedValue('blocked');
+    const patch = vi.spyOn(api, 'patchMe');
+    open({ notify_due: false });
+    const due = document.querySelector<HTMLInputElement>('#notify-due')!;
+    due.click();
+    await vi.waitFor(() => expect(text()).toContain('Blocked in browser settings'));
+    expect(due.checked).toBe(false);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('blocked_at_start_shows_off', () => {
+    vi.spyOn(push, 'status').mockReturnValue('blocked');
+    open();
+    expect(document.querySelector<HTMLInputElement>('#notify-done')!.checked).toBe(false);
+    expect(text()).toContain('Blocked in browser settings');
+  });
+
+  it('both_off_unsubscribes', async () => {
+    vi.spyOn(push, 'status').mockReturnValue('ready');
+    const disable = vi.spyOn(push, 'disable').mockResolvedValue();
+    vi.spyOn(api, 'patchMe').mockImplementation(async (p) => ({ ...me, notify_done: false, ...p }));
+    open({ notify_done: false });
+    document.querySelector<HTMLInputElement>('#notify-due')!.click();
+    await vi.waitFor(() => expect(disable).toHaveBeenCalledTimes(1));
+  });
+
+  it('iphone_tab_needs_install_first', () => {
+    vi.spyOn(push, 'status').mockReturnValue('needs-install');
+    open();
+    expect(text()).toContain('Install the app first (Share → Add to Home Screen)');
+    expect(document.querySelector<HTMLInputElement>('#notify-done')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('#notify-due')!.disabled).toBe(true);
   });
 });

@@ -100,6 +100,11 @@ cd web && npm run dev
 | Language | setting in `localStorage` `wgc.lang`, else browser language (`de*` → German); texts in `src/lib/i18n/{en,de}.json` (same keys, Swiss "ss") |
 | Theme | `localStorage` `wgc.theme` (`light`/`dark`, none = system); tokens incl. due colours in `src/app.css` |
 | Icons | Lucide, copied paths only; licences in `web/THIRD_PARTY.md` |
+| PWA | `public/manifest.webmanifest`; icons in `public/icons/` from `NODE_PATH=<dir with playwright> node scripts/icons.mjs` (192, 512, maskable 512, Apple touch 180, monochrome badge 96) |
+| Service worker | `src/sw.ts` + `src/sw/core.ts`, built by `sw-plugin.ts` to `/sw.js` (no hash) with the precache list and a content version injected; precaches the shell (index, assets, icons, manifest); navigation network-first, 3 s timeout or 5xx → cached `index.html`; never touches `/api`, `/auth`, `/healthz`; old `wgc-shell-*` caches dropped on activate; a new version waits for "Update available · Reload"; push → notification (`tag`, click focuses an open window and routes to `url`, else opens it) |
+| Offline start | last `config` + `me` in `localStorage` `wgc.session` (cleared at sign-out and 401), so a reload without network opens the cached list; refreshed on `online` |
+| Install banner | top of the household and household list screens, never in the installed app: Android/desktop only when the browser offers install (`beforeinstallprompt`), iPhone Safari a 3-step guide sheet, other iPhone browsers "open in Safari first"; dismiss hides it 30 days (`wgc.install-dismissed`); `PLAY_STORE_URL` in `src/lib/install.ts` adds a Play link once set |
+| Push | `src/lib/push.ts`: permission asked only when a toggle is turned on (same click), then subscribe with the server key and `POST`; both toggles off → unsubscribe + `DELETE`; denied → "Blocked in browser settings", toggle off; iPhone tab → toggles disabled, "Install the app first"; at start a granted device re-posts (or drops) its subscription silently |
 
 ## Web app, headers, API doc
 | Topic | Detail |

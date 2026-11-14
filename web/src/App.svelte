@@ -15,7 +15,10 @@
   import { watchDropped } from './lib/snack';
   import { startSync, stopSync, sync } from './lib/sync';
   import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
-  import { bootFailure } from './lib/boot';
+  import { bootFailure, cachedSession, forgetSession, rememberSession } from './lib/boot';
+  import { push } from './lib/push';
+  import { watchUpdates, type ContainerLike } from './lib/update';
+  import UpdateBar from './components/UpdateBar.svelte';
   import { currentLanguage, onLanguage, t } from './lib/i18n';
   import { currentRoute, inviteParam, navigate, onRoute, rememberNext, startRouter, takeNext, type Route } from './lib/router';
   import { setTheme, themeSetting, type ThemeSetting } from './lib/theme';
@@ -28,6 +31,10 @@
   let me = $state<Me | null | undefined>(undefined);
   let failed: 'error.offline' | 'error.generic' | null = $state(null);
   let theme: ThemeSetting = $state(themeSetting());
+  // started from the cached session while offline; refreshed once the network is back
+  let stale = $state(false);
+  let applyUpdate: (() => void) | null = $state(null);
+  let pushChecked = false;
 
   function toLogin() {
     me = null;
@@ -39,15 +46,28 @@
   async function boot() {
     failed = null;
     try {
-      config ??= await api.config();
+      config = await api.config();
       me = await api.me();
+      stale = false;
+      rememberSession(config, me);
+      if (!pushChecked) {
+        pushChecked = true;
+        void push.refresh(me.notify_done || me.notify_due, currentLanguage());
+      }
       // SSO returns to /, so the page wanted before sign-in is picked up here too
       const next = takeNext();
       if (route.name === 'login' || (route.name === 'home' && next !== '/')) navigate(next, { replace: true });
     } catch (e) {
       const f = bootFailure(e);
-      if (f === 'login') me = null;
-      else failed = f;
+      const cached = f === 'error.offline' && me === undefined ? cachedSession() : null;
+      if (f === 'login') {
+        forgetSession();
+        me = null;
+      } else if (cached) {
+        config = cached.config;
+        me = cached.me;
+        stale = true;
+      } else if (!stale) failed = f;
     }
   }
 
@@ -73,6 +93,7 @@
   async function signOut(serverSide = true) {
     unsynced = 0;
     if (me) await sync().discard();
+    forgetSession();
     stopSync();
     try {
       if (serverSide) await api.logout();
@@ -97,7 +118,16 @@
       url = u;
     });
     const offLang = onLanguage((l) => (lang = l));
-    const online = () => failed && boot();
+    const online = () => (failed || stale) && boot();
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+      watchUpdates(navigator.serviceWorker as unknown as ContainerLike, {
+        onUpdate: (apply) => (applyUpdate = apply),
+        reload: () => location.reload(),
+        navigate: (p) => navigate(p),
+      })
+        .then((reg) => addEventListener('visibilitychange', () => document.visibilityState === 'visible' && reg.update().catch(() => {})))
+        .catch(() => {});
+    }
     addEventListener('online', online);
     boot();
     return () => {
@@ -123,11 +153,14 @@
   });
 
   function opened(hid: number) {
-    if (me) me.last_household_id = hid;
+    if (!me) return;
+    me.last_household_id = hid;
+    if (config) rememberSession(config, me);
   }
 
   function updated(m: Me) {
     me = m;
+    if (config) rememberSession(config, m);
   }
 
   const showLogin = $derived(me === null && config !== null && route.name === 'login');
@@ -166,6 +199,7 @@
     {/if}
   {/if}
   <SnackHost />
+  {#if applyUpdate}<UpdateBar onreload={applyUpdate} />{/if}
   <Sheet open={unsynced > 0} onclose={() => (unsynced = 0)} label={t('logout.title')}>
     <div class="confirm">
       <h2>{t('logout.title')}</h2>
