@@ -4,8 +4,9 @@ use crate::clock::{Clock, SystemClock};
 use crate::config::Config;
 use crate::db::Db;
 use crate::notify::{Push, webpush::Vapid};
-use axum::{Router, routing::get};
+use axum::{Router, handler::Handler, middleware, routing::get};
 use std::sync::Arc;
+use tower_http::compression::CompressionLayer;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -40,6 +41,9 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(|| async { "ok" }))
         .route("/auth/oidc/start", get(oidc::start))
         .route("/auth/oidc/callback", get(oidc::callback))
+        .route("/api/v1/openapi.json", get(crate::openapi::get))
         .merge(crate::api::router(state.clone()))
+        .fallback(crate::web::serve.layer(CompressionLayer::new()))
+        .layer(middleware::from_fn(crate::headers::apply))
         .with_state(state)
 }

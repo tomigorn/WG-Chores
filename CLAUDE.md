@@ -5,7 +5,7 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 ## Layout
 | Folder | Content |
 |---|---|
-| `server/` | Rust server (`src/config.rs` env config incl. `LISTEN`, `src/app.rs` router, `src/auth/` sessions, CSRF, local accounts, OIDC, `src/fake_oidc.rs` + `src/bin/fake-oidc.rs` fake provider (feature `test-util`), `src/secret.rs` cookie secret, `src/api/` endpoints, `src/notify/` Web Push (VAPID key, encryption, due scheduler, texts), `src/db/` SQLite + migrations) |
+| `server/` | Rust server (`src/config.rs` env config incl. `LISTEN`, `src/app.rs` router, `src/auth/` sessions, CSRF, local accounts, OIDC, `src/fake_oidc.rs` + `src/bin/fake-oidc.rs` fake provider (feature `test-util`), `src/secret.rs` cookie secret, `src/web.rs` embedded web app + SPA fallback (`build.rs`), `src/headers.rs` security headers, `src/openapi.rs` + `openapi.json` (edit by hand with every route change), `src/api/` endpoints, `src/notify/` Web Push (VAPID key, encryption, due scheduler, texts), `src/db/` SQLite + migrations) |
 | `web/` | web app (later) |
 | `android/` | Kotlin app (later) |
 | `deploy/` | compose examples (later) |

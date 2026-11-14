@@ -1,0 +1,2023 @@
+{
+ "openapi": "3.0.3",
+ "info": {
+  "title": "WG Chores API",
+  "version": "1"
+ },
+ "servers": [
+  {
+   "url": "/"
+  }
+ ],
+ "paths": {
+  "/api/v1/auth/login": {
+   "post": {
+    "summary": "Sign in with a local account",
+    "tags": [
+     "auth"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "username": {
+          "type": "string"
+         },
+         "password": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "username",
+         "password"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/logout": {
+   "post": {
+    "summary": "Sign out",
+    "tags": [
+     "auth"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/auth/register": {
+   "post": {
+    "summary": "Create a local account",
+    "tags": [
+     "auth"
+    ],
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "username": {
+          "type": "string"
+         },
+         "password": {
+          "type": "string"
+         },
+         "display_name": {
+          "type": "string"
+         },
+         "invite": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "username",
+         "password",
+         "display_name"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/chores/{id}": {
+   "patch": {
+    "summary": "Edit a chore",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Chore"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "name": {
+          "type": "string"
+         },
+         "category": {
+          "type": "string"
+         },
+         "interval": {
+          "type": "string"
+         }
+        },
+        "required": [],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "chore id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/chores/{id}/archive": {
+   "post": {
+    "summary": "Archive a chore",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Chore"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "chore id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/chores/{id}/completions": {
+   "get": {
+    "summary": "Completion history",
+    "tags": [
+     "completions"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Completion"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "chore id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "post": {
+    "summary": "Mark done; the client-made uuid makes retries idempotent (200 replay, 201 new)",
+    "tags": [
+     "completions"
+    ],
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Completion"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "done_on": {
+          "type": "string"
+         },
+         "note": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "id"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "chore id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/chores/{id}/restore": {
+   "post": {
+    "summary": "Restore an archived chore",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Chore"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "chore id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/completions/{id}": {
+   "patch": {
+    "summary": "Edit a completion",
+    "tags": [
+     "completions"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Completion"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "done_on": {
+          "type": "string"
+         },
+         "note": {
+          "type": "string"
+         }
+        },
+        "required": [],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "delete": {
+    "summary": "Delete a completion",
+    "tags": [
+     "completions"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/config": {
+   "get": {
+    "summary": "Public server config",
+    "tags": [
+     "system"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Config"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/households": {
+   "get": {
+    "summary": "Households of the current user",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Household"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "post": {
+    "summary": "Create a household",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Household"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "name": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "name"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}": {
+   "get": {
+    "summary": "Household",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Household"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "patch": {
+    "summary": "Rename a household",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Household"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "name": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "name"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/categories": {
+   "get": {
+    "summary": "Categories in use",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "patch": {
+    "summary": "Rename a category",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "from": {
+          "type": "string"
+         },
+         "to": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "from",
+         "to"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/chores": {
+   "get": {
+    "summary": "Chores of a household",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Chore"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "post": {
+    "summary": "Create a chore",
+    "tags": [
+     "chores"
+    ],
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Chore"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "name": {
+          "type": "string"
+         },
+         "category": {
+          "type": "string"
+         },
+         "interval": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "name"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/invites": {
+   "get": {
+    "summary": "Open invites",
+    "tags": [
+     "invites"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "post": {
+    "summary": "Create an invite link",
+    "tags": [
+     "invites"
+    ],
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/invites/{invite_id}": {
+   "delete": {
+    "summary": "Cancel an invite",
+    "tags": [
+     "invites"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     },
+     {
+      "name": "invite_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": ""
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/leave": {
+   "post": {
+    "summary": "Leave a household; the last member needs confirm_delete",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "confirm_delete": {
+          "type": "boolean"
+         }
+        },
+        "required": [],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/members": {
+   "get": {
+    "summary": "Members",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/User"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "post": {
+    "summary": "Add a member by username or user id",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "201": {
+      "description": "Created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "username": {
+          "type": "string"
+         },
+         "user_id": {
+          "type": "integer"
+         }
+        },
+        "required": [],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/households/{id}/members/{user_id}": {
+   "delete": {
+    "summary": "Remove a member",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "confirm_delete": {
+          "type": "boolean"
+         }
+        },
+        "required": [],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": "household id"
+     },
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      },
+      "description": ""
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/invites/{token}": {
+   "get": {
+    "summary": "Preview an invite",
+    "tags": [
+     "invites"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/api/v1/invites/{token}/accept": {
+   "post": {
+    "summary": "Accept an invite",
+    "tags": [
+     "invites"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Household"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/me": {
+   "get": {
+    "summary": "Current user",
+    "tags": [
+     "me"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "patch": {
+    "summary": "Update profile, password or notification settings",
+    "tags": [
+     "me"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "display_name": {
+          "type": "string"
+         },
+         "current_password": {
+          "type": "string"
+         },
+         "new_password": {
+          "type": "string"
+         },
+         "notify_due": {
+          "type": "boolean"
+         },
+         "notify_done": {
+          "type": "boolean"
+         }
+        },
+        "required": [],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "delete": {
+    "summary": "Delete the account",
+    "tags": [
+     "me"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "confirm_username": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "confirm_username"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/me/last-household": {
+   "put": {
+    "summary": "Remember the last opened household",
+    "tags": [
+     "me"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "integer"
+         }
+        },
+        "required": [
+         "id"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/openapi.json": {
+   "get": {
+    "summary": "This document",
+    "tags": [
+     "system"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/push/key": {
+   "get": {
+    "summary": "VAPID public key",
+    "tags": [
+     "push"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/push/subscriptions": {
+   "post": {
+    "summary": "Register a push subscription",
+    "tags": [
+     "push"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "endpoint": {
+          "type": "string"
+         },
+         "keys": {
+          "type": "object",
+          "properties": {
+           "p256dh": {
+            "type": "string"
+           },
+           "auth": {
+            "type": "string"
+           }
+          }
+         },
+         "lang": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "endpoint",
+         "keys"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   },
+   "delete": {
+    "summary": "Remove a push subscription",
+    "tags": [
+     "push"
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "endpoint": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "endpoint"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/api/v1/users": {
+   "get": {
+    "summary": "Search users",
+    "tags": [
+     "households"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/User"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "q",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "security": [
+     {
+      "cookie": []
+     }
+    ]
+   }
+  },
+  "/auth/oidc/callback": {
+   "get": {
+    "summary": "SSO provider callback; sets the session cookie and redirects",
+    "tags": [
+     "auth"
+    ],
+    "responses": {
+     "302": {
+      "description": "Redirect"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/auth/oidc/start": {
+   "get": {
+    "summary": "Redirect to the SSO provider",
+    "tags": [
+     "auth"
+    ],
+    "responses": {
+     "302": {
+      "description": "Redirect"
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/healthz": {
+   "get": {
+    "summary": "Liveness probe",
+    "tags": [
+     "system"
+    ],
+    "responses": {
+     "200": {
+      "description": "ok",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "securitySchemes": {
+   "cookie": {
+    "type": "apiKey",
+    "in": "cookie",
+    "name": "__Host-wgc_session",
+    "description": "Session cookie; unsafe methods also need header X-WGC: 1 and a same-origin Origin"
+   }
+  },
+  "schemas": {
+   "Error": {
+    "type": "object",
+    "properties": {
+     "error": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     }
+    }
+   },
+   "Config": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "local_accounts": {
+      "type": "boolean"
+     },
+     "open_registration": {
+      "type": "boolean"
+     },
+     "oidc": {
+      "type": "object",
+      "nullable": true
+     },
+     "notify_times": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "tz": {
+      "type": "string"
+     },
+     "version": {
+      "type": "string"
+     }
+    }
+   },
+   "User": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "integer"
+     },
+     "username": {
+      "type": "string",
+      "nullable": true
+     },
+     "display_name": {
+      "type": "string"
+     },
+     "kind": {
+      "type": "string"
+     },
+     "picture_url": {
+      "type": "string",
+      "nullable": true
+     },
+     "account_url": {
+      "type": "string",
+      "nullable": true
+     }
+    }
+   },
+   "Household": {
+    "type": "object"
+   },
+   "Chore": {
+    "type": "object"
+   },
+   "Completion": {
+    "type": "object"
+   }
+  }
+ }
+}

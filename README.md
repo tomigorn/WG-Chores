@@ -68,5 +68,15 @@ curl -X POST -H 'content-type: application/json' localhost:8081/_test/user \
 ```
 It prints the `OIDC_*` values to use.
 
+## Web app, headers, API doc
+| Topic | Detail |
+|---|---|
+| Web app | `web/dist` is embedded at build time (`server/build.rs`); without a build a placeholder page is embedded, so `cargo test` needs no Node |
+| Routes | unknown GET/HEAD paths outside `/api/`, `/auth/`, `/healthz` serve `index.html` (SPA); a missing `/assets/...` is 404 |
+| Cache | `/assets/*` immutable for a year; `index.html`, `sw.js`, `manifest.webmanifest` `no-cache`; API JSON `no-store` |
+| Headers | strict CSP (no `unsafe-*`), `nosniff`, referrer, permissions, COOP, `X-Frame-Options: DENY` on every response; HSTS is the reverse proxy's job |
+| Compression | gzip for the embedded web files only, never API JSON |
+| API doc | `GET /api/v1/openapi.json` = hand-kept `server/openapi.json`; the test `openapi_lists_all_routes` fails when a route or method is missing or extra |
+
 ## Operations
 - Edit data through the app or API, not with a plain `sqlite3` client: the `categories` table has a unique index on `ulower(name)`, a function only the server registers, so writes to it fail elsewhere.
