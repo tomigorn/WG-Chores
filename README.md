@@ -54,3 +54,6 @@ curl -X POST -H 'content-type: application/json' localhost:8081/_test/user \
   -d '{"sub":"u1","name":"Jane Doe","preferred_username":"jane","picture":null,"email":null,"groups":["WG"]}'
 ```
 It prints the `OIDC_*` values to use.
+
+## Operations
+- Edit data through the app or API, not with a plain `sqlite3` client: the `categories` table has a unique index on `ulower(name)`, a function only the server registers, so writes to it fail elsewhere.

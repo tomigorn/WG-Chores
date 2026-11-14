@@ -38,7 +38,10 @@ pub(crate) fn chore_household(c: &Connection, chore: i64) -> rusqlite::Result<Op
 
 /// Household of the chore if the user is a member of it.
 pub(crate) fn member_chore(c: &Connection, chore: i64, uid: i64) -> rusqlite::Result<Option<i64>> {
-    Ok(chore_household(c, chore)?.filter(|&h| is_member(c, h, uid).unwrap_or(false)))
+    match chore_household(c, chore)? {
+        Some(h) if is_member(c, h, uid)? => Ok(Some(h)),
+        _ => Ok(None),
+    }
 }
 
 fn check_chore_name(raw: &str) -> Result<String, ApiError> {

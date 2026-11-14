@@ -296,3 +296,17 @@ async fn chore_validation_and_edit() {
         404
     );
 }
+
+#[tokio::test]
+async fn membership_db_error_is_500_not_404() {
+    let app = TestApp::new();
+    let (mut a, _) = signup(&app, "anna").await;
+    let h = new_household(&mut a, "Home").await;
+    let c = new_chore(&mut a, h, json!({"name": "Bins"})).await;
+    app.db(|c| c.execute_batch("ALTER TABLE memberships RENAME TO memberships_gone"))
+        .await;
+    let r = a
+        .patch(&format!("/api/v1/chores/{c}"), json!({"name": "X"}))
+        .await;
+    assert_eq!(r.status, 500);
+}

@@ -1,4 +1,5 @@
 use crate::api::chores::{BY_COLS, by_json, member_chore, some, today};
+use crate::api::households::not_found;
 use crate::app::AppState;
 use crate::auth::session::ts;
 use crate::auth::{ApiJson, CurrentUser};
@@ -13,10 +14,6 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
-
-fn not_found() -> ApiError {
-    crate::api::households::not_found()
-}
 
 fn parse_uuid(s: &str) -> Option<String> {
     let b = s.as_bytes();
@@ -165,10 +162,8 @@ pub async fn history(
         None => None,
         Some(s) => {
             let (d, id) = s.split_once(',').ok_or_else(bad)?;
-            if d.parse::<NaiveDate>().is_err() || parse_uuid(id).is_none() {
-                return Err(bad());
-            }
-            Some((d.to_string(), id.to_ascii_lowercase()))
+            let d = d.parse::<NaiveDate>().map_err(|_| bad())?;
+            Some((d.to_string(), parse_uuid(id).ok_or_else(bad)?))
         }
     };
     let uid = u.id;
@@ -176,25 +171,29 @@ pub async fn history(
         .db
         .run(move |c| {
             if member_chore(c, chore, uid)?.is_none() {
-                return Ok(None);
+                return Ok(Err(not_found()));
             }
             let (bd, bc, bid) = match before {
                 None => (None, None, None),
                 Some((d, id)) => {
                     let created: Option<String> = c
                         .query_row(
-                            "SELECT created_at FROM completions WHERE id = ?1",
-                            [&id],
+                            "SELECT created_at FROM completions WHERE id = ?1 AND chore_id = ?2",
+                            params![id, chore],
                             |r| r.get(0),
                         )
                         .optional()?;
-                    (Some(d), created, Some(id))
+                    let Some(created) = created else {
+                        return Ok(Err(ApiError::bad_request(
+                            "bad_cursor",
+                            "The paging position is not valid.",
+                        )));
+                    };
+                    (Some(d), Some(created), Some(id))
                 }
             };
             let sql = select(
-                "WHERE co.chore_id = ?1 AND co.deleted_at IS NULL AND (?2 IS NULL
-                   OR (?3 IS NULL AND co.done_on < ?2)
-                   OR (?3 IS NOT NULL AND (co.done_on, co.created_at, co.id) < (?2, ?3, ?4)))
+                "WHERE co.chore_id = ?1 AND co.deleted_at IS NULL AND (?2 IS NULL OR (co.done_on, co.created_at, co.id) < (?2, ?3, ?4))
                  ORDER BY co.done_on DESC, co.created_at DESC, co.id DESC LIMIT ?5",
             );
             let mut s = c.prepare(&sql)?;
@@ -213,10 +212,9 @@ pub async fn history(
             } else {
                 None
             };
-            Ok(Some((items, next)))
+            Ok(Ok((items, next)))
         })
-        .await?
-        .ok_or_else(not_found)?;
+        .await??;
     Ok(Json(json!({"items": items, "next": next})))
 }
 

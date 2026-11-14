@@ -233,3 +233,34 @@ async fn completion_on_archived_chore_allowed() {
         .await;
     assert_eq!(done(&mut a, c, 1, "2025-12-30").await.status, 201);
 }
+
+#[tokio::test]
+async fn history_cursor_validated_and_normalized() {
+    let (_app, mut a, h, c) = setup().await;
+    for (n, d) in [(1, "2025-12-01"), (2, "2025-12-05"), (3, "2025-12-09")] {
+        assert_eq!(done(&mut a, c, n, d).await.status, 201);
+    }
+    let unknown = a
+        .get(&format!("{}?before=2025-12-05,{}", cpath(c), uuid(99)))
+        .await;
+    assert_eq!(unknown.status, 400);
+    assert_eq!(unknown.body["error"], "bad_cursor");
+    let other = new_chore(&mut a, h, json!({"name": "Dishes"})).await;
+    assert_eq!(done(&mut a, other, 50, "2025-12-07").await.status, 201);
+    let foreign = a
+        .get(&format!("{}?before=2025-12-07,{}", cpath(c), uuid(50)))
+        .await;
+    assert_eq!(foreign.status, 400);
+    assert_eq!(foreign.body["error"], "bad_cursor");
+    let r = a
+        .get(&format!("{}?before=2025-12-5,{}", cpath(c), uuid(2)))
+        .await;
+    assert_eq!(r.status, 200, "{:?}", r.body);
+    let ids: Vec<&str> = r.body["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, [uuid(1)]);
+}
