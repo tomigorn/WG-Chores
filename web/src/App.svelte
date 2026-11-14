@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import Icon from './components/Icon.svelte';
   import Login from './screens/Login.svelte';
-  import { api, OfflineError, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
+  import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
+  import { bootFailure } from './lib/boot';
   import { currentLanguage, onLanguage, t } from './lib/i18n';
   import { currentRoute, navigate, onRoute, rememberNext, startRouter, takeNext, type Route } from './lib/router';
   import { setTheme, themeSetting, type ThemeSetting } from './lib/theme';
@@ -32,9 +33,9 @@
       const next = takeNext();
       if (route.name === 'login' || (route.name === 'home' && next !== '/')) navigate(next, { replace: true });
     } catch (e) {
-      if (e instanceof OfflineError) failed = 'error.offline';
-      else if (config === null) failed = 'error.generic';
-      else if (me === undefined) me = null;
+      const f = bootFailure(e);
+      if (f === 'login') me = null;
+      else failed = f;
     }
   }
 
