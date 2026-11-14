@@ -204,3 +204,56 @@ impl Client {
         .await
     }
 }
+
+pub const PW: &str = "correct horse battery";
+
+pub async fn signup(app: &TestApp, name: &str) -> (Client, i64) {
+    let mut c = app.client();
+    let r = c
+        .post(
+            "/api/v1/auth/register",
+            serde_json::json!({"username": name, "password": PW, "display_name": format!("Name {name}")}),
+        )
+        .await;
+    assert_eq!(r.status, 201);
+    let id = r.body["id"].as_i64().unwrap();
+    (c, id)
+}
+
+pub async fn new_household(c: &mut Client, name: &str) -> i64 {
+    let r = c
+        .post("/api/v1/households", serde_json::json!({"name": name}))
+        .await;
+    assert_eq!(r.status, 201);
+    r.body["id"].as_i64().unwrap()
+}
+
+pub async fn add_to_household(owner: &mut Client, hid: i64, username: &str) {
+    let r = owner
+        .post(
+            &format!("/api/v1/households/{hid}/members"),
+            serde_json::json!({"username": username}),
+        )
+        .await;
+    assert_eq!(r.status, 201);
+}
+
+pub async fn new_chore(c: &mut Client, hid: i64, body: Value) -> i64 {
+    let r = c
+        .post(&format!("/api/v1/households/{hid}/chores"), body)
+        .await;
+    assert_eq!(r.status, 201, "{:?}", r.body);
+    r.body["id"].as_i64().unwrap()
+}
+
+pub fn uuid(n: u64) -> String {
+    format!("00000000-0000-4000-8000-{n:012x}")
+}
+
+pub async fn done(c: &mut Client, chore: i64, n: u64, done_on: &str) -> Resp {
+    c.post(
+        &format!("/api/v1/chores/{chore}/completions"),
+        serde_json::json!({"id": uuid(n), "done_on": done_on}),
+    )
+    .await
+}

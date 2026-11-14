@@ -49,9 +49,9 @@ CREATE INDEX memberships_user ON memberships(user_id);
 CREATE TABLE categories (
     id INTEGER PRIMARY KEY,
     household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-    name TEXT NOT NULL COLLATE NOCASE,
-    UNIQUE (household_id, name)
+    name TEXT NOT NULL
 );
+CREATE UNIQUE INDEX categories_name ON categories(household_id, ulower(name));
 
 CREATE TABLE chores (
     id INTEGER PRIMARY KEY,
