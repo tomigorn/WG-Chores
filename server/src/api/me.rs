@@ -3,6 +3,7 @@ use crate::auth::local::{self, check_display_name, check_password};
 use crate::auth::session::ts;
 use crate::auth::{AccountKind, ApiJson, ClientIp, CurrentUser};
 use crate::error::ApiError;
+use crate::model::user_json;
 use axum::{
     Json,
     extract::State,
@@ -10,25 +11,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Deserialize;
-use serde_json::{Value, json};
-
-pub fn user_json(
-    id: i64,
-    username: Option<&str>,
-    display_name: &str,
-    kind: AccountKind,
-    picture_url: Option<&str>,
-    account_url: Option<&str>,
-) -> Value {
-    json!({
-        "id": id,
-        "username": username,
-        "display_name": display_name,
-        "kind": kind,
-        "picture_url": picture_url,
-        "account_url": account_url,
-    })
-}
+use serde_json::Value;
 
 struct Row {
     username: Option<String>,
@@ -106,6 +89,12 @@ pub async fn patch(
             "This account is managed by the single sign-on provider.",
         ));
     }
+    if (b.new.is_some() || b.current.is_some()) && !st.cfg.local_accounts {
+        return Err(ApiError::forbidden(
+            "local_accounts_disabled",
+            "Local accounts are disabled on this server.",
+        ));
+    }
     let display_name = b
         .display_name
         .as_deref()
@@ -125,19 +114,15 @@ pub async fn patch(
         })?;
         check_password(&new)?;
         let name = row.username.clone().unwrap_or_default();
-        let now = st.clock.now();
-        if let Some(wait) = local::blocked(&st.db, now, local::limits(&name, ip)).await? {
-            return Err(local::too_many(wait));
-        }
+        let attempt = local::reserve(&st, Some(&name), ip).await?;
         let ok = current.len() <= 1024 && st.hasher.verify(current, row.hash.clone()).await;
         if !ok {
-            local::record_failure(&st.db, now, [local::user_key(&name), local::ip_key(ip)]).await?;
             return Err(ApiError::forbidden(
                 "wrong_password",
                 "The current password is wrong.",
             ));
         }
-        local::clear_failures(&st.db, local::user_key(&name)).await?;
+        attempt.succeed(&st.db).await?;
         new_hash = Some(st.hasher.hash(new).await.ok_or_else(ApiError::internal)?);
     }
     let (id, keep, dn, nh) = (u.id, u.session_hash.clone(), display_name.clone(), new_hash);

@@ -6,7 +6,7 @@ use crate::app::AppState;
 use crate::error::ApiError;
 use axum::{
     extract::{ConnectInfo, FromRequest, FromRequestParts, Request},
-    http::{header, request::Parts},
+    http::{HeaderMap, header, request::Parts},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::net::{IpAddr, SocketAddr};
@@ -26,23 +26,22 @@ pub struct CurrentUser {
     pub session_hash: String,
 }
 
-fn session_cookie(parts: &Parts) -> Option<String> {
-    let prefix = concat!("__Host-wgc_session", "=");
-    parts
-        .headers
+pub(crate) fn session_cookie(headers: &HeaderMap) -> Option<String> {
+    let prefix = format!("{}=", session::COOKIE_NAME);
+    headers
         .get_all(header::COOKIE)
         .iter()
         .filter_map(|v| v.to_str().ok())
         .flat_map(|v| v.split(';'))
-        .find_map(|c| c.trim().strip_prefix(prefix).map(str::to_string))
+        .find_map(|c| c.trim().strip_prefix(prefix.as_str()).map(str::to_string))
 }
 
 impl FromRequestParts<AppState> for CurrentUser {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, st: &AppState) -> Result<Self, ApiError> {
-        let raw = session_cookie(parts).ok_or_else(ApiError::unauthenticated)?;
-        session::lookup(&st.db, &*st.clock, &raw)
+        let raw = session_cookie(&parts.headers).ok_or_else(ApiError::unauthenticated)?;
+        session::lookup(&st.db, &*st.clock, &raw, st.cfg.local_accounts)
             .await?
             .ok_or_else(ApiError::unauthenticated)
     }

@@ -39,7 +39,13 @@ impl IpNet {
             Some(p) => p.trim().parse::<u8>().ok().filter(|p| *p <= max)?,
             None => max,
         };
-        Some(IpNet { addr, prefix })
+        match (addr, addr.to_canonical()) {
+            (IpAddr::V6(_), v4 @ IpAddr::V4(_)) => Some(IpNet {
+                addr: v4,
+                prefix: prefix.checked_sub(96)?,
+            }),
+            _ => Some(IpNet { addr, prefix }),
+        }
     }
 
     pub fn contains(&self, ip: IpAddr) -> bool {
@@ -375,6 +381,19 @@ mod tests {
         assert!(t.iter().any(|n| n.contains("::1".parse().unwrap())));
         assert!(Config::from_env(env(&[URL, ("TRUSTED_PROXIES", "nope")])).is_err());
         assert!(Config::from_env(env(&[URL, ("TRUSTED_PROXIES", "10.0.0.0/33")])).is_err());
+    }
+
+    #[test]
+    fn mapped_ipv4_proxy_matches_plain_ipv4() {
+        let c = Config::from_env(env(&[
+            URL,
+            ("TRUSTED_PROXIES", "::ffff:10.0.0.1, ::ffff:172.16.0.0/108"),
+        ]))
+        .unwrap();
+        let t = &c.trusted_proxies;
+        assert!(t.iter().any(|n| n.contains("10.0.0.1".parse().unwrap())));
+        assert!(t.iter().any(|n| n.contains("172.16.5.5".parse().unwrap())));
+        assert!(!t.iter().any(|n| n.contains("172.32.5.5".parse().unwrap())));
     }
 
     #[test]

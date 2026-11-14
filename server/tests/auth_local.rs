@@ -609,3 +609,155 @@ async fn delete_sso_account_confirms_with_display_name() {
         .await;
     assert_eq!(r.status, 204);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_wrong_logins_respect_account_limit() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut set = tokio::task::JoinSet::new();
+    for _ in 0..12 {
+        let mut c = app.client();
+        set.spawn(async move { c.login("anna", "wrong password here").await.status });
+    }
+    let mut codes = Vec::new();
+    while let Some(r) = set.join_next().await {
+        codes.push(r.unwrap());
+    }
+    assert_eq!(codes.iter().filter(|c| **c == 401).count(), 5, "{codes:?}");
+    assert_eq!(codes.iter().filter(|c| **c == 429).count(), 7, "{codes:?}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_wrong_logins_respect_ip_limit() {
+    let app = TestApp::new();
+    let mut set = tokio::task::JoinSet::new();
+    for i in 0..30 {
+        let mut c = app.client();
+        set.spawn(async move {
+            c.login(&format!("ghost{i}"), "wrong password here")
+                .await
+                .status
+        });
+    }
+    let mut codes = Vec::new();
+    while let Some(r) = set.join_next().await {
+        codes.push(r.unwrap());
+    }
+    assert_eq!(codes.iter().filter(|c| **c == 401).count(), 20, "{codes:?}");
+    assert_eq!(codes.iter().filter(|c| **c == 429).count(), 10, "{codes:?}");
+}
+
+#[tokio::test]
+async fn register_rate_limited_per_ip() {
+    let app = TestApp::new();
+    let mut c = app.client();
+    for i in 0..20 {
+        let r = c
+            .post("/api/v1/auth/register", reg(&format!("user{i:02}"), PW))
+            .await;
+        assert_eq!(r.status, 201, "attempt {i}");
+    }
+    let r = c.post("/api/v1/auth/register", reg("user99", PW)).await;
+    assert_eq!(r.status, 429);
+    let mut other = app.client();
+    other.peer = "192.0.2.55:1".parse().unwrap();
+    assert_eq!(
+        other
+            .post("/api/v1/auth/register", reg("user99", PW))
+            .await
+            .status,
+        201
+    );
+    app.clock.advance(Duration::minutes(16));
+    assert_eq!(
+        c.post("/api/v1/auth/register", reg("user98", PW))
+            .await
+            .status,
+        201
+    );
+}
+
+#[tokio::test]
+async fn local_disabled_stops_existing_local_sessions() {
+    let app = TestApp::with_env(&[("LOCAL_ACCOUNTS", "false")]);
+    let local = app.seed_local_user("anna", PW).await;
+    let both = app.seed_local_user("bob", PW).await;
+    app.db(move |c| {
+        c.execute(
+            "INSERT INTO identities (user_id, kind, issuer, subject) VALUES (?1, 'oidc', 'https://sso.example.com', 'sub-bob')",
+            [both],
+        )
+    })
+    .await;
+    let mk = |id| {
+        let st = app.state.clone();
+        async move {
+            wg_chores::auth::session::create(
+                &st.db,
+                &*st.clock,
+                id,
+                wg_chores::auth::session::SessionKind::Web,
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let mut a = app.client();
+    a.jar.insert(COOKIE.into(), mk(local).await);
+    assert_eq!(a.get("/api/v1/me").await.status, 401);
+    let mut b = app.client();
+    b.jar.insert(COOKIE.into(), mk(both).await);
+    assert_eq!(b.get("/api/v1/me").await.status, 200);
+    let r = b
+        .patch(
+            "/api/v1/me",
+            pw_body(Some(PW), Some("another long passphrase")),
+        )
+        .await;
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (403, Some("local_accounts_disabled"))
+    );
+}
+
+#[tokio::test]
+async fn login_and_register_replace_incoming_session() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    c.login("anna", PW).await;
+    let old = c.jar[COOKIE].clone();
+    c.login("anna", PW).await;
+    assert_ne!(c.jar[COOKIE], old);
+    let n: i64 = app
+        .db(|c| c.query_row("SELECT count(*) FROM sessions", [], |r| r.get(0)))
+        .await;
+    assert_eq!(n, 1);
+    let old = c.jar[COOKIE].clone();
+    let r = c.post("/api/v1/auth/register", reg("bob", PW)).await;
+    assert_eq!(r.status, 201);
+    let n: i64 = app
+        .db(|c| c.query_row("SELECT count(*) FROM sessions", [], |r| r.get(0)))
+        .await;
+    assert_eq!(n, 1);
+    let mut stale = app.client();
+    stale.jar.insert(COOKIE.into(), old);
+    assert_eq!(stale.get("/api/v1/me").await.status, 401);
+}
+
+#[tokio::test]
+async fn csrf_header_required_on_patch_and_delete() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    c.login("anna", PW).await;
+    c.csrf = false;
+    let r = c.patch("/api/v1/me", json!({"display_name": "X"})).await;
+    assert_eq!((r.status, r.body["error"].as_str()), (403, Some("csrf")));
+    let r = c
+        .delete("/api/v1/me", json!({"confirm_username": "anna"}))
+        .await;
+    assert_eq!((r.status, r.body["error"].as_str()), (403, Some("csrf")));
+    c.csrf = true;
+    assert_eq!(c.get("/api/v1/me").await.body["display_name"], "anna");
+}

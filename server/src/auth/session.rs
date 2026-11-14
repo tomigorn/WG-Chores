@@ -74,13 +74,15 @@ pub async fn lookup(
     db: &Db,
     clock: &dyn Clock,
     raw: &str,
+    local_enabled: bool,
 ) -> crate::db::Result<Option<CurrentUser>> {
     let hash = hash_token(raw);
     let now = clock.now();
     db.run(move |c| {
         let row = c.query_row(
             "SELECT s.created_at, s.last_seen_at, s.expires_at, u.id, u.display_name,
-                    EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.kind = 'local')
+                    EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.kind = 'local'),
+                    EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.kind != 'local')
              FROM sessions s JOIN users u ON u.id = s.user_id
              WHERE s.token_hash = ?1 AND u.former = 0",
             [&hash],
@@ -92,10 +94,11 @@ pub async fn lookup(
                     r.get::<_, i64>(3)?,
                     r.get::<_, String>(4)?,
                     r.get::<_, bool>(5)?,
+                    r.get::<_, bool>(6)?,
                 ))
             },
         );
-        let (created, seen, expires, id, display_name, local) = match row {
+        let (created, seen, expires, id, display_name, local, other) = match row {
             Ok(v) => v,
             Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
             Err(e) => return Err(e),
@@ -105,7 +108,7 @@ pub async fn lookup(
         else {
             return Ok(None);
         };
-        if now >= expires {
+        if (!local_enabled && local && !other) || now >= expires {
             c.execute("DELETE FROM sessions WHERE token_hash = ?1", [&hash])?;
             return Ok(None);
         }
