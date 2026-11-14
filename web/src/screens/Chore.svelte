@@ -211,6 +211,7 @@
   }
 
   async function restore() {
+    edited();
     try {
       chore = await api.restoreChore(id);
       toast(t('hh.restored', { name: chore.name }));
@@ -254,7 +255,7 @@
 
 <PageBar title={chore?.name ?? ''} {back}>
   {#snippet right()}
-    {#if chore && !chore.archived}
+    {#if chore && !chore.archived && !offline}
       <a class="text-btn" href="/chores/{id}/edit" aria-label={t('chore.edit_label', { name: chore.name })}><Icon name="pencil" size={18} /><span class="edit-word">{t('chore.edit')}</span></a>
     {/if}
   {/snippet}
@@ -297,7 +298,7 @@
         <p class="when">{last.when}</p>
         {#if last.by || last.overdue}
           <p class="by">
-            {#if last.by}<span data-nowrap>{last.by}</span>{/if}{#if last.by && last.overdue}<span class="dot" aria-hidden="true">{' · '}</span>{/if}{#if last.overdue}<span class="overdue" data-nowrap>{last.overdue}</span>{/if}
+            {#if last.by}<span data-nowrap>{last.by}</span>{/if}{#if last.by && last.overdue}{' '}{/if}{#if last.overdue}<span data-nowrap>{#if last.by}<span aria-hidden="true">·{'\u00a0'}</span>{/if}<span class="overdue">{last.overdue}</span></span>{/if}
           </p>
         {/if}
       </div>
@@ -450,7 +451,7 @@
     color: var(--muted);
   }
 
-  .by > span:not(.dot) {
+  .by > span {
     white-space: nowrap;
   }
 

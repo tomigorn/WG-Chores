@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, OfflineError, type Chore } from './api';
-import { canConfirmDelete, choreMeta, droppedMessage, expiresIn, initials, INTERVAL_ORDER, intervalWord, lastDone, memberDirectory, passwordProblem, usualText } from './words';
+import { canConfirmDelete, errorText, choreMeta, droppedMessage, expiresIn, initials, INTERVAL_ORDER, intervalWord, lastDone, memberDirectory, passwordProblem, usualText } from './words';
 
 const chore = (p: Partial<Chore> = {}): Chore => ({
   id: 7,
@@ -39,7 +39,7 @@ describe('words', () => {
 
   it('usual_interval_line', () => {
     expect(usualText(9, 'en')).toBe('Usually done every ~9 days');
-    expect(usualText(1, 'en')).toBe('Usually done every ~1 day');
+    expect(usualText(1, 'en')).toBe('Usually done about daily');
     expect(usualText(9, 'de')).toBe('Meist alle ~9 Tage erledigt');
     expect(usualText(null, 'en')).toBeNull();
   });
@@ -88,5 +88,15 @@ describe('words', () => {
     expect(await memberDirectory(async () => Promise.reject(new ApiError(400, 'query_too_short', '')))).toBe(true);
     expect(await memberDirectory(async () => [])).toBe(true);
     expect(await memberDirectory(async () => Promise.reject(new OfflineError()))).toBe(false);
+    expect(await memberDirectory(async () => Promise.reject(new ApiError(500, 'internal', '')))).toBe(false);
+    expect(await memberDirectory(async () => Promise.reject(new ApiError(403, 'forbidden', '')))).toBe(false);
+  });
+
+  it('error_text_for_loads_and_saves', () => {
+    expect(errorText(new OfflineError(), 'en')).toBe('No connection. Check your internet and try again.');
+    expect(errorText(new OfflineError(), 'en', 'done.connect')).toBe('Connect to the internet to save this');
+    expect(errorText(new ApiError(403, 'wrong_password', ''), 'en')).toBe('The current password is wrong.');
+    expect(errorText(new ApiError(500, 'weird_code', ''), 'en')).toBe('Something went wrong. Please try again.');
+    expect(errorText(new Error('x'), 'en')).toBe('Something went wrong. Please try again.');
   });
 });

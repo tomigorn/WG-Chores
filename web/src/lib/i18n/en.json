@@ -18,7 +18,8 @@
     "new_pw_hint": "At least 12 characters",
     "register_submit": "Create account",
     "invite_note": "Sign in to join the household you were invited to.",
-    "nothing_enabled": "This server has no sign-in method enabled. Ask its admin."
+    "nothing_enabled": "This server has no sign-in method enabled. Ask its admin.",
+    "back_to_invite": "Back to the invite"
   },
   "error": {
     "not_allowed": "Your account is not allowed on this server. Ask its admin to add you to the right group.",
@@ -45,8 +46,7 @@
     "too_many_invites": "Too many open invite links. Cancel some first.",
     "confirmation_mismatch": "That does not match your account.",
     "invalid_name": "The name is empty or too long.",
-    "not_found": "Not found. It may have been deleted.",
-    "connect": "Connect to the internet to save this"
+    "not_found": "Not found. It may have been deleted."
   },
   "nav": {
     "households": "My households",
@@ -161,7 +161,7 @@
     "last_done": "Last done {when}",
     "by": "by {who}",
     "never": "Never done",
-    "usual_one": "Usually done every ~1 day",
+    "usual_one": "Usually done about daily",
     "usual_other": "Usually done every ~{n} days",
     "history": "History",
     "edit": "Edit",
@@ -180,7 +180,6 @@
     "entry_label": "{date}, {who}"
   },
   "entry": {
-    "title": "Entry",
     "delete": "Delete entry",
     "delete_title": "Delete this entry?",
     "delete_text": "{who}, {date}. This cannot be undone.",
@@ -220,7 +219,6 @@
     "empty_text": "Create one, or open an invite link from a housemate.",
     "members_one": "1 member",
     "members_other": "{n} members",
-    "settings": "Household settings",
     "settings_for": "Settings for {name}"
   },
   "hh": {
@@ -250,7 +248,7 @@
     "copy": "Copy",
     "copied": "Link copied",
     "share": "Share",
-    "share_text": "Join {household} on WG Chores",
+    "share_text": "Join {household} on {app}",
     "invite_by": "by {name}",
     "invite_cancel": "Cancel",
     "invite_cancel_label": "Cancel invite by {name}",

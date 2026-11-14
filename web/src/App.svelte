@@ -17,7 +17,7 @@
   import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
   import { bootFailure } from './lib/boot';
   import { currentLanguage, onLanguage, t } from './lib/i18n';
-  import { currentRoute, navigate, onRoute, rememberNext, startRouter, takeNext, type Route } from './lib/router';
+  import { currentRoute, inviteParam, navigate, onRoute, rememberNext, startRouter, takeNext, type Route } from './lib/router';
   import { setTheme, themeSetting, type ThemeSetting } from './lib/theme';
 
   const start = currentRoute();
@@ -51,9 +51,11 @@
     }
   }
 
-  async function signedIn(): Promise<Me | null> {
+  async function signedIn(mode: 'login' | 'register' = 'login'): Promise<Me | null> {
     me = await api.me().catch(() => null);
-    if (me && route.name !== 'invite') navigate(takeNext(), { replace: true });
+    const invite = route.name === 'login' ? inviteParam(url) : null;
+    if (me && invite && mode === 'login') navigate(`/invite/${invite}`, { replace: true });
+    else if (me && route.name !== 'invite') navigate(takeNext(), { replace: true });
     return me;
   }
 
@@ -139,7 +141,7 @@
       <button class="btn" type="button" onclick={boot}>{t('common.retry')}</button>
     </main>
   {:else if showLogin && config}
-    <Login {config} serverError={url.searchParams.get('error')} onSignedIn={signedIn} />
+    <Login {config} invite={inviteParam(url)} serverError={url.searchParams.get('error')} onSignedIn={signedIn} />
   {:else if config && me !== undefined && route.name === 'invite'}
     <Invite invite={route.token} {config} {me} {lang} onsignedin={signedIn} />
   {:else if me && config}

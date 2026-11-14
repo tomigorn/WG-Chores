@@ -18,7 +18,8 @@
     "new_pw_hint": "Mindestens 12 Zeichen",
     "register_submit": "Konto erstellen",
     "invite_note": "Melde dich an, um dem Haushalt beizutreten, zu dem du eingeladen wurdest.",
-    "nothing_enabled": "Auf diesem Server ist keine Anmeldung eingerichtet. Frag die Administration."
+    "nothing_enabled": "Auf diesem Server ist keine Anmeldung eingerichtet. Frag die Administration.",
+    "back_to_invite": "Zurück zur Einladung"
   },
   "error": {
     "not_allowed": "Dein Konto ist auf diesem Server nicht zugelassen. Bitte die Administration, dich der richtigen Gruppe hinzuzufügen.",
@@ -45,8 +46,7 @@
     "too_many_invites": "Zu viele offene Einladungslinks. Zieh zuerst ein paar zurück.",
     "confirmation_mismatch": "Das passt nicht zu deinem Konto.",
     "invalid_name": "Der Name ist leer oder zu lang.",
-    "not_found": "Nicht gefunden. Vielleicht wurde es gelöscht.",
-    "connect": "Verbinde dich mit dem Internet, um das zu speichern"
+    "not_found": "Nicht gefunden. Vielleicht wurde es gelöscht."
   },
   "nav": {
     "households": "Meine Haushalte",
@@ -180,7 +180,6 @@
     "entry_label": "{date}, {who}"
   },
   "entry": {
-    "title": "Eintrag",
     "delete": "Eintrag löschen",
     "delete_title": "Diesen Eintrag löschen?",
     "delete_text": "{who}, {date}. Das lässt sich nicht rückgängig machen.",
@@ -191,7 +190,7 @@
   },
   "edit": {
     "new_title": "Neue Aufgabe",
-    "edit_title": "Aufgabe bearbeiten",
+    "edit_title": "Bearbeiten",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "name": "Name",
@@ -220,7 +219,6 @@
     "empty_text": "Erstell einen, oder öffne einen Einladungslink von einem Mitbewohner.",
     "members_one": "1 Mitglied",
     "members_other": "{n} Mitglieder",
-    "settings": "Haushalt-Einstellungen",
     "settings_for": "Einstellungen für {name}"
   },
   "hh": {
@@ -250,7 +248,7 @@
     "copy": "Kopieren",
     "copied": "Link kopiert",
     "share": "Teilen",
-    "share_text": "Tritt {household} bei WG Chores bei",
+    "share_text": "Tritt {household} bei {app} bei",
     "invite_by": "von {name}",
     "invite_cancel": "Zurückziehen",
     "invite_cancel_label": "Einladung von {name} zurückziehen",

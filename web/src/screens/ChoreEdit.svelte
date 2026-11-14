@@ -3,12 +3,12 @@
   import ConfirmSheet from '../components/ConfirmSheet.svelte';
   import Icon from '../components/Icon.svelte';
   import PageBar from '../components/PageBar.svelte';
-  import { api, ApiError, OfflineError, type Category, type Chore, type ChoreInput, type Me, type ServerConfig } from '../lib/api';
+  import { api, type Category, type Chore, type ChoreInput, type Me, type ServerConfig } from '../lib/api';
   import type { IntervalCode } from '../lib/due';
   import { t, type Lang } from '../lib/i18n';
   import { navigate } from '../lib/router';
   import { toast } from '../lib/snack';
-  import { INTERVAL_ORDER, intervalWord } from '../lib/words';
+  import { errorText, INTERVAL_ORDER, intervalWord } from '../lib/words';
 
   let {
     choreId,
@@ -37,15 +37,6 @@
   const canRenameAll = $derived(!!original && !!newCategory && newCategory !== original && originalCount > 1 && !intoOther);
   const back = $derived(editing ? `/chores/${choreId}` : hid ? `/households/${hid}` : '/');
 
-  function message(e: unknown): string {
-    if (e instanceof OfflineError) return t('done.connect');
-    if (e instanceof ApiError) {
-      const m = t(`error.${e.code}`);
-      return m === `error.${e.code}` ? t('error.generic') : m;
-    }
-    return t('error.generic');
-  }
-
   async function load() {
     phase = 'loading';
     try {
@@ -59,7 +50,7 @@
       categories = hid ? await api.categories(hid) : [];
       phase = 'ready';
     } catch (e) {
-      failure = message(e);
+      failure = errorText(e, lang);
       phase = 'failed';
     }
   }
@@ -81,13 +72,17 @@
         return;
       }
       const patch: Partial<ChoreInput> = { name: name.trim(), interval };
-      if (canRenameAll && renameAll) await api.renameCategory(hid, original!, newCategory);
-      else patch.category = newCategory || null;
+      if (canRenameAll && renameAll) {
+        categories = await api.renameCategory(hid, original!, newCategory);
+        if (chore) chore = { ...chore, category: newCategory };
+        renameAll = false;
+      }
+      patch.category = newCategory || null;
       await api.patchChore(choreId, patch);
       toast(t('edit.saved'));
       navigate(`/chores/${choreId}`, { replace: true });
     } catch (err) {
-      failure = message(err);
+      failure = errorText(err, lang, 'done.connect');
     } finally {
       busy = false;
     }
@@ -103,7 +98,7 @@
       navigate(`/households/${hid}`, { replace: true });
     } catch (err) {
       confirmArchive = false;
-      failure = message(err);
+      failure = errorText(err, lang, 'done.connect');
     } finally {
       busy = false;
     }
@@ -114,7 +109,7 @@
 
 <PageBar title={t(editing ? 'edit.edit_title' : 'edit.new_title')}>
   {#snippet left()}
-    <a class="text-btn" href={back}>{t('edit.cancel')}</a>
+    <a class="text-btn" href={back} aria-label={t('edit.cancel')}><span class="narrow-icon"><Icon name="x" size={22} /></span><span class="wide">{t('edit.cancel')}</span></a>
   {/snippet}
   {#snippet right()}
     <button class="text-btn" type="submit" form="chore-form" disabled={busy || phase !== 'ready' || !name.trim()}>{t('edit.save')}</button>
@@ -181,6 +176,20 @@
 />
 
 <style>
+  .narrow-icon {
+    display: none;
+  }
+
+  @media (max-width: 400px) {
+    .narrow-icon {
+      display: contents;
+    }
+
+    .wide {
+      display: none;
+    }
+  }
+
   .form {
     display: flex;
     flex-direction: column;

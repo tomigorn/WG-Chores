@@ -14,8 +14,8 @@ const rafiM: Member = { id: 2, display_name: 'Rafi', username: 'rafi', picture_u
 
 let app: ReturnType<typeof mount> | null = null;
 
-async function open() {
-  app = mount(HouseholdSettings, { target: document.body, props: { hid: 1, config, me, lang: 'en' } });
+async function open(name = 'WG Chores') {
+  app = mount(HouseholdSettings, { target: document.body, props: { hid: 1, config: { ...config, name }, me, lang: 'en' } });
   await vi.waitFor(() => expect(document.querySelector('.members li')).not.toBeNull());
   flushSync();
 }
@@ -117,13 +117,13 @@ describe('Household settings', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: write }, configurable: true });
     const share = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'share', { value: share, configurable: true });
-    await open();
+    await open('Putzplan');
     button('Create invite link')!.click();
     await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('.new-link input')?.value).toBe('https://chores.example.com/invite/abc'));
     button('Copy')!.click();
     await vi.waitFor(() => expect(write).toHaveBeenCalledWith('https://chores.example.com/invite/abc'));
     button('Share')!.click();
-    await vi.waitFor(() => expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://chores.example.com/invite/abc' })));
+    await vi.waitFor(() => expect(share).toHaveBeenCalledWith({ title: 'Join WG Zürich on Putzplan', url: 'https://chores.example.com/invite/abc' }));
     delete (navigator as unknown as Record<string, unknown>).share;
   });
 

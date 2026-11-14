@@ -4,14 +4,15 @@
   import ConfirmSheet from '../components/ConfirmSheet.svelte';
   import Icon from '../components/Icon.svelte';
   import PageBar from '../components/PageBar.svelte';
-  import { api, ApiError, OfflineError, type Me, type ServerConfig } from '../lib/api';
+  import { api, type Me, type ServerConfig } from '../lib/api';
   import { t, type Lang } from '../lib/i18n';
   import { toast } from '../lib/snack';
-  import { canConfirmDelete, passwordProblem } from '../lib/words';
+  import { canConfirmDelete, errorText, passwordProblem } from '../lib/words';
 
   let {
     config,
     me,
+    lang,
     onlogout,
     onme,
     ondeleted,
@@ -33,15 +34,6 @@
   const confirmTarget = $derived(sso ? me.display_name : (me.username ?? ''));
   const canDelete = $derived(canConfirmDelete(me, typed));
 
-  function message(e: unknown): string {
-    if (e instanceof OfflineError) return t('done.connect');
-    if (e instanceof ApiError) {
-      const m = t(`error.${e.code}`);
-      return m === `error.${e.code}` ? t('error.generic') : m;
-    }
-    return t('error.generic');
-  }
-
   async function saveName(e: SubmitEvent) {
     e.preventDefault();
     const n = name.trim();
@@ -52,7 +44,7 @@
       onme(await api.patchMe({ display_name: n }));
       toast(t('account.name_saved'));
     } catch (err) {
-      nameError = message(err);
+      nameError = errorText(err, lang, 'done.connect');
     } finally {
       busy = false;
     }
@@ -70,7 +62,7 @@
       current = pw = repeat = '';
       toast(t('account.pw_saved'));
     } catch (err) {
-      pwError = message(err);
+      pwError = errorText(err, lang, 'done.connect');
     } finally {
       busy = false;
     }
@@ -85,7 +77,7 @@
       deleting = false;
       ondeleted();
     } catch (err) {
-      deleteError = message(err);
+      deleteError = errorText(err, lang, 'done.connect');
     } finally {
       busy = false;
     }

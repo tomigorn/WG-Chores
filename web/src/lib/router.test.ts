@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchRoute, safeNext } from './router';
+import { inviteParam, matchRoute, safeNext } from './router';
 
 describe('router', () => {
   it('matches_known_paths', () => {
@@ -26,5 +26,11 @@ describe('router', () => {
     expect(safeNext('https://evil.example.com')).toBe('/');
     expect(safeNext('/login')).toBe('/');
     expect(safeNext(null)).toBe('/');
+  });
+
+  it('invite_param_only_valid_tokens', () => {
+    expect(inviteParam(new URL('http://x/login?error=sso_failed&invite=abc_DEF-1'))).toBe('abc_DEF-1');
+    expect(inviteParam(new URL('http://x/login?invite=..%2Fevil'))).toBeNull();
+    expect(inviteParam(new URL('http://x/login'))).toBeNull();
   });
 });

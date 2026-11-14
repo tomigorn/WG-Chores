@@ -134,6 +134,10 @@
     {/if}
   </section>
 
+  {#if invite && !header}
+    <p class="switch"><a href="/invite/{invite}">{t('login.back_to_invite')}</a></p>
+  {/if}
+
   {#if canRegister}
     <p class="switch">
       <button class="btn-link" type="button" onclick={switchMode}>

@@ -1,4 +1,4 @@
-import { ApiError, type AccountKind, type Chore } from './api';
+import { ApiError, OfflineError, type AccountKind, type Chore } from './api';
 import { dayWord } from './chores';
 import type { IntervalCode } from './due';
 import { tIn, type Lang } from './i18n';
@@ -74,6 +74,16 @@ export async function memberDirectory(search: (q: string) => Promise<unknown>): 
     await search('');
     return true;
   } catch (e) {
-    return e instanceof ApiError && e.status !== 404;
+    return e instanceof ApiError && e.status === 400;
   }
+}
+
+/** Text for a failed request; saves pass `done.connect` as the offline text. */
+export function errorText(e: unknown, lang: Lang, offlineKey = 'error.offline'): string {
+  if (e instanceof OfflineError) return tIn(lang, offlineKey);
+  if (e instanceof ApiError) {
+    const m = tIn(lang, `error.${e.code}`);
+    return m === `error.${e.code}` ? tIn(lang, 'error.generic') : m;
+  }
+  return tIn(lang, 'error.generic');
 }

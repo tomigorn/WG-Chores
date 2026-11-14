@@ -8,9 +8,9 @@
   import { t, type Lang } from '../lib/i18n';
   import { navigate } from '../lib/router';
   import { toast } from '../lib/snack';
-  import { expiresIn, memberDirectory } from '../lib/words';
+  import { errorText, expiresIn, memberDirectory } from '../lib/words';
 
-  let { hid, me, lang }: { hid: number; config: ServerConfig; me: Me; lang: Lang } = $props();
+  let { hid, config, me, lang }: { hid: number; config: ServerConfig; me: Me; lang: Lang } = $props();
 
   let household: Household | null = $state(null);
   let members: Member[] = $state([]);
@@ -33,15 +33,6 @@
 
   const canShare = typeof navigator !== 'undefined' && 'share' in navigator;
   const others = $derived(members.filter((m) => m.id !== me.id));
-
-  function message(e: unknown): string {
-    if (e instanceof OfflineError) return t('done.connect');
-    if (e instanceof ApiError) {
-      const m = t(`error.${e.code}`);
-      return m === `error.${e.code}` ? t('error.generic') : m;
-    }
-    return t('error.generic');
-  }
 
   async function load() {
     try {
@@ -70,7 +61,7 @@
       if (done) toast(done);
       return true;
     } catch (e) {
-      toast(message(e));
+      toast(errorText(e, lang, 'done.connect'));
       return false;
     } finally {
       busy = false;
@@ -121,7 +112,7 @@
       searched = '';
       await load();
     } catch (e) {
-      addError = message(e);
+      addError = errorText(e, lang, 'done.connect');
     } finally {
       busy = false;
     }
@@ -154,7 +145,7 @@
       if (e instanceof ApiError && e.code === 'last_member_confirm') lastMember = true;
       else {
         leaving = false;
-        toast(message(e));
+        toast(errorText(e, lang, 'done.connect'));
       }
     } finally {
       busy = false;
@@ -182,7 +173,7 @@
   async function share() {
     if (!newInvite || !household) return;
     try {
-      await navigator.share({ title: t('hh.share_text', { household: household.name }), url: newInvite.url });
+      await navigator.share({ title: t('hh.share_text', { household: household.name, app: config.name }), url: newInvite.url });
     } catch {
       /* dismissed */
     }

@@ -48,6 +48,6 @@ describe('Households', () => {
     type('#hh-name', ' Studio ');
     document.querySelector<HTMLFormElement>('.new form')!.requestSubmit();
     await vi.waitFor(() => expect(create).toHaveBeenCalledWith('Studio'));
-    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledWith('/households/5'));
+    await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledWith('/households/5', { replace: true }));
   });
 });

@@ -3,11 +3,11 @@
   import Avatar from '../components/Avatar.svelte';
   import Icon from '../components/Icon.svelte';
   import Login from './Login.svelte';
-  import { api, ApiError, OfflineError, type InvitePreview, type Me, type ServerConfig } from '../lib/api';
+  import { api, ApiError, type InvitePreview, type Me, type ServerConfig } from '../lib/api';
   import { t, type Lang } from '../lib/i18n';
   import { navigate } from '../lib/router';
   import { toast } from '../lib/snack';
-  import { expiresIn } from '../lib/words';
+  import { errorText, expiresIn } from '../lib/words';
 
   let {
     invite,
@@ -23,15 +23,6 @@
   let busy = $state(false);
   let joinError: string | null = $state(null);
 
-  function message(e: unknown): string {
-    if (e instanceof OfflineError) return t('error.offline');
-    if (e instanceof ApiError) {
-      const m = t(`error.${e.code}`);
-      return m === `error.${e.code}` ? t('error.generic') : m;
-    }
-    return t('error.generic');
-  }
-
   async function load() {
     failed = null;
     try {
@@ -39,7 +30,7 @@
       invalid = preview.valid ? null : t(`error.invite_${preview.reason ?? 'not_found'}`);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) invalid = t('error.invite_not_found');
-      else failed = message(e);
+      else failed = errorText(e, lang);
     }
   }
 
@@ -52,7 +43,7 @@
       toast(t(r.already_member ? 'invite.already' : 'invite.joined', { household: preview.household_name }));
       navigate(`/households/${r.household_id}`, { replace: true });
     } catch (e) {
-      joinError = message(e);
+      joinError = errorText(e, lang);
     } finally {
       busy = false;
     }

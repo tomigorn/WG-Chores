@@ -44,6 +44,8 @@ describe('Chore page', () => {
     expect(t).toContain('Last done 19 Oct');
     expect(t).toContain('by Rafi');
     expect(t).toContain('19 days overdue');
+    const glued = [...document.querySelectorAll('.by [data-nowrap]')].map((e) => e.textContent!.replace(/\u00a0/g, ' '));
+    expect(glued).toEqual(['by Rafi', '· 19 days overdue']);
     expect(t).toContain('Usually done every ~9 days');
     const rows = [...document.querySelectorAll('.history li')].map((l) => l.textContent!.replace(/\s+/g, ' ').trim());
     expect(rows).toEqual(['19 Oct Rafi', '12 Oct Anna “used the new cleaner”']);
@@ -105,5 +107,14 @@ describe('Chore page', () => {
     await vi.waitFor(() => expect(document.querySelectorAll('.history li')).toHaveLength(2));
     expect(vi.mocked(api.history).mock.calls[1]![1]).toMatchObject({ before: 'cur1' });
     expect(button('Load older entries')).toBeUndefined();
+  });
+
+  it('edit_hidden_while_offline', async () => {
+    await open();
+    expect(button('Edit Clean toilet')).toBeDefined();
+    vi.mocked(api.chore).mockRejectedValue(new OfflineError());
+    dispatchEvent(new Event('online'));
+    await vi.waitFor(() => expect(button('Edit Clean toilet')).toBeUndefined());
+    expect(document.querySelectorAll('.history li')).toHaveLength(2);
   });
 });

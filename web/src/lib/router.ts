@@ -107,3 +107,8 @@ export function takeNext(): string {
     return '/';
   }
 }
+
+export function inviteParam(url: URL): string | null {
+  const t = url.searchParams.get('invite');
+  return t && INVITE_RE.test(t) ? t : null;
+}

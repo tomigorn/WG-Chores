@@ -2,11 +2,12 @@
   import { onMount, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import PageBar from '../components/PageBar.svelte';
-  import { api, ApiError, OfflineError, type Household, type Me } from '../lib/api';
+  import { api, OfflineError, type Household, type Me } from '../lib/api';
   import { t, type Lang } from '../lib/i18n';
   import { navigate } from '../lib/router';
+  import { errorText } from '../lib/words';
 
-  let { me, url }: { me: Me; lang: Lang; url: URL } = $props();
+  let { me, lang, url }: { me: Me; lang: Lang; url: URL } = $props();
 
   let list: Household[] = $state([]);
   let phase: 'loading' | 'ready' | 'failed' = $state('loading');
@@ -36,15 +37,6 @@
     }
   }
 
-  function message(e: unknown): string {
-    if (e instanceof OfflineError) return t('done.connect');
-    if (e instanceof ApiError) {
-      const m = t(`error.${e.code}`);
-      return m === `error.${e.code}` ? t('error.generic') : m;
-    }
-    return t('error.generic');
-  }
-
   async function create(e: SubmitEvent) {
     e.preventDefault();
     if (busy || !name.trim()) return;
@@ -52,9 +44,9 @@
     failure = null;
     try {
       const h = await api.createHousehold(name.trim());
-      navigate(`/households/${h.id}`);
+      navigate(`/households/${h.id}`, { replace: true });
     } catch (err) {
-      failure = message(err);
+      failure = errorText(err, lang, 'done.connect');
     } finally {
       busy = false;
     }

@@ -90,7 +90,7 @@ describe('Add / edit chore', () => {
     save();
     await vi.waitFor(() => expect(patch).toHaveBeenCalled());
     expect(rename).toHaveBeenCalledWith(1, 'Bathroom', 'Bad');
-    expect(patch).toHaveBeenCalledWith(7, { name: 'Clean toilet', interval: '1w' });
+    expect(patch).toHaveBeenCalledWith(7, { name: 'Clean toilet', interval: '1w', category: 'Bad' });
     expect(rename.mock.invocationCallOrder[0]!).toBeLessThan(patch.mock.invocationCallOrder[0]!);
   });
 
@@ -112,5 +112,35 @@ describe('Add / edit chore', () => {
     save();
     await vi.waitFor(() => expect(text()).toContain('Connect to the internet to save this'));
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('cancel_is_labelled_for_icon_only_layout', async () => {
+    await open({ choreId: 7, householdId: null });
+    const cancel = document.querySelector('header a')!;
+    expect(cancel.getAttribute('aria-label')).toBe('Cancel');
+    expect(cancel.getAttribute('href')).toBe('/chores/7');
+    expect(cancel.querySelector('svg')).not.toBeNull();
+  });
+
+  it('retry_after_failed_patch_does_not_rename_again', async () => {
+    const rename = vi.spyOn(api, 'renameCategory').mockResolvedValue([{ name: 'Bad', chores: 3 }, { name: 'Kitchen', chores: 1 }]);
+    const patch = vi.spyOn(api, 'patchChore').mockRejectedValueOnce(new OfflineError()).mockResolvedValue(toilet({ category: 'Bad' }));
+    await open({ choreId: 7, householdId: null });
+    type('#chore-category', 'Bad');
+    document.querySelector<HTMLInputElement>('#rename-all')!.click();
+    flushSync();
+    save();
+    await vi.waitFor(() => expect(text()).toContain('Connect to the internet to save this'));
+    expect(document.querySelector('#rename-all')).toBeNull();
+    save();
+    await vi.waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
+    expect(rename).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[1]![1]).toEqual({ name: 'Clean toilet', category: 'Bad', interval: '1w' });
+  });
+
+  it('load_offline_says_offline', async () => {
+    vi.mocked(api.chore).mockRejectedValue(new OfflineError());
+    app = mount(ChoreEdit, { target: document.body, props: { choreId: 7, householdId: null, config, me, lang: 'en' } });
+    await vi.waitFor(() => expect(text()).toContain('No connection. Check your internet and try again.'));
   });
 });
