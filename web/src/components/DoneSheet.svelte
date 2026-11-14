@@ -105,7 +105,8 @@
 
   .title {
     display: flex;
-    gap: 0.3em;
+    flex-wrap: wrap;
+    column-gap: 0.3em;
     font-size: var(--fs-md);
     font-weight: 650;
     min-width: 0;
@@ -116,6 +117,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    max-width: 100%;
   }
 
   .rest {
@@ -126,15 +128,18 @@
   }
 
   .chips {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--s2);
   }
 
+  .chip {
+    flex: 1 1 40%;
+  }
+
   @media (min-width: 480px) {
-    .chips {
-      grid-template-columns: repeat(4, auto);
-      justify-content: start;
+    .chip {
+      flex: none;
     }
   }
 

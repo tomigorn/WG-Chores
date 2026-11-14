@@ -389,6 +389,8 @@
   .member,
   .invite {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: var(--s3);
     min-height: 60px;
@@ -402,7 +404,7 @@
 
   .who {
     display: flex;
-    flex: 1;
+    flex: 1 1 6em;
     flex-direction: column;
     min-width: 0;
   }

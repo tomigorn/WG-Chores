@@ -112,7 +112,7 @@
     <a class="text-btn" href={back} aria-label={t('edit.cancel')}><span class="narrow-icon"><Icon name="x" size={22} /></span><span class="wide">{t('edit.cancel')}</span></a>
   {/snippet}
   {#snippet right()}
-    <button class="text-btn" type="submit" form="chore-form" disabled={busy || phase !== 'ready' || !name.trim()}>{t('edit.save')}</button>
+    <button class="text-btn" type="submit" form="chore-form" aria-label={t('edit.save')} disabled={busy || phase !== 'ready' || !name.trim()}><span class="narrow-icon"><Icon name="check" size={22} /></span><span class="wide">{t('edit.save')}</span></button>
   {/snippet}
 </PageBar>
 
@@ -180,7 +180,8 @@
     display: none;
   }
 
-  @media (max-width: 400px) {
+  /* em here follows the bar's text size, so large text switches to icons too */
+  @container (max-width: 25em) {
     .narrow-icon {
       display: contents;
     }

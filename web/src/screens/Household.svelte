@@ -287,7 +287,7 @@
   .page {
     max-width: 640px;
     margin: 0 auto;
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: calc(64px + 2rem + env(safe-area-inset-bottom));
   }
 
   .group {
@@ -424,6 +424,7 @@
 
   .hh-actions {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s2);
   }
 

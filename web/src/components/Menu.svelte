@@ -66,7 +66,7 @@
   <div class="menu" role="menu" tabindex="-1" bind:this={panel} onkeydown={keydown} aria-label={t('menu.open')}>
     {#each items as it (it.key)}
       <button class="item" type="button" role="menuitem" onclick={() => go(it.path)}>
-        <Icon name={it.icon} size={18} /><span data-nowrap>{t(it.key)}</span>
+        <Icon name={it.icon} size={18} /><span>{t(it.key)}</span>
       </button>
     {/each}
     <div class="sep" role="separator"></div>
@@ -80,7 +80,7 @@
     </div>
     <div class="sep" role="separator"></div>
     <button class="item" type="button" role="menuitem" onclick={() => (onclose(), onlogout())}>
-      <Icon name="log-out" size={18} /><span data-nowrap>{t('nav.logout')}</span>
+      <Icon name="log-out" size={18} /><span>{t('nav.logout')}</span>
     </button>
   </div>
 {/if}
@@ -114,7 +114,6 @@
     border-radius: var(--radius);
     background: none;
     text-align: left;
-    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -144,6 +143,8 @@
   .seg {
     display: flex;
     flex: 1;
+    flex-wrap: wrap;
+    min-width: 0;
     padding: 2px;
     border-radius: var(--radius);
     background: var(--bg);
@@ -151,8 +152,9 @@
   }
 
   .seg button {
-    flex: 1;
-    min-height: 36px;
+    flex: 1 1 0;
+    min-width: max-content;
+    min-height: 40px;
     padding: 0 var(--s2);
     border: 0;
     border-radius: var(--radius-sm);

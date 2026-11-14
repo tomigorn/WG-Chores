@@ -22,6 +22,7 @@
 
 <style>
   .bar {
+    container-type: inline-size;
     position: sticky;
     top: env(safe-area-inset-top, 0);
     z-index: 10;

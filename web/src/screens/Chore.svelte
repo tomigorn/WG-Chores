@@ -447,11 +447,17 @@
   }
 
   .by {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.3em;
     font-size: var(--fs-sm);
     color: var(--muted);
   }
 
   .by > span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
