@@ -39,6 +39,10 @@
   });
 
   function keydown(e: KeyboardEvent) {
+    if (e.key === 'Tab') {
+      onclose();
+      return;
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
       onclose();
@@ -67,11 +71,11 @@
       </button>
     {/each}
     <div class="sep" role="separator"></div>
-    <div class="theme" role="group" aria-label={t('theme.label')}>
+    <div class="theme" role="none">
       <Icon name="sun-moon" size={18} />
-      <div class="seg">
+      <div class="seg" role="none">
         {#each ['system', 'light', 'dark'] as const as s (s)}
-          <button type="button" role="menuitemradio" aria-checked={theme === s} class:on={theme === s} onclick={() => ontheme(s)} data-nowrap>{t(`theme.${s}`)}</button>
+          <button type="button" role="menuitemradio" aria-checked={theme === s} aria-label="{t('theme.label')}: {t(`theme.${s}`)}" class:on={theme === s} onclick={() => ontheme(s)} data-nowrap>{t(`theme.${s}`)}</button>
         {/each}
       </div>
     </div>

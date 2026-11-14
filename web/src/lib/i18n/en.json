@@ -103,7 +103,8 @@
     "saved": "Saved",
     "rejected": "{name} could not be saved and was removed from the queue.",
     "connect": "Connect to the internet to save this",
-    "failed": "Could not save. Please try again."
+    "failed": "Could not save. Please try again.",
+    "rejected_many": "{n} done marks could not be saved and were removed from the queue."
   },
   "sheet": {
     "title": "{name} – done on",
@@ -129,5 +130,12 @@
     "switch": "Switch household",
     "your_households": "Your households",
     "profile": "Account"
+  },
+  "logout": {
+    "title": "Sign out?",
+    "anyway": "Sign out anyway",
+    "cancel": "Stay signed in",
+    "unsynced_one": "1 done mark is not synced yet and will be lost.",
+    "unsynced_other": "{n} done marks are not synced yet and will be lost."
   }
 }

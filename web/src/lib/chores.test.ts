@@ -39,6 +39,13 @@ describe('chore list logic', () => {
     expect(g[4]!.chores.map((c) => c.id)).toEqual([7]);
   });
 
+  it('category_casing_is_stable', () => {
+    const a = [chore(1, 'x', 'Balkon'), chore(2, 'y', 'balkon'), chore(3, 'z', 'BALKON')];
+    const names = [a, [...a].reverse(), [a[1]!, a[2]!, a[0]!]].map((l) => groupChores(l, 'de')[0]!.category);
+    expect(new Set(names).size).toBe(1);
+    expect(groupChores(a, 'de')[0]!.chores.length).toBe(3);
+  });
+
   it('today_in_server_time_zone', () => {
     const t = new Date('2026-11-14T23:30:00Z');
     expect(todayIn('Europe/Zurich', t)).toBe('2026-11-15');

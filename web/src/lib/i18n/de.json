@@ -103,7 +103,8 @@
     "saved": "Gespeichert",
     "rejected": "{name} konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.",
     "connect": "Verbinde dich mit dem Internet, um das zu speichern",
-    "failed": "Speichern hat nicht geklappt. Bitte versuch es noch einmal."
+    "failed": "Speichern hat nicht geklappt. Bitte versuch es noch einmal.",
+    "rejected_many": "{n} Erledigt-Markierungen konnten nicht gespeichert werden und wurden aus der Warteschlange entfernt."
   },
   "sheet": {
     "title": "{name} – erledigt am",
@@ -129,5 +130,12 @@
     "switch": "Haushalt wechseln",
     "your_households": "Deine Haushalte",
     "profile": "Konto"
+  },
+  "logout": {
+    "title": "Abmelden?",
+    "anyway": "Trotzdem abmelden",
+    "cancel": "Angemeldet bleiben",
+    "unsynced_one": "1 Erledigt-Markierung ist noch nicht synchronisiert und geht verloren.",
+    "unsynced_other": "{n} Erledigt-Markierungen sind noch nicht synchronisiert und gehen verloren."
   }
 }

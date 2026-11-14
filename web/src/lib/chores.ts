@@ -16,13 +16,17 @@ export interface PendingDone {
 
 export function groupChores(chores: readonly Chore[], locale: string): ChoreGroup[] {
   const coll = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
+  const exact = new Intl.Collator(locale, { numeric: true });
   const byKey = new Map<string, ChoreGroup>();
   for (const c of chores) {
     const name = c.category?.trim() || null;
     const key = name === null ? '' : 'c' + name.toLocaleLowerCase(locale);
-    let g = byKey.get(key);
-    if (!g) byKey.set(key, (g = { category: name, chores: [] }));
-    g.chores.push(c);
+    const g = byKey.get(key);
+    if (!g) byKey.set(key, { category: name, chores: [c] });
+    else {
+      g.chores.push(c);
+      if (name !== null && g.category !== null && exact.compare(name, g.category) < 0) g.category = name;
+    }
   }
   const groups = [...byKey.values()];
   for (const g of groups) g.chores.sort((a, b) => coll.compare(a.name, b.name) || a.id - b.id);

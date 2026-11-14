@@ -75,7 +75,7 @@ Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
 |---|---|
 | `npm ci` | install |
 | `npm run dev` | dev server on :5173; `/api` and `/auth` go to `WGC_SERVER` (default `http://localhost:8080`) |
-| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, outbox, long press, components via `svelte/server`) |
+| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
 | `npm run check` | svelte-check (types) |
 | `npm run build` | `web/dist`, then `touch ../server/build.rs` and rebuild the server to embed it |
 
@@ -90,7 +90,7 @@ cd web && npm run dev
 | Routes | `/` (→ last household, else `/households`), `/login`, `/households`, `/households/:id`, `/households/:id/new-chore`, `/chores/:id`, `/invite/:token`, `/settings`, `/account`; unknown → `/` |
 | Chore list | grouped by category, categories and chores A–Z with `Intl.Collator` (accent/case-insensitive), no category last ("Other"); "today" = server `TZ` from `/api/v1/config`; refetch on tab visible and every 60 s while visible |
 | Marking done | ✓ = done today at once (optimistic), bar 6 s with Undo / Other date; long press 500 ms (≤ 10 px movement), right click, context-menu key or Shift+F10 = date sheet (today, yesterday, 2 days ago, pick date ≤ today, note) |
-| Offline | done marks go to an IndexedDB outbox (`wgc` → `outbox`) with a client UUID, sent on `online`, app start and after each successful load; 4xx (not 401/429) drops the item with a message; top bar shows the waiting count; other edits offline say "Connect to the internet to save this"; last list per household cached in IndexedDB (`cache`) and shown offline |
+| Offline | done marks go to an IndexedDB outbox (`wgc` → `outbox`, per user id) with a client UUID, sent at app start, on `online` and after each successful load; 4xx (not 401/429) drops the item with a message and reloads the list; sign out tries to send first and warns when marks would be lost, then clears that user's outbox and cache; top bar shows the waiting count; other edits offline say "Connect to the internet to save this"; last list per user and household cached in IndexedDB (`cache`) and shown offline |
 | API client | `src/lib/api.ts`: always `X-WGC: 1`, same-origin cookie; `401 unauthenticated` → `/login` (back to the intended page after sign-in), network or gateway failure → `OfflineError`; never a "session expired" dialog |
 | Language | setting in `localStorage` `wgc.lang`, else browser language (`de*` → German); texts in `src/lib/i18n/{en,de}.json` (same keys, Swiss "ss") |
 | Theme | `localStorage` `wgc.theme` (`light`/`dark`, none = system); tokens incl. due colours in `src/app.css` |

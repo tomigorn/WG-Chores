@@ -12,7 +12,9 @@
   import Icon from './Icon.svelte';
 
   let { snack, onexpire, duration = 6000 }: { snack: Snack | null; onexpire: () => void; duration?: number } = $props();
-  let paused = $state(false);
+  let pausedFor: number | null = $state(null);
+  const paused = $derived(snack !== null && pausedFor === snack.id);
+  const pause = (on: boolean) => (pausedFor = on && snack ? snack.id : null);
 
   $effect(() => {
     if (!snack || paused) return;
@@ -24,7 +26,7 @@
 <div class="region" role="status" aria-live="polite">
   {#if snack}
     {#key snack.id}
-      <div class="snack" role="group" onfocusin={() => (paused = true)} onfocusout={() => (paused = false)} onpointerenter={() => (paused = true)} onpointerleave={() => (paused = false)}>
+      <div class="snack" role="group" onfocusin={() => pause(true)} onfocusout={() => pause(false)} onpointerenter={() => pause(true)} onpointerleave={() => pause(false)}>
         {#if snack.icon}<Icon name={snack.icon} size={18} />{/if}
         <span class="text">
           {#if snack.strong}<span class="strong" data-nowrap>{snack.strong}</span>{/if}<span class="rest" data-nowrap={snack.strong ? '' : undefined}>{snack.text}</span>

@@ -10,9 +10,9 @@
   import { applyCompletion, doneWhen, groupChores, rebase, todayIn, withPending } from '../lib/chores';
   import { newUuid } from '../lib/done';
   import { t, type Lang } from '../lib/i18n';
-  import { cacheGet, cacheSet, type FlushResult } from '../lib/outbox';
+  import type { FlushResult } from '../lib/outbox';
   import { navigate } from '../lib/router';
-  import { done, outbox } from '../lib/sync';
+  import { startSync } from '../lib/sync';
   import type { ThemeSetting } from '../lib/theme';
 
   let {
@@ -53,13 +53,14 @@
   let sheet: { chore: Chore; prev: Chore; uuid: string | null; initial: { doneOn: string; note: string | null } } | null = $state(null);
   let sheetOpen = $state(false);
 
+  const store = untrack(() => startSync(me.id));
+  const { outbox, done } = store;
   let fetchSeq = 0;
   let mutations = 0;
   let snackSeq = 0;
 
   const meBy: By = $derived({ id: me.id, display_name: me.display_name, former: false });
   const groups = $derived(groupChores(chores, lang === 'de' ? 'de-CH' : 'en-GB'));
-  const cacheKey = $derived(`household:${hid}`);
 
   function show(s: Omit<Snack, 'id'>) {
     snack = { ...s, id: ++snackSeq };
@@ -69,17 +70,12 @@
     show({ text });
   }
 
-  function reportDropped(r: FlushResult) {
-    for (const i of r.dropped) {
-      const name = chores.find((c) => c.id === i.choreId)?.name ?? '';
+  function flushed(r: FlushResult) {
+    if (r.dropped.length === 1) {
+      const name = chores.find((c) => c.id === r.dropped[0]!.choreId)?.name ?? '';
       toast(t('done.rejected', { name }));
-    }
-  }
-
-  async function flush() {
-    const r = await outbox.flush();
-    reportDropped(r);
-    if (r.sent || r.dropped.length) load();
+    } else if (r.dropped.length > 1) toast(t('done.rejected_many', { n: r.dropped.length }));
+    load();
   }
 
   async function load() {
@@ -100,14 +96,14 @@
         onopened(hid);
       }
       loaded = true;
-      cacheSet(cacheKey, { household: h, chores: list } satisfies Cached);
-      if (queued.length) flush();
+      store.setList(hid, { household: h, chores: list } satisfies Cached);
+      if (queued.length) outbox.flush();
     } catch (e) {
       if (stale()) return;
       if (e instanceof OfflineError) {
         offline = true;
         if (loaded) return;
-        const c = await cacheGet<Cached>(cacheKey);
+        const c = await store.getList<Cached>(hid);
         if (stale()) return;
         if (c) {
           today = todayIn(config.tz);
@@ -130,7 +126,9 @@
     return chores.find((c) => c.id === id);
   }
 
-  async function mark(c: Chore, doneOn: string, note: string | null) {
+  async function mark(c: Chore, doneOn: string | null, note: string | null) {
+    today = todayIn(config.tz);
+    doneOn ??= today;
     const prev = current(c.id) ?? c;
     const uuid = newUuid();
     setRow(applyCompletion(prev, { doneOn, by: meBy }, today));
@@ -144,10 +142,7 @@
       ],
     });
     const r = await done.mark(c.id, doneOn, note, uuid);
-    if (r.rejected) {
-      setRow(prev);
-      toast(t('done.failed'));
-    } else if (!r.queued) load();
+    if (r.rejected) setRow(prev);
   }
 
   async function undo(id: number, prev: Chore, uuid: string) {
@@ -206,9 +201,9 @@
 
   onMount(() => {
     const offCount = outbox.onChange((n) => (pending = n));
+    const offFlushed = outbox.onFlushed(flushed);
     outbox.items().then((i) => (pending = i.length));
     load();
-    flush();
     let timer: ReturnType<typeof setInterval> | null = null;
     const tick = () => {
       if (timer) clearInterval(timer);
@@ -218,10 +213,7 @@
       tick();
       if (document.visibilityState === 'visible') load();
     };
-    const online = () => {
-      flush();
-      load();
-    };
+    const online = () => load();
     const wentOffline = () => (offline = true);
     document.addEventListener('visibilitychange', visible);
     addEventListener('online', online);
@@ -229,6 +221,7 @@
     tick();
     return () => {
       offCount();
+      offFlushed();
       if (timer) clearInterval(timer);
       document.removeEventListener('visibilitychange', visible);
       removeEventListener('online', online);
@@ -264,7 +257,7 @@
         <h2 class="cat" data-nowrap>{g.category ?? t('list.other_category')}</h2>
         <ul class="list">
           {#each g.chores as c (c.id)}
-            <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, today, null)} onlong={() => openSheet(c, c, null, { doneOn: today, note: null })} />
+            <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, null, null)} onlong={() => openSheet(c, c, null, { doneOn: today, note: null })} />
           {/each}
         </ul>
       </section>

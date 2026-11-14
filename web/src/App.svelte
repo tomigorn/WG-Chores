@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from './components/Icon.svelte';
+  import Sheet from './components/Sheet.svelte';
   import Household from './screens/Household.svelte';
+  import { startSync, stopSync, sync } from './lib/sync';
   import Login from './screens/Login.svelte';
   import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
   import { bootFailure } from './lib/boot';
@@ -45,9 +47,25 @@
     if (me && route.name !== 'invite') navigate(takeNext(), { replace: true });
   }
 
+  let unsynced = $state(0);
+
   async function logout() {
+    const n = me ? await sync().prepareLogout() : 0;
+    if (n > 0) {
+      unsynced = n;
+      return;
+    }
+    await signOut();
+  }
+
+  async function signOut() {
+    unsynced = 0;
+    if (me) await sync().discard();
+    stopSync();
     try {
       await api.logout();
+    } catch {
+      /* the cookie stays only when offline; the server ends it after 30 idle days */
     } finally {
       me = null;
       navigate('/login', { replace: true });
@@ -75,6 +93,10 @@
       offLang();
       removeEventListener('online', online);
     };
+  });
+
+  $effect.pre(() => {
+    if (me) startSync(me.id);
   });
 
   $effect(() => {
@@ -121,6 +143,14 @@
       </div>
     </main>
   {/if}
+  <Sheet open={unsynced > 0} onclose={() => (unsynced = 0)} label={t('logout.title')}>
+    <div class="confirm">
+      <h2>{t('logout.title')}</h2>
+      <p>{t(unsynced === 1 ? 'logout.unsynced_one' : 'logout.unsynced_other', { n: unsynced })}</p>
+      <button class="btn btn-primary btn-block" type="button" onclick={signOut}>{t('logout.anyway')}</button>
+      <button class="btn btn-block" type="button" onclick={() => (unsynced = 0)}>{t('logout.cancel')}</button>
+    </div>
+  </Sheet>
 {/key}
 
 <style>
@@ -151,6 +181,22 @@
     display: flex;
     flex-direction: column;
     gap: var(--s3);
+  }
+
+  .confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+  }
+
+  .confirm h2 {
+    font-size: var(--fs-md);
+    font-weight: 650;
+  }
+
+  .confirm p {
+    color: var(--muted);
+    margin-bottom: var(--s2);
   }
 
   .muted {

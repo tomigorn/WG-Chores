@@ -17,7 +17,7 @@ function setup(online = true) {
     deleteCompletion: vi.fn(async (_id: string) => offline()),
     patchCompletion: vi.fn(async (_id: string, _p: { done_on?: string; note?: string | null }) => offline()),
   };
-  const outbox = new Outbox(memoryStore(), (i) => api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note }));
+  const outbox = new Outbox(memoryStore(), 1, (i) => api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note }));
   let n = 0;
   const done = new Done(api, outbox, () => `uuid-${++n}`);
   return { api, outbox, done, sent, net };
