@@ -1,0 +1,197 @@
+[
+ {
+  "days_since": null,
+  "interval": "1w",
+  "level": "never"
+ },
+ {
+  "days_since": null,
+  "interval": null,
+  "level": "never"
+ },
+ {
+  "days_since": 0,
+  "interval": "1w",
+  "level": "fresh"
+ },
+ {
+  "days_since": 3,
+  "interval": "1w",
+  "level": "fresh"
+ },
+ {
+  "days_since": 6,
+  "interval": "2w",
+  "level": "fresh"
+ },
+ {
+  "days_since": 7,
+  "interval": "2w",
+  "level": "soon"
+ },
+ {
+  "days_since": 10,
+  "interval": "2w",
+  "level": "soon"
+ },
+ {
+  "days_since": 11,
+  "interval": "2w",
+  "level": "soon"
+ },
+ {
+  "days_since": 12,
+  "interval": "2w",
+  "level": "close"
+ },
+ {
+  "days_since": 13,
+  "interval": "2w",
+  "level": "close"
+ },
+ {
+  "days_since": 14,
+  "interval": "2w",
+  "level": "due"
+ },
+ {
+  "days_since": 20,
+  "interval": "2w",
+  "level": "due"
+ },
+ {
+  "days_since": 21,
+  "interval": "2w",
+  "level": "overdue"
+ },
+ {
+  "days_since": 27,
+  "interval": "2w",
+  "level": "overdue"
+ },
+ {
+  "days_since": 28,
+  "interval": "2w",
+  "level": "long_overdue"
+ },
+ {
+  "days_since": 100,
+  "interval": "2w",
+  "level": "long_overdue"
+ },
+ {
+  "days_since": 1,
+  "interval": "3d",
+  "level": "fresh"
+ },
+ {
+  "days_since": 2,
+  "interval": "3d",
+  "level": "soon"
+ },
+ {
+  "days_since": 3,
+  "interval": "3d",
+  "level": "due"
+ },
+ {
+  "days_since": 4,
+  "interval": "3d",
+  "level": "due"
+ },
+ {
+  "days_since": 5,
+  "interval": "3d",
+  "level": "overdue"
+ },
+ {
+  "days_since": 6,
+  "interval": "3d",
+  "level": "long_overdue"
+ },
+ {
+  "days_since": 15,
+  "interval": null,
+  "level": "soon"
+ },
+ {
+  "days_since": 14,
+  "interval": null,
+  "level": "fresh"
+ },
+ {
+  "days_since": 24,
+  "interval": null,
+  "level": "close"
+ },
+ {
+  "days_since": 29,
+  "interval": null,
+  "level": "close"
+ },
+ {
+  "days_since": 30,
+  "interval": null,
+  "level": "due"
+ },
+ {
+  "days_since": 45,
+  "interval": null,
+  "level": "overdue"
+ },
+ {
+  "days_since": 60,
+  "interval": null,
+  "level": "long_overdue"
+ },
+ {
+  "days_since": 24,
+  "interval": "1m",
+  "level": "close"
+ },
+ {
+  "days_since": 23,
+  "interval": "1m",
+  "level": "soon"
+ },
+ {
+  "days_since": 45,
+  "interval": "3m",
+  "level": "fresh"
+ },
+ {
+  "days_since": 46,
+  "interval": "3m",
+  "level": "soon"
+ },
+ {
+  "days_since": 91,
+  "interval": "3m",
+  "level": "due"
+ },
+ {
+  "days_since": 182,
+  "interval": "3m",
+  "level": "long_overdue"
+ },
+ {
+  "days_since": 91,
+  "interval": "6m",
+  "level": "soon"
+ },
+ {
+  "days_since": 182,
+  "interval": "6m",
+  "level": "due"
+ },
+ {
+  "days_since": 365,
+  "interval": "1y",
+  "level": "due"
+ },
+ {
+  "days_since": 730,
+  "interval": "1y",
+  "level": "long_overdue"
+ }
+]
