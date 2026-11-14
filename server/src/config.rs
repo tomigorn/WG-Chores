@@ -1,6 +1,6 @@
 use chrono::NaiveTime;
 use chrono_tz::Tz;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use url::Url;
 
@@ -18,6 +18,44 @@ pub struct Sec(pub String);
 impl std::fmt::Debug for Sec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("Sec(***)")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IpNet {
+    addr: IpAddr,
+    prefix: u8,
+}
+
+impl IpNet {
+    pub fn parse(s: &str) -> Option<IpNet> {
+        let (a, p) = match s.split_once('/') {
+            Some((a, p)) => (a, Some(p)),
+            None => (s, None),
+        };
+        let addr: IpAddr = a.trim().parse().ok()?;
+        let max = if addr.is_ipv4() { 32 } else { 128 };
+        let prefix = match p {
+            Some(p) => p.trim().parse::<u8>().ok().filter(|p| *p <= max)?,
+            None => max,
+        };
+        Some(IpNet { addr, prefix })
+    }
+
+    pub fn contains(&self, ip: IpAddr) -> bool {
+        fn bits(ip: IpAddr) -> (u128, u8) {
+            match ip {
+                IpAddr::V4(v) => (u32::from(v) as u128, 32),
+                IpAddr::V6(v) => (u128::from(v), 128),
+            }
+        }
+        let (a, la) = bits(self.addr);
+        let (b, lb) = bits(ip.to_canonical());
+        if la != lb {
+            return false;
+        }
+        let shift = u32::from(la - self.prefix);
+        shift >= 128 || a >> shift == b >> shift
     }
 }
 
@@ -42,6 +80,7 @@ pub struct Config {
     pub member_directory: bool,
     pub data_dir: PathBuf,
     pub listen: SocketAddr,
+    pub trusted_proxies: Vec<IpNet>,
 }
 
 fn parse_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
@@ -130,6 +169,18 @@ impl Config {
             })
         };
 
+        let trusted_proxies = match get("TRUSTED_PROXIES") {
+            None => Vec::new(),
+            Some(v) => v
+                .split(',')
+                .map(|s| {
+                    IpNet::parse(s.trim()).ok_or_else(|| {
+                        ConfigError::Invalid("TRUSTED_PROXIES", format!("{s}: not an IP or CIDR"))
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+
         Ok(Config {
             public_url,
             tz,
@@ -148,6 +199,7 @@ impl Config {
                 .map_err(|e: std::net::AddrParseError| {
                     ConfigError::Invalid("LISTEN", e.to_string())
                 })?,
+            trusted_proxies,
         })
     }
 }
@@ -301,6 +353,28 @@ mod tests {
         .unwrap();
         std::fs::remove_file(&dir).ok();
         assert_eq!(c.oidc.unwrap().client_secret.0, "from-file");
+    }
+
+    #[test]
+    fn trusted_proxies_parsed() {
+        let c = Config::from_env(env(&[URL])).unwrap();
+        assert!(c.trusted_proxies.is_empty());
+        let c = Config::from_env(env(&[
+            URL,
+            ("TRUSTED_PROXIES", "10.0.0.1, 172.16.0.0/12, ::1"),
+        ]))
+        .unwrap();
+        let t = &c.trusted_proxies;
+        assert!(t.iter().any(|n| n.contains("10.0.0.1".parse().unwrap())));
+        assert!(!t.iter().any(|n| n.contains("10.0.0.2".parse().unwrap())));
+        assert!(
+            t.iter()
+                .any(|n| n.contains("172.31.255.1".parse().unwrap()))
+        );
+        assert!(!t.iter().any(|n| n.contains("172.32.0.1".parse().unwrap())));
+        assert!(t.iter().any(|n| n.contains("::1".parse().unwrap())));
+        assert!(Config::from_env(env(&[URL, ("TRUSTED_PROXIES", "nope")])).is_err());
+        assert!(Config::from_env(env(&[URL, ("TRUSTED_PROXIES", "10.0.0.0/33")])).is_err());
     }
 
     #[test]

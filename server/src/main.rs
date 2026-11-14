@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use wg_chores::{
     app::{AppState, router},
     config::Config,
@@ -28,14 +27,14 @@ async fn main() {
     let addr = cfg.listen;
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     eprintln!("listening on {addr}, public url {}", cfg.public_url);
-    let app = router(AppState {
-        cfg: Arc::new(cfg),
-        db,
-    });
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .expect("serve");
+    let app = router(AppState::new(cfg, db));
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .expect("serve");
 }
 
 async fn shutdown_signal() {

@@ -5,7 +5,7 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 ## Layout
 | Folder | Content |
 |---|---|
-| `server/` | Rust server (`src/config.rs` env config incl. `LISTEN`, `src/app.rs` router, `src/db/` SQLite + migrations) |
+| `server/` | Rust server (`src/config.rs` env config incl. `LISTEN`, `src/app.rs` router, `src/auth/` sessions, CSRF, local accounts, `src/api/` endpoints, `src/db/` SQLite + migrations) |
 | `web/` | web app (later) |
 | `android/` | Kotlin app (later) |
 | `deploy/` | compose examples (later) |

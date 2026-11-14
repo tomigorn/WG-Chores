@@ -1,5 +1,4 @@
 use axum::{body::Body, http::Request};
-use std::sync::Arc;
 use tower::ServiceExt;
 use wg_chores::app::{AppState, router};
 use wg_chores::config::Config;
@@ -9,10 +8,10 @@ async fn healthz_returns_ok() {
     let cfg =
         Config::from_env(|k| (k == "PUBLIC_URL").then(|| "https://chores.example.com".to_string()))
             .unwrap();
-    let app = router(AppState {
-        cfg: Arc::new(cfg),
-        db: wg_chores::db::Db::open_memory().unwrap(),
-    });
+    let app = router(AppState::new(
+        cfg,
+        wg_chores::db::Db::open_memory().unwrap(),
+    ));
     let res = app
         .oneshot(Request::get("/healthz").body(Body::empty()).unwrap())
         .await
