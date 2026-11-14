@@ -1,4 +1,6 @@
-use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+#[cfg(feature = "test-util")]
+use argon2::{Algorithm, Params, Version};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 

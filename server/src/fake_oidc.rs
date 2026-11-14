@@ -174,7 +174,6 @@ impl FakeOidc {
         *lock(&self.inner.now) = t;
     }
 
-    /// Forces this nonce into the next ID tokens instead of the requested one.
     /// Key published in the JWKS and key used to sign ID tokens.
     pub fn set_keys(&self, published: FakeKey, signing: FakeKey) {
         *lock(&self.inner.keys) = (published, signing);
@@ -195,6 +194,7 @@ impl FakeOidc {
         *lock(&self.inner.discovery_down) = down;
     }
 
+    /// Forces this nonce into the next ID tokens instead of the requested one.
     pub fn set_nonce(&self, n: Option<String>) {
         *lock(&self.inner.nonce) = n;
     }
