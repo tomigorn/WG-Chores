@@ -13,7 +13,7 @@
   import Login from './screens/Login.svelte';
   import Settings from './screens/Settings.svelte';
   import { watchDropped } from './lib/snack';
-  import { startSync, stopSync, sync } from './lib/sync';
+  import { clearUserCache, startSync, stopSync, sync } from './lib/sync';
   import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
   import { bootFailure, cachedSession, forgetSession, rememberSession } from './lib/boot';
   import { push } from './lib/push';
@@ -63,7 +63,9 @@
       const f = bootFailure(e);
       const cached = f === 'error.offline' && me === undefined ? cachedSession() : null;
       if (f === 'login') {
+        const previous = cachedSession()?.me.id;
         forgetSession();
+        if (previous !== undefined) void clearUserCache(previous);
         me = null;
       } else if (cached) {
         config = cached.config;

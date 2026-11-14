@@ -27,13 +27,15 @@ export interface UpdateHooks {
 /** Registers /sw.js; a new version waits until the user chooses to reload, nothing reloads on its own. */
 export async function watchUpdates(c: ContainerLike, h: UpdateHooks): Promise<RegistrationLike> {
   let asked = false;
-  let switched = false;
+  let controlled = !!c.controller;
   c.addEventListener('controllerchange', () => {
-    if (asked) h.reload();
-    else {
-      switched = true;
-      h.onUpdate(null);
+    // first visit: clients.claim() hands the page to its first worker, nothing to offer
+    if (!controlled) {
+      controlled = true;
+      return;
     }
+    if (asked) h.reload();
+    else h.onUpdate(null);
   });
   c.addEventListener('message', (e) => {
     const d = e.data as { type?: string; url?: unknown } | null | undefined;
@@ -43,7 +45,8 @@ export async function watchUpdates(c: ContainerLike, h: UpdateHooks): Promise<Re
   const reg = await c.register('/sw.js', { scope: '/' });
   const offer = (w: WorkerLike) =>
     h.onUpdate(() => {
-      if (switched) return h.reload();
+      // another tab already activated this worker
+      if (c.controller === w || w.state === 'activated') return h.reload();
       asked = true;
       w.postMessage({ type: 'skip-waiting' });
     });

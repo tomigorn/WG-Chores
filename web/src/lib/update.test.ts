@@ -20,7 +20,7 @@ class Worker extends Target {
 function setup(controlled: boolean, waiting: Worker | null = null) {
   const reg = Object.assign(new Target(), { waiting, installing: null as Worker | null, update: vi.fn(async () => {}) });
   const container = Object.assign(new Target(), {
-    controller: controlled ? {} : null,
+    controller: (controlled ? {} : null) as unknown,
     register: vi.fn(async () => reg),
   }) satisfies ContainerLike;
   const reload = vi.fn();
@@ -77,11 +77,35 @@ describe('service worker updates', () => {
     const s = setup(true, waiting);
     await s.start();
     const apply = s.onUpdate.mock.calls[0]![0] as () => void;
+    waiting.state = 'activated';
+    s.container.controller = waiting;
     s.container.emit('controllerchange');
     expect(s.onUpdate).toHaveBeenLastCalledWith(null);
     expect(s.reload).not.toHaveBeenCalled();
     apply();
     expect(s.reload).toHaveBeenCalledTimes(1);
     expect(waiting.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('first_visit_claim_then_real_update_applies', async () => {
+    const s = setup(false);
+    await s.start();
+    const first = new Worker();
+    first.state = 'activated';
+    s.container.controller = first;
+    s.container.emit('controllerchange');
+    expect(s.onUpdate).not.toHaveBeenCalled();
+    const next = new Worker();
+    s.reg.installing = next;
+    s.reg.emit('updatefound');
+    next.state = 'installed';
+    next.emit('statechange');
+    expect(s.onUpdate).toHaveBeenCalledTimes(1);
+    (s.onUpdate.mock.calls[0]![0] as () => void)();
+    expect(next.postMessage).toHaveBeenCalledWith({ type: 'skip-waiting' });
+    expect(s.reload).not.toHaveBeenCalled();
+    s.container.controller = next;
+    s.container.emit('controllerchange');
+    expect(s.reload).toHaveBeenCalledTimes(1);
   });
 });

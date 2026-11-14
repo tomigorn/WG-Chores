@@ -86,11 +86,26 @@ function fallback<T extends object>(primary: T, backup: T): T {
   });
 }
 
-function browserDeps(): SyncDeps {
+// one set of stores per page, so a restarted sync or a cleanup sees the same data
+let stores: Pick<SyncDeps, 'store' | 'cache'> | null = null;
+
+function browserStores(): Pick<SyncDeps, 'store' | 'cache'> {
   const hasIdb = typeof indexedDB !== 'undefined';
-  return {
+  stores ??= {
     store: hasIdb ? fallback(idbStore(), memoryStore()) : memoryStore(),
     cache: hasIdb ? fallback(idbCache(), memoryCache()) : memoryCache(),
+  };
+  return stores;
+}
+
+/** Login ended for a user whose sync is not running: drops their cached lists, keeps waiting marks. */
+export async function clearUserCache(user: number): Promise<void> {
+  await browserStores().cache.clearPrefix(`${user}:`).catch(() => {});
+}
+
+function browserDeps(): SyncDeps {
+  return {
+    ...browserStores(),
     send: async (i) => void (await api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note })),
     api,
     events: globalThis as unknown as EventTarget,
