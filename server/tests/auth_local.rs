@@ -183,20 +183,6 @@ async fn display_name_rules() {
 }
 
 #[tokio::test]
-async fn register_with_invite_not_supported_yet() {
-    let app = TestApp::new();
-    let mut c = app.client();
-    let r = c
-        .post(
-            "/api/v1/auth/register",
-            json!({"username": "anna", "password": PW, "display_name": "J", "invite": "x"}),
-        )
-        .await;
-    assert_eq!(r.status, 400);
-    assert_eq!(r.body["error"], "invite_not_supported_yet");
-}
-
-#[tokio::test]
 async fn rate_limit_after_5_failures_per_account() {
     let app = TestApp::new();
     app.seed_local_user("anna", PW).await;

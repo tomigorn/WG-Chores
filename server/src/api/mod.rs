@@ -1,5 +1,6 @@
 pub mod config;
 pub mod households;
+pub mod invites;
 pub mod me;
 pub mod users;
 
@@ -38,6 +39,16 @@ pub fn router(state: AppState) -> Router<AppState> {
             "/api/v1/households/{id}/members/{user_id}",
             delete(households::remove_member),
         )
+        .route(
+            "/api/v1/households/{id}/invites",
+            get(invites::list).post(invites::create),
+        )
+        .route(
+            "/api/v1/households/{id}/invites/{invite_id}",
+            delete(invites::cancel),
+        )
+        .route("/api/v1/invites/{token}", get(invites::preview))
+        .route("/api/v1/invites/{token}/accept", post(invites::accept))
         .route("/api/v1/users", get(users::search))
         .layer(middleware::from_fn_with_state(state, csrf::check))
 }

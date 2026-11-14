@@ -260,19 +260,21 @@ pub async fn register(
     ApiJson(b): ApiJson<Register>,
 ) -> Result<Response, ApiError> {
     require_local(&st)?;
-    if b.invite.is_some() {
-        return Err(ApiError::bad_request(
-            "invite_not_supported_yet",
-            "Invites are not supported yet.",
-        ));
-    }
-    if !st.cfg.open_registration {
+    let invite_hash = b
+        .invite
+        .as_deref()
+        .map(crate::api::invites::token_hash)
+        .transpose()?;
+    if invite_hash.is_none() && !st.cfg.open_registration {
         return Err(ApiError::forbidden(
             "registration_closed",
             "Registration is closed on this server.",
         ));
     }
     reserve(&st, None, ip).await?;
+    if let Some(h) = &invite_hash {
+        crate::api::invites::ensure_open(&st, h.clone()).await?;
+    }
     let username = normalize_username(&b.username).ok_or_else(|| {
         ApiError::bad_request(
             "invalid_username",
@@ -311,12 +313,17 @@ pub async fn register(
                 "INSERT INTO identities (user_id, kind, issuer, subject, password_hash) VALUES (?1, 'local', '', ?2, ?3)",
                 rusqlite::params![id, u, hash],
             )?;
+            if let Some(h) = &invite_hash
+                && let Err(e) = crate::api::invites::accept_in_tx(&tx, h, id, &now)?
+            {
+                return Ok(Err(e));
+            }
             tx.commit()?;
-            Ok(id)
+            Ok(Ok(id))
         })
         .await;
     let id = match inserted {
-        Ok(id) => id,
+        Ok(id) => id?,
         Err(crate::db::DbError::Sqlite(rusqlite::Error::SqliteFailure(e, _)))
             if e.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE =>
         {
