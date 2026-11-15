@@ -81,7 +81,7 @@ systemctl list-timers wg-chores-demo-reset.timer      # next run 03:17
 ```
 ~/Projects/Docker/_global/scripts/post-update-check.sh WG-Chores-v2      # 0 failed
 ~/Projects/Docker/_global/scripts/post-update-check.sh WG-Chores-Demo    # 0 failed
-docker kill -s HUP prometheus                                            # probes for both sites go live
+docker restart prometheus      # probes go live; a HUP is not enough: apply.sh replaced prometheus.yml, a single-file mount keeps the old one
 ```
 5. Commit in `~/Projects` with the commands `apply.sh --apply` printed.
 

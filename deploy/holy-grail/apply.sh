@@ -147,6 +147,6 @@ Written, not committed. Check and commit in HomeLab-FastPi:
   git -C $DEST add Docker/Authentik/scripts/provision-wg-chores-sso.py Docker/Authentik/README.md && git -C $DEST commit -m "Authentik: WG Chores OIDC provider, group WG"
   git -C $DEST add Docker/grafana/prometheus/prometheus.yml && git -C $DEST commit -m "grafana: blackbox probes for wg-chores and wg-chores-demo"
 Traefik hot-reloads the route now: docker logs --since 1m traefik 2>&1 | grep -i error
-Probes go live with: docker kill -s HUP prometheus   (go-live step 7, once both sites answer)
+Probes go live with: docker restart prometheus   (go-live step 7, once both sites answer; HUP keeps the old single-file mount)
 next: docs/guides/go-live-holy-grail.md step 3 (Authentik provisioning)
 EOF
