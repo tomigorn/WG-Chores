@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 pub const COOKIE_NAME: &str = "__Host-wgc_session";
 const IDLE: Duration = Duration::days(30);
 const ABSOLUTE: Duration = Duration::days(90);
+const ABSOLUTE_SSO: Duration = Duration::days(30);
 const TOUCH_EVERY: Duration = Duration::hours(1);
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -42,8 +43,10 @@ pub fn hash_token(raw: &str) -> String {
         .collect()
 }
 
-fn expiry(created: DateTime<Utc>, seen: DateTime<Utc>) -> DateTime<Utc> {
-    (seen + IDLE).min(created + ABSOLUTE)
+/// SSO accounts re-run the provider login sooner, so a removal there takes effect within 30 days.
+fn expiry(created: DateTime<Utc>, seen: DateTime<Utc>, sso: bool) -> DateTime<Utc> {
+    let absolute = if sso { ABSOLUTE_SSO } else { ABSOLUTE };
+    (seen + IDLE).min(created + absolute)
 }
 
 pub async fn create(
@@ -57,7 +60,7 @@ pub async fn create(
     let raw = URL_SAFE_NO_PAD.encode(bytes);
     let hash = hash_token(&raw);
     let now = clock.now();
-    let (now_s, exp_s) = (ts(now), ts(expiry(now, now)));
+    let (now_s, exp_s) = (ts(now), ts(expiry(now, now, true)));
     db.run(move |c| {
         c.execute("DELETE FROM sessions WHERE expires_at < ?1", [&now_s])?;
         c.execute(
@@ -108,14 +111,14 @@ pub async fn lookup(
         else {
             return Ok(None);
         };
-        if (!local_enabled && local && !other) || now >= expires {
+        if (!local_enabled && local && !other) || now >= expires.min(expiry(created, seen, other)) {
             c.execute("DELETE FROM sessions WHERE token_hash = ?1", [&hash])?;
             return Ok(None);
         }
         if now - seen >= TOUCH_EVERY {
             c.execute(
                 "UPDATE sessions SET last_seen_at = ?2, expires_at = ?3 WHERE token_hash = ?1",
-                rusqlite::params![hash, ts(now), ts(expiry(created, now))],
+                rusqlite::params![hash, ts(now), ts(expiry(created, now, other))],
             )?;
         }
         Ok(Some(CurrentUser {

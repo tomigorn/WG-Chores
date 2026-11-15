@@ -812,3 +812,17 @@ async fn forwarded_for_walk_stops_at_unparseable_entry() {
     c.xff = Some("203.0.113.6".into());
     assert_eq!(c.login("anna", PW).await.status, 200);
 }
+
+#[tokio::test]
+async fn sso_session_absolute_expiry_30_days() {
+    let app = TestApp::new();
+    let id = app.seed_sso_user("Sue SSO").await;
+    let mut c = app.client();
+    login_as(&app, &mut c, id).await;
+    app.clock.advance(Duration::days(20));
+    assert_eq!(c.get("/api/v1/me").await.status, 200);
+    app.clock.advance(Duration::days(9));
+    assert_eq!(c.get("/api/v1/me").await.status, 200);
+    app.clock.advance(Duration::days(2));
+    assert_eq!(c.get("/api/v1/me").await.status, 401);
+}
