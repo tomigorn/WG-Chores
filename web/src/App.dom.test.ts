@@ -146,4 +146,32 @@ describe('App', () => {
     await vi.waitFor(() => expect(order).toEqual(['logout', 'me']));
     expect(logoutPending()).toBeNull();
   });
+
+  it('a pending logout never ends a fresh local sign-in', async () => {
+    dialogs();
+    history.replaceState(null, '', '/login');
+    setLogoutPending(null, config);
+    vi.spyOn(api, 'config').mockResolvedValue(config);
+    const order: string[] = [];
+    vi.spyOn(api, 'logout').mockRejectedValueOnce(new OfflineError()).mockImplementation(async () => void order.push('logout'));
+    vi.spyOn(push, 'refresh').mockResolvedValue(undefined);
+    app = mount(App, { target: document.body });
+    await vi.waitFor(() => expect(document.querySelector('#username')).not.toBeNull());
+    vi.spyOn(api, 'me').mockResolvedValue(me);
+    vi.spyOn(api, 'login').mockImplementation(async () => {
+      order.push('login');
+      // the network comes back while the sign-in is on its way
+      dispatchEvent(new Event('online'));
+      await new Promise((r) => setTimeout(r, 20));
+      order.push('login done');
+      return me;
+    });
+    type('#username', 'anna');
+    type('#password', 'correct horse battery');
+    document.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await vi.waitFor(() => expect(location.pathname).not.toBe('/login'));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(order).toEqual(['logout', 'login', 'login done']);
+    expect(logoutPending()).toBeNull();
+  });
 });

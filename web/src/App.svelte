@@ -15,7 +15,7 @@
   import { watchDropped } from './lib/snack';
   import { clearUserCache, startSync, stopSync, sync } from './lib/sync';
   import { api, ApiError, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
-  import { bootFailure, cachedSession, clearLogoutPending, forgetSession, logoutPending, rememberSession, setLogoutPending } from './lib/boot';
+  import { bootFailure, cachedSession, clearLogoutPending, endPendingLogout, forgetSession, logoutPending, rememberSession, setLogoutPending } from './lib/boot';
   import { push } from './lib/push';
   import { watchUpdates, type ContainerLike } from './lib/update';
   import UpdateBar from './components/UpdateBar.svelte';
@@ -49,18 +49,13 @@
   async function finishLogout(p: { endpoint: string | null; config: ServerConfig }) {
     try {
       config = await api.config();
-      await api.logout(p.endpoint);
-      clearLogoutPending();
-    } catch (e) {
-      if (!(e instanceof ApiError && e.status === 401)) {
-        config ??= p.config;
-        me = null;
-        if (route.name !== 'login' && route.name !== 'invite') navigate('/login', { replace: true });
-        return false;
-      }
-      clearLogoutPending();
+    } catch {
+      config ??= p.config;
     }
-    return true;
+    if (await endPendingLogout()) return true;
+    me = null;
+    if (route.name !== 'login' && route.name !== 'invite') navigate('/login', { replace: true });
+    return false;
   }
 
   async function boot() {

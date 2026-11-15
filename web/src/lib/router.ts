@@ -64,6 +64,11 @@ export function currentRoute(): { route: Route; url: URL } {
   return current();
 }
 
+/** Leaves the app, e.g. for the SSO provider. */
+export function leave(url: string): void {
+  location.href = url;
+}
+
 export function navigate(path: string, opts: { replace?: boolean } = {}): void {
   if (opts.replace) history.replaceState(null, '', path);
   else history.pushState(null, '', path);

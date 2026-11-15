@@ -2,6 +2,8 @@
   import type { Snippet } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import { api, ApiError, OfflineError, ssoStartUrl, type ServerConfig } from '../lib/api';
+  import { clearLogoutPending, endPendingLogout, logoutPending, setLogoutPending } from '../lib/boot';
+  import { leave } from '../lib/router';
   import { t } from '../lib/i18n';
 
   let {
@@ -44,12 +46,24 @@
     return t('error.generic');
   }
 
+  async function sso(ev: MouseEvent) {
+    if (!logoutPending()) return;
+    ev.preventDefault();
+    await endPendingLogout();
+    leave(ssoStartUrl(invite));
+  }
+
   async function submit(ev: SubmitEvent) {
     ev.preventDefault();
     if (busy) return;
     busy = true;
     failure = null;
+    let pending: ReturnType<typeof logoutPending> = null;
     try {
+      // an old sign-out still waiting must never be sent with the new session cookie
+      await endPendingLogout();
+      pending = logoutPending();
+      clearLogoutPending();
       if (mode === 'login') await api.login(username.trim(), password);
       else
         await api.register({
@@ -60,6 +74,8 @@
         });
       onSignedIn(mode);
     } catch (e) {
+      // the old cookie is still in place, so its sign-out stays due
+      if (pending) setLogoutPending(pending.endpoint, pending.config);
       failure = message(e);
       password = '';
     } finally {
@@ -96,7 +112,7 @@
     {/if}
 
     {#if config.oidc && mode === 'login'}
-      <a class="btn btn-primary btn-block sso" href={ssoStartUrl(invite)} data-external>
+      <a class="btn btn-primary btn-block sso" href={ssoStartUrl(invite)} data-external onclick={sso}>
         <span class="ellipsis">{t('login.sso', { name: config.oidc.name })}</span>
       </a>
     {/if}

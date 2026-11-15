@@ -1,4 +1,4 @@
-import { ApiError, OfflineError, type Me, type ServerConfig } from './api';
+import { api, ApiError, OfflineError, type Me, type ServerConfig } from './api';
 
 export type BootFailure = 'login' | 'error.offline' | 'error.generic';
 
@@ -62,4 +62,17 @@ export function clearLogoutPending(): void {
   } catch {
     /* storage unavailable */
   }
+}
+
+/** Sends a waiting sign-out with the cookie the browser holds now; false when it did not go through. */
+export async function endPendingLogout(): Promise<boolean> {
+  const p = logoutPending();
+  if (!p) return true;
+  try {
+    await api.logout(p.endpoint);
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 401)) return false;
+  }
+  clearLogoutPending();
+  return true;
 }
