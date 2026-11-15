@@ -150,13 +150,13 @@ class NotifyCheckTest {
     }
 
     @Test fun atMostFivePagesPerCheckTheRestNextTime() {
-        run()
+        assertEquals(Outcome.Done, run())
         repeat(7) { fake.doneBy("Sam", 6) }
         fake.pollPage = 1
-        run()
+        assertEquals(Outcome.Done, run())
         assertEquals(1 + NotifyCheck.MAX_PAGES, polls())
         assertEquals(5, doneItems(1).size)
-        run()
+        assertEquals(Outcome.Done, run())
         assertEquals(7, doneItems(1).size)
     }
 

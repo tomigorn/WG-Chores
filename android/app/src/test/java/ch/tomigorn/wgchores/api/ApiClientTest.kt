@@ -249,4 +249,11 @@ class ApiClientTest {
         assertEquals(2L, fake.lastHousehold)
         assertEquals("Flat", api.createHousehold("Flat").name)
     }
+
+    @Test fun closingAFakeLeavesNoPooledConnectionForALaterFakeOnTheSamePort() = runBlocking {
+        ApiClient(fake.url, bearer = { fake.token() }).me()
+        assertTrue(ApiClient.defaultHttp.connectionPool.connectionCount() > 0)
+        fake.close()
+        assertEquals(0, ApiClient.defaultHttp.connectionPool.connectionCount())
+    }
 }
