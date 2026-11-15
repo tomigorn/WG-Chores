@@ -40,6 +40,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -395,20 +398,30 @@ private fun EntryRow(e: Entry, today: LocalDate, narrow: Boolean, onClick: () ->
 private fun Footer(act: ChoreActions) {
     Column(Modifier.fillMaxWidth().background(Wgc.colors.surface)) {
         HorizontalDivider(color = Wgc.colors.border)
-        BoxWithConstraints(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            val em = with(LocalDensity.current) { 16.sp.toDp() }
-            val done = @Composable { m: Modifier -> PrimaryButton(stringResource(R.string.chore_done_today), act::tap, m.testTag("chore-done"), icon = R.drawable.ic_check) }
-            val other = @Composable { m: Modifier -> SecondaryButton(stringResource(R.string.chore_other_date), act::openNew, m.testTag("chore-other-date")) }
-            if (maxWidth / em < 20f) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    done(Modifier)
-                    other(Modifier)
+        val shape = RoundedCornerShape(8.dp)
+        // Done today takes the row; the calendar is a square as tall as Done today (two lines at large text)
+        Layout(
+            content = {
+                PrimaryButton(stringResource(R.string.chore_done_today), act::tap, Modifier.testTag("chore-done"), icon = R.drawable.ic_check)
+                Box(
+                    Modifier.clip(shape).background(Wgc.colors.surface).border(1.dp, Wgc.colors.borderStrong, shape)
+                        .clickable(role = Role.Button, onClick = act::openNew).testTag("chore-other-date"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(painterResource(R.drawable.ic_calendar), contentDescription = stringResource(R.string.chore_other_date), tint = Wgc.colors.text, modifier = Modifier.size(20.dp))
                 }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    done(Modifier.weight(1f))
-                    other(Modifier.weight(1f))
-                }
+            },
+            modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 16.dp, vertical = 12.dp),
+        ) { (done, other), c ->
+            val gap = 8.dp.roundToPx()
+            val tap = 48.dp.roundToPx()
+            var side = maxOf(tap, done.minIntrinsicHeight(c.maxWidth - tap - gap))
+            side = maxOf(side, done.minIntrinsicHeight(c.maxWidth - side - gap))
+            val d = done.measure(Constraints.fixedWidth(c.maxWidth - side - gap).copy(minHeight = side))
+            val o = other.measure(Constraints.fixed(d.height, d.height))
+            layout(c.maxWidth, d.height) {
+                d.place(0, 0)
+                o.place(c.maxWidth - o.width, 0)
             }
         }
     }
