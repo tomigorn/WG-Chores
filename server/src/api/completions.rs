@@ -140,6 +140,7 @@ pub async fn create(
                 "INSERT INTO completions (id, chore_id, user_id, done_on, note, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![id, chore, uid, done_on, note, now],
             )?;
+            tx.execute("INSERT INTO done_events (completion_id) VALUES (?1)", [&id])?;
             let v = load(&tx, &id)?.expect("completion exists");
             tx.commit()?;
             Ok(Ok((StatusCode::CREATED, v)))

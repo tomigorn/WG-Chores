@@ -63,6 +63,11 @@ async fn poll(c: &mut Client, cursor: Option<&str>) -> Value {
     r.body
 }
 
+/// Completions younger than the 10 s undo window are held back.
+fn settle(app: &TestApp) {
+    app.clock.advance(Duration::seconds(11));
+}
+
 fn cursor(v: &Value) -> String {
     v["cursor"].as_str().unwrap().to_string()
 }
@@ -131,6 +136,7 @@ async fn done_by_others_since_cursor() {
         .delete(&format!("/api/v1/completions/{}", uuid(12)), json!({}))
         .await;
     assert_eq!(undone.status, 204, "{:?}", undone.body);
+    settle(&w.app);
     let v = poll(&mut w.phone, Some(&c0)).await;
     assert_eq!(
         v["done"],
@@ -154,6 +160,7 @@ async fn done_limited_to_50_oldest_first() {
         let day = format!("2025-11-{:02}", 1 + n % 28);
         assert_eq!(done(&mut w.bert, w.dishes, 100 + n, &day).await.status, 201);
     }
+    settle(&w.app);
     let v = poll(&mut w.phone, Some(&c0)).await;
     let list = v["done"].as_array().unwrap();
     assert_eq!(list.len(), 50);
@@ -236,4 +243,99 @@ async fn due_state_removed_with_the_device() {
         })
         .await;
     assert_eq!(n, 0);
+}
+
+#[tokio::test]
+async fn lost_response_resends_due_once_and_ack_ends_it() {
+    let mut w = world().await;
+    let lost = poll(&mut w.phone, None).await;
+    assert_eq!(lost["due"].as_array().unwrap().len(), 1);
+    let again = poll(&mut w.phone, None).await;
+    assert_eq!(
+        again["due"].as_array().unwrap().len(),
+        1,
+        "not acked: sent again"
+    );
+    let acked = poll(&mut w.phone, Some(&cursor(&again))).await;
+    assert_eq!(acked["due"], json!([]));
+    let stale = poll(&mut w.phone, Some(&cursor(&lost))).await;
+    assert_eq!(stale["due"], json!([]), "acked ones never come back");
+    let v = poll(&mut w.phone, Some(&cursor(&stale))).await;
+    assert_eq!(v["due"], json!([]));
+    assert_eq!(
+        done(&mut w.anna, w.clean, 2, "2026-01-01").await.status,
+        201
+    );
+    w.app.clock.advance(Duration::days(8));
+    let v = poll(&mut w.phone, Some(&cursor(&v))).await;
+    assert_eq!(
+        v["due"][0]["chores"],
+        json!([{"id": w.clean, "name": "Clean"}])
+    );
+}
+
+#[tokio::test]
+async fn young_completions_wait_for_the_undo_window() {
+    let mut w = world().await;
+    let c0 = cursor(&poll(&mut w.phone, None).await);
+    assert_eq!(
+        done(&mut w.bert, w.dishes, 10, "2025-12-30").await.status,
+        201
+    );
+    settle(&w.app);
+    assert_eq!(
+        done(&mut w.bert, w.dishes, 11, "2025-12-31").await.status,
+        201
+    );
+    let v = poll(&mut w.phone, Some(&c0)).await;
+    let days: Vec<&str> = v["done"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["done_on"].as_str().unwrap())
+        .collect();
+    assert_eq!(days, ["2025-12-30"]);
+    let v2 = poll(&mut w.phone, Some(&cursor(&v))).await;
+    assert_eq!(v2["done"], json!([]), "still young");
+    settle(&w.app);
+    let v3 = poll(&mut w.phone, Some(&cursor(&v2))).await;
+    let days: Vec<&str> = v3["done"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["done_on"].as_str().unwrap())
+        .collect();
+    assert_eq!(days, ["2025-12-31"]);
+}
+
+#[tokio::test]
+async fn cursor_survives_hard_deletes_and_vacuum() {
+    let mut w = world().await;
+    let c0 = cursor(&poll(&mut w.phone, None).await);
+    let tmp = new_household(&mut w.bert, "Tmp").await;
+    let solo = new_chore(&mut w.bert, tmp, json!({"name": "Solo", "interval": "1w"})).await;
+    assert_eq!(done(&mut w.bert, solo, 20, "2026-01-01").await.status, 201);
+    settle(&w.app);
+    let v = poll(&mut w.phone, Some(&c0)).await;
+    assert_eq!(v["done"], json!([]));
+    let c1 = cursor(&v);
+    let r = w
+        .bert
+        .post(
+            &format!("/api/v1/households/{tmp}/leave"),
+            json!({"confirm_delete": true}),
+        )
+        .await;
+    assert_eq!(r.status, 204);
+    assert_eq!(
+        done(&mut w.bert, w.dishes, 21, "2026-01-01").await.status,
+        201
+    );
+    settle(&w.app);
+    let before = poll(&mut w.phone, Some(&c1)).await;
+    assert_eq!(before["done"].as_array().unwrap().len(), 1, "{before:?}");
+    w.app.db(|c| c.execute_batch("VACUUM")).await;
+    let after = poll(&mut w.phone, Some(&c1)).await;
+    assert_eq!(after["done"], before["done"]);
+    assert_eq!(after["more"], before["more"]);
 }

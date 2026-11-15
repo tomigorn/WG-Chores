@@ -1,7 +1,6 @@
 use super::{Outcome, SUB_COLS, Sub, deliver, join_logged, payload, texts};
 use crate::app::AppState;
-use crate::domain::{DueLevel, Interval, due_level, interval_days};
-use chrono::{DateTime, Duration, LocalResult, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, Duration, LocalResult, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use rusqlite::params;
 use std::collections::BTreeMap;
@@ -103,19 +102,14 @@ pub async fn run_due(st: &AppState, now: DateTime<Utc>) {
     };
     let mut groups: BTreeMap<(i64, i64), Group> = BTreeMap::new();
     for (sub, hid, hname, chore, name, interval, last, notified) in rows {
-        let Some(period) = last else { continue };
-        let Ok(done_on) = period.parse::<NaiveDate>() else {
+        let Some(period) = super::newly_due(
+            today,
+            interval.as_deref(),
+            last.as_deref(),
+            notified.as_deref(),
+        ) else {
             continue;
         };
-        let iv = interval.as_deref().and_then(Interval::from_code);
-        let level = due_level(Some((today - done_on).num_days()), interval_days(iv));
-        if !matches!(
-            level,
-            DueLevel::Due | DueLevel::Overdue | DueLevel::LongOverdue
-        ) || notified.as_deref() == Some(period.as_str())
-        {
-            continue;
-        }
         groups
             .entry((sub.id, hid))
             .or_insert_with(|| Group {

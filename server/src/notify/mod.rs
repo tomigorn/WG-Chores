@@ -179,6 +179,25 @@ async fn set_failures(st: &AppState, id: i64, ok: bool) {
     }
 }
 
+/// The due period (date of the last completion) when a chore is due and that period was not announced yet.
+pub fn newly_due(
+    today: chrono::NaiveDate,
+    interval: Option<&str>,
+    last: Option<&str>,
+    notified: Option<&str>,
+) -> Option<String> {
+    use crate::domain::{DueLevel, Interval, due_level, interval_days};
+    let period = last?;
+    let done_on = period.parse::<chrono::NaiveDate>().ok()?;
+    let iv = interval.and_then(Interval::from_code);
+    let level = due_level(Some((today - done_on).num_days()), interval_days(iv));
+    let due = matches!(
+        level,
+        DueLevel::Due | DueLevel::Overdue | DueLevel::LongOverdue
+    );
+    (due && notified != Some(period)).then(|| period.to_string())
+}
+
 pub const MAX_PAYLOAD_BYTES: usize = 3500;
 
 /// Serialized push message, cut so the JSON stays within `MAX_PAYLOAD_BYTES` (one encrypted record).
@@ -343,6 +362,21 @@ async fn send_done(st: &AppState, completion: String) -> crate::db::Result<()> {
 mod tests {
     use super::*;
     use serde_json::Value;
+
+    #[test]
+    fn newly_due_once_per_period() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let p = Some("2025-12-20");
+        assert_eq!(newly_due(today, Some("1w"), p, None).as_deref(), p);
+        assert_eq!(
+            newly_due(today, Some("1w"), p, Some("2025-12-01")).as_deref(),
+            p
+        );
+        assert_eq!(newly_due(today, Some("1w"), p, p), None);
+        assert_eq!(newly_due(today, Some("1y"), p, None), None);
+        assert_eq!(newly_due(today, Some("1w"), None, None), None);
+        assert_eq!(newly_due(today, Some("1w"), Some("garbage"), None), None);
+    }
 
     #[test]
     fn payload_json_stays_within_limit() {
