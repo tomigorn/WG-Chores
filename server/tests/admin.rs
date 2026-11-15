@@ -298,6 +298,11 @@ fn parse_commands() {
     assert!(matches!(args(&["serve"]).unwrap(), Command::Serve));
     assert!(matches!(args(&["--help"]).unwrap(), Command::Help(_)));
     assert!(matches!(args(&["backup", "-h"]).unwrap(), Command::Help(t) if t.contains("backup")));
+    assert!(matches!(
+        args(&["healthcheck"]).unwrap(),
+        Command::Healthcheck
+    ));
+    assert!(matches!(args(&["--help"]).unwrap(), Command::Help(t) if t.contains("healthcheck")));
     match args(&[
         "migrate-v1",
         "--from",
@@ -338,6 +343,7 @@ fn usage_errors_name_the_next_command() {
         vec!["create-user"],
         vec!["create-user", "u", "--display-name"],
         vec!["demo-reset", "extra"],
+        vec!["healthcheck", "extra"],
     ] {
         let u = args(&bad).err().unwrap_or_else(|| panic!("{bad:?} parsed"));
         assert!(
@@ -365,8 +371,83 @@ fn completions_list_every_subcommand() {
             "household",
             "display-name",
             "from",
+            "healthcheck",
         ] {
             assert!(s.contains(w), "{f}: {w}");
         }
     }
+}
+
+async fn serve_once(status: &'static str) -> u16 {
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = l.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        while let Ok((s, _)) = l.accept().await {
+            let s = s.into_std().unwrap();
+            s.set_nonblocking(false).unwrap();
+            tokio::task::spawn_blocking(move || {
+                use std::io::{Read, Write};
+                let mut s = s;
+                let mut buf = [0u8; 1024];
+                let n = s.read(&mut buf).unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                let line = if req.starts_with("GET /healthz ") {
+                    status
+                } else {
+                    "404 Not Found"
+                };
+                let _ = write!(
+                    s,
+                    "HTTP/1.1 {line}\r\ncontent-length: 2\r\nconnection: close\r\n\r\nok"
+                );
+            });
+        }
+    });
+    port
+}
+
+async fn healthcheck(listen: String) -> Result<String, String> {
+    cli::run(Command::Healthcheck, ctx(&[("LISTEN", listen)], "unused")).await
+}
+
+#[tokio::test]
+async fn healthcheck_passes_on_200_from_loopback() {
+    let port = serve_once("200 OK").await;
+    assert!(healthcheck(format!("0.0.0.0:{port}")).await.is_ok());
+    assert!(healthcheck(format!("127.0.0.1:{port}")).await.is_ok());
+}
+
+#[tokio::test]
+async fn healthcheck_fails_on_error_status_or_closed_port() {
+    let port = serve_once("503 Service Unavailable").await;
+    let e = healthcheck(format!("0.0.0.0:{port}")).await.unwrap_err();
+    assert!(e.contains("503"), "{e}");
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let p = closed.local_addr().unwrap().port();
+    drop(closed);
+    assert!(healthcheck(format!("0.0.0.0:{p}")).await.is_err());
+    assert!(healthcheck("nonsense".into()).await.is_err());
+}
+
+#[tokio::test]
+async fn healthcheck_against_real_router() {
+    let cfg = wg_chores::config::Config::from_env(|k| {
+        (k == "PUBLIC_URL").then(|| "https://chores.example.com".to_string())
+    })
+    .unwrap();
+    let app = wg_chores::app::router(wg_chores::app::AppState::new(
+        cfg,
+        Db::open_memory().unwrap(),
+    ));
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = l.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        axum::serve(
+            l,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap()
+    });
+    assert!(healthcheck(format!("0.0.0.0:{port}")).await.is_ok());
 }

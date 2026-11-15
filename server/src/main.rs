@@ -28,6 +28,7 @@ async fn admin(cmd: wg_chores::cli::Command) {
         Command::Backup { .. } => "backup",
         Command::CreateUser { .. } => "create-user",
         Command::DemoReset => "demo-reset",
+        Command::Healthcheck => "healthcheck",
         _ => "",
     };
     let ctx = Ctx {

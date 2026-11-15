@@ -26,6 +26,7 @@ pub enum Command {
         password_file: Option<PathBuf>, // leak-check: ok
     },
     DemoReset,
+    Healthcheck,
     Help(String),
 }
 
@@ -47,6 +48,7 @@ Commands:
   backup       write a consistent copy of the database
   create-user  create a local account
   demo-reset   wipe everything and load the demo data (DEMO_MODE=true only)
+  healthcheck  exit 0 when the local server answers /healthz (container health checks)
 
 Options:
   -h, --help   show this help; also works after a command
@@ -105,6 +107,15 @@ Refuses to run unless DEMO_MODE=true.
 
 Environment: DEMO_MODE=true, DEMO_PASSWORD_FILE (12+ characters), DATA_DIR (default /data), TZ (default UTC).";
 
+const HEALTH_HELP: &str = "\
+Usage: wg-chores healthcheck
+
+Sends GET /healthz to the running server on this machine (LISTEN port, loopback when LISTEN is 0.0.0.0 or ::) and exits 0 on 200, else 1. Made for container health checks, which have no curl in this image.
+
+Environment: LISTEN (default 0.0.0.0:8080).
+
+Example (compose): healthcheck: { test: [\"CMD\", \"/wg-chores\", \"healthcheck\"] }";
+
 fn usage_error(cmd: Option<&str>, message: impl Into<String>) -> Usage {
     let (usage, hint) = match cmd {
         Some(c) => (
@@ -112,7 +123,7 @@ fn usage_error(cmd: Option<&str>, message: impl Into<String>) -> Usage {
             format!("Next: wg-chores {c} --help"),
         ),
         None => (
-            "Usage: wg-chores [serve | migrate-v1 | backup | create-user | demo-reset]".into(),
+            "Usage: wg-chores [serve | migrate-v1 | backup | create-user | demo-reset | healthcheck]".into(),
             "Next: wg-chores --help".into(),
         ),
     };
@@ -130,6 +141,7 @@ fn help_for(cmd: &str) -> &'static str {
         "backup" => BACKUP_HELP,
         "create-user" => USER_HELP,
         "demo-reset" => DEMO_HELP,
+        "healthcheck" => HEALTH_HELP,
         _ => MAIN_HELP,
     }
 }
@@ -141,7 +153,14 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
     if matches!(cmd, "-h" | "--help" | "help") {
         return Ok(Command::Help(MAIN_HELP.into()));
     }
-    let known = ["serve", "migrate-v1", "backup", "create-user", "demo-reset"];
+    let known = [
+        "serve",
+        "migrate-v1",
+        "backup",
+        "create-user",
+        "demo-reset",
+        "healthcheck",
+    ];
     if !known.contains(&cmd) {
         return Err(usage_error(None, format!("unknown command \"{cmd}\"")));
     }
@@ -185,6 +204,10 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
         "demo-reset" => {
             no_positional(&positional)?;
             Ok(Command::DemoReset)
+        }
+        "healthcheck" => {
+            no_positional(&positional)?;
+            Ok(Command::Healthcheck)
         }
         "migrate-v1" => {
             no_positional(&positional)?;
@@ -257,6 +280,12 @@ pub async fn run(cmd: Command, mut ctx: Ctx) -> Result<String, String> {
         Command::Serve => Err("serve is started by the program itself".into()),
         Command::Backup { file, force } => backup(&ctx, &file, force),
         Command::DemoReset => demo_reset(&ctx).await,
+        Command::Healthcheck => {
+            let listen = env_of(&ctx, "LISTEN").unwrap_or_else(|| "0.0.0.0:8080".into());
+            tokio::task::spawn_blocking(move || healthcheck(&listen))
+                .await
+                .map_err(|e| e.to_string())?
+        }
         Command::CreateUser {
             username,
             display_name,
@@ -303,6 +332,52 @@ pub async fn run(cmd: Command, mut ctx: Ctx) -> Result<String, String> {
                 .map_err(|e| e.to_string())?;
             Ok(format!("{s}\nNext: wg-chores serve"))
         }
+    }
+}
+
+fn healthcheck(listen: &str) -> Result<String, String> {
+    use std::io::{Read, Write};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+    use std::time::Duration;
+    let mut addr: SocketAddr = listen
+        .trim()
+        .parse()
+        .map_err(|e| format!("LISTEN is invalid: {e}"))?;
+    if addr.ip().is_unspecified() {
+        addr.set_ip(match addr.ip() {
+            IpAddr::V4(_) => Ipv4Addr::LOCALHOST.into(),
+            IpAddr::V6(_) => Ipv6Addr::LOCALHOST.into(),
+        });
+    }
+    let timeout = Duration::from_secs(3);
+    let mut s = TcpStream::connect_timeout(&addr, timeout)
+        .map_err(|e| format!("cannot reach {addr}: {e}"))?;
+    s.set_read_timeout(Some(timeout))
+        .map_err(|e| e.to_string())?;
+    s.set_write_timeout(Some(timeout))
+        .map_err(|e| e.to_string())?;
+    write!(
+        s,
+        "GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    )
+    .map_err(|e| format!("cannot send to {addr}: {e}"))?;
+    let mut buf = [0u8; 64];
+    let mut n = 0;
+    while n < buf.len() {
+        match s.read(&mut buf[n..]) {
+            Ok(0) => break,
+            Ok(k) => n += k,
+            Err(e) => return Err(format!("no answer from {addr}: {e}")),
+        }
+        if buf[..n].contains(&b'\n') {
+            break;
+        }
+    }
+    let head = String::from_utf8_lossy(&buf[..n]);
+    let line = head.lines().next().unwrap_or("").trim();
+    match line.split_whitespace().nth(1) {
+        Some("200") => Ok("ok".into()),
+        _ => Err(format!("unhealthy: {addr}/healthz answered \"{line}\"")),
     }
 }
 
