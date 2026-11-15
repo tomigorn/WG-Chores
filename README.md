@@ -232,6 +232,7 @@ Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/c
 |---|---|
 | Rate limits | login: 5 failures per account and 20 per client IP in 15 min; registration: 20 per client IP in 15 min (own bucket); IPv6 clients count per /64; 429 + `Retry-After` |
 | Sessions | 30 days idle; at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in; `wg-chores revoke-sessions <username>` ends them all at once |
+| Add member | 20 attempts per hour per acting user (429); the added user is not asked first (consent step: open owner question) |
 | Password hashing | at most 4 at once, 16 waiting; more → 503 `busy` + `Retry-After: 5` |
 
 ## Operations

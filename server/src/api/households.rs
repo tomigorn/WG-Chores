@@ -195,6 +195,8 @@ fn member_json(r: &rusqlite::Row) -> rusqlite::Result<Value> {
     }))
 }
 
+const MEMBER_ADDS_PER_HOUR: i64 = 20;
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AddMember {
@@ -219,6 +221,13 @@ pub async fn add_member(
             ));
         }
     };
+    crate::auth::local::reserve_counter(
+        &st,
+        format!("member-add:user:{uid}"),
+        MEMBER_ADDS_PER_HOUR,
+        chrono::Duration::hours(1),
+    )
+    .await?;
     let username = b.username.unwrap_or_default().trim().to_string();
     let v = st
         .db

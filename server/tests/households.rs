@@ -409,3 +409,29 @@ async fn member_edge_cases() {
     let r = a.patch(&base, json!({"name": "  Flat  "})).await;
     assert_eq!(r.body["name"], "Flat");
 }
+
+#[tokio::test]
+async fn add_member_is_rate_limited_per_acting_user() {
+    let app = TestApp::new();
+    let (mut a, _) = signup(&app, "anna").await;
+    let (mut b, _) = signup(&app, "ben").await;
+    let ha = new_household(&mut a, "A").await;
+    let hb = new_household(&mut b, "B").await;
+    for i in 0..20 {
+        let r = a
+            .post(
+                &format!("/api/v1/households/{ha}/members"),
+                json!({"username": format!("ghost{i}")}),
+            )
+            .await;
+        assert_eq!(r.status, 404, "attempt {i}");
+    }
+    let r = a
+        .post(&format!("/api/v1/households/{ha}/members"), json!({"username": "ben"}))
+        .await;
+    assert_eq!(r.status, 429);
+    assert!(r.headers.get("retry-after").is_some());
+    add_to_household(&mut b, hb, "anna").await;
+    app.clock.advance(chrono::Duration::minutes(61));
+    add_to_household(&mut a, ha, "ben").await;
+}
