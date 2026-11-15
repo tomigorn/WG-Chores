@@ -5,7 +5,7 @@ _beefy_build_sh() {
         return
     fi
     local opts="--emulator --project --head --allow-untracked --self-test --dry-run --help"
-    local tasks="assembleDebug assembleRelease bundleRelease connectedCheck test lint clean"
+    local tasks="assembleDebug assembleRelease bundleRelease testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck connectedCheck test lint clean"
     mapfile -t COMPREPLY < <(compgen -W "$opts $tasks" -- "$cur")
 }
 complete -F _beefy_build_sh beefy-build.sh

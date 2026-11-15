@@ -67,9 +67,16 @@ check_comp() {
 check_comp "bash completes --self-test" --self-test beefy-build.sh --se
 check_comp "bash bare tab lists options" --emulator beefy-build.sh ""
 check_comp "bash bare tab lists tasks" assembleDebug beefy-build.sh ""
+for t in testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck; do
+    check_comp "bash completes $t" "$t" beefy-build.sh ""
+done
 if command -v fish >/dev/null; then
     if fish -c "source $here/completions/beefy-build.fish; complete -C 'beefy-build.sh --se'" | grep -q -- '--self-test'; then
         echo "ok   fish completes --self-test"; else echo "FAIL fish completion"; fail=1; fi
+    for want in --allow-untracked testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck; do
+        if fish -c "source $here/completions/beefy-build.fish; complete -C 'beefy-build.sh '" | grep -q -- "^$want"; then
+            echo "ok   fish bare tab lists $want"; else echo "FAIL fish bare tab: no $want"; fail=1; fi
+    done
 else
     echo "skip fish completion (fish not installed)"
 fi
