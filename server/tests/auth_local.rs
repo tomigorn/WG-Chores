@@ -871,3 +871,40 @@ async fn delete_account_keeps_shared_history_and_deletes_households_left_empty()
         .await;
     assert_eq!(counts, [0, 1, 1, 0, 1, 0]);
 }
+
+#[tokio::test]
+async fn logout_drops_own_push_subscription_only() {
+    let app = TestApp::new();
+    let anna = app.seed_local_user("anna", PW).await;
+    let ben = app.seed_local_user("ben", PW).await;
+    app.db(move |c| {
+        c.execute_batch(&format!(
+            "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES
+               ({anna}, 'https://push.example.com/a1', 'k', 'a', 'x'),
+               ({anna}, 'https://push.example.com/a2', 'k', 'a', 'x'),
+               ({ben}, 'https://push.example.com/b1', 'k', 'a', 'x');"
+        ))
+    })
+    .await;
+    let mut c = app.client();
+    c.login("anna", PW).await;
+    let r = c
+        .post("/api/v1/auth/logout", json!({"push_endpoint": "https://push.example.com/b1"}))
+        .await;
+    assert_eq!(r.status, 204);
+    c.login("anna", PW).await;
+    let r = c
+        .post("/api/v1/auth/logout", json!({"push_endpoint": "https://push.example.com/a1"}))
+        .await;
+    assert_eq!(r.status, 204);
+    c.login("anna", PW).await;
+    let r = c.send(axum::http::Method::POST, "/api/v1/auth/logout", None).await;
+    assert_eq!(r.status, 204);
+    let left: Vec<String> = app
+        .db(|c| {
+            let mut s = c.prepare("SELECT endpoint FROM push_subscriptions ORDER BY 1")?;
+            s.query_map([], |r| r.get(0))?.collect()
+        })
+        .await;
+    assert_eq!(left, ["https://push.example.com/a2", "https://push.example.com/b1"]);
+}

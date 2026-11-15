@@ -116,7 +116,7 @@ Unmapped v1 names become former members; details under Admin commands.
 |---|---|
 | Server key | `GET /api/v1/push/key` → `{"key": …}` (VAPID public key, base64url; browser `applicationServerKey`) |
 | Subscribe | `POST /api/v1/push/subscriptions` with the browser's `PushSubscription` JSON plus `lang` (`en`/`de`, default `en`): 204; https on port 443 at a known push service (`PUSH_ALLOWED_HOSTS` adds more), max 20 per user (oldest dropped); the same endpoint from another account moves to it |
-| Unsubscribe | `DELETE /api/v1/push/subscriptions {"endpoint": …}`: own only, 404 otherwise |
+| Unsubscribe | `DELETE /api/v1/push/subscriptions {"endpoint": …}`: own only, 404 otherwise; `POST /api/v1/auth/logout {"push_endpoint": …}` drops it at sign-out (own only, body optional) |
 | Toggles | `PATCH /api/v1/me {"notify_due": bool, "notify_done": bool}` (SSO accounts too) |
 | Done by someone else | sent 10 s after a new completion to the other members' devices, only if it was not undone in the meantime (pending ones go out at once on shutdown); payload `{title, body, url, tag}`, tag `done-<completion id>` |
 | Due | at each `NOTIFY_TIMES`: chores due or overdue, once per due period per device (a newer completion re-arms), one push per household, tag `due-<household id>` |

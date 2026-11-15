@@ -499,7 +499,36 @@ pub async fn login(
     ))
 }
 
-pub async fn logout(State(st): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct Logout {
+    push_endpoint: Option<String>,
+}
+
+/// Optional body `{push_endpoint}`: that push subscription is deleted too when it belongs to the signed-in user.
+pub async fn logout(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Response, ApiError> {
+    let b: Logout = if body.iter().all(u8::is_ascii_whitespace) {
+        Logout::default()
+    } else {
+        serde_json::from_slice(&body)
+            .map_err(|_| ApiError::bad_request("invalid_body", "The request body is not valid."))?
+    };
+    if let (Some(endpoint), Some(raw)) = (b.push_endpoint, super::session_cookie(&headers)) {
+        let hash = session::hash_token(&raw);
+        st.db
+            .run(move |c| {
+                c.execute(
+                    "DELETE FROM push_subscriptions WHERE endpoint = ?1
+                     AND user_id = (SELECT user_id FROM sessions WHERE token_hash = ?2)",
+                    rusqlite::params![endpoint, hash],
+                )
+            })
+            .await?;
+    }
     drop_incoming_session(&st, &headers).await?;
     Ok(clear_session_response(StatusCode::NO_CONTENT))
 }

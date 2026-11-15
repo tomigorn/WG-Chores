@@ -88,7 +88,24 @@
      {
       "cookie": []
      }
-    ]
+    ],
+    "description": "Deletes this session. Optional body `{push_endpoint}`: that push subscription is deleted too when it belongs to the signed-in user (sign-out on a shared device). An empty body is fine.",
+    "requestBody": {
+     "required": false,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "push_endpoint": {
+          "type": "string"
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     }
+    }
    }
   },
   "/api/v1/auth/register": {
