@@ -17,7 +17,9 @@ pub enum DbError {
     SchemaTooNew { found: usize, known: usize },
     #[error("database migration {version} would leave broken foreign keys, nothing changed")]
     ForeignKeys { version: usize },
-    #[error("foreign keys could not be switched off for the migration (open transaction?), nothing changed")]
+    #[error(
+        "foreign keys could not be switched off for the migration (open transaction?), nothing changed"
+    )]
     ForeignKeysStillOn,
     #[error("database task failed: {0}")]
     Task(#[from] tokio::task::JoinError),
