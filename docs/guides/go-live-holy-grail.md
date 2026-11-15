@@ -11,7 +11,7 @@ Do steps 2 to 7 in one sitting: from step 2 on the customization checks (every 2
 
 ## 0. Prerequisites
 - Image on Docker Hub: [docker-hub-release.md](docker-hub-release.md) steps 1 to 6 (`tomigorn/wg-chores:latest` with linux/arm64).
-- Not published yet: `docker tag wg-chores-v2:local tomigorn/wg-chores:latest` (local image; Cup and the nightly update see it only after the first real pull). Once Docker Hub has it: `docker rmi tomigorn/wg-chores:latest && docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 pull && docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d && docker compose --project-directory ~/Projects/Docker/WG-Chores-Demo up -d` (removes the temporary tag, pulls the real image).
+- Not published yet: `docker tag wg-chores-v2:local tomigorn/wg-chores:latest` (local image; Cup and the nightly update see it only after the first real pull).
 - Cup needs no config: its fastpi agent lists every image on the host that has a registry digest, so `tomigorn/wg-chores` shows up once pulled.
 
 ## 1. Cloudflare (owner)
@@ -42,7 +42,7 @@ docker compose exec -T -e WG_CHORES_OIDC_FILE=WG-Chores-v2/secrets/oidc_client_s
 ```
 `<rafi-username>`: his Holy Grail username (not written in this public repo). Expected: `set WG-Chores-v2/secrets/oidc_client_secret`, `CHANGE group WG created`, `CHANGE tomigorn added to WG`, `MISSING user <rafi-username>` (until step 8), `OK provisioned`. The secret only goes through the pipe into the file, never to the screen.
 
-Rerun (e.g. step 8): updates group, members, provider and binding; the client secret and its file stay as they are (`OK client credential unchanged`). New secret: add `-e WG_CHORES_OIDC_ROTATE=1`, then `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d --force-recreate`.
+Rerun (e.g. step 8): updates group, members, provider and binding; the client secret and its file stay as they are (`OK client credential unchanged`). New secret: add `-e WG_CHORES_OIDC_ROTATE=1`, then `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d --force-recreate`. Secret file lost or never written (e.g. the first run's pipe failed): only `WG_CHORES_OIDC_ROTATE=1` writes it again, and it rotates the client secret.
 
 ## 4. Secrets
 | File (in `~/Projects/Docker/`) | Owner, mode | How |
@@ -56,7 +56,10 @@ sudo stat -c '%u:%g %a %n' ~/Projects/Docker/WG-Chores-*/secrets/*      # both 6
 Save the demo password in KeePassXC (Play reviewers need it): `sudo cat ~/Projects/Docker/WG-Chores-Demo/secrets/demo_password`, then clear the terminal scrollback: `clear && printf '\e[3J'`.
 
 ## 5. Start the containers
+Used the temporary local tag in step 0 and Docker Hub has the image now: first `docker rmi tomigorn/wg-chores:latest` (removes only the tag), then the commands below pull the real image.
 ```
+docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 pull
+docker compose --project-directory ~/Projects/Docker/WG-Chores-Demo pull
 docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d      # project wg-chores-v2
 docker compose --project-directory ~/Projects/Docker/WG-Chores-Demo up -d    # project wg-chores-demo
 docker ps --filter name=wg-chores- --format '{{.Names}} {{.Status}}'        # both "(healthy)" after ~30 s
