@@ -99,7 +99,6 @@ Config: `.github/dependabot.yml`; merging: `.github/workflows/dependabot-auto-me
 | waiting time after a release | GitHub Actions 7 days, everything else 3 days (not for security updates) |
 | major, and below 1.0 also a minor step (0.32 → 0.42) | own PR with label `major`, you merge it |
 | `@playwright/test` | own PR, you merge it (fastpi's preinstalled Chromium must match the version) |
-| `typescript` major | ignored: svelte-check 4 supports only TypeScript 5 and 6; drop the `ignore` in `.github/dependabot.yml` once it supports 7 |
 | known vulnerability (cargo, npm, GitHub Actions) | security PR at once, any day; minor/patch ones auto-merge too |
 | CI red (e.g. stale `android/app/gradle.lockfile`) | PR stays open; fix: `android/scripts/beefy-build.sh --write-locks`, commit the lockfile onto the PR branch, merge by hand |
 
