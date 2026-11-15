@@ -10,6 +10,7 @@
     "npm",
     "cargo",
     "gradle",
+    "gradle-wrapper",
     "github-actions",
     "custom.regex"
   ],
@@ -67,7 +68,8 @@
       "matchManagers": [
         "npm",
         "cargo",
-        "gradle"
+        "gradle",
+        "gradle-wrapper"
       ],
       "minimumReleaseAge": "3 days"
     },
