@@ -14,7 +14,7 @@ Time: about 1 hour for steps 1–5, then at least 14 days of closed test, then u
 2. Trader status (EU, due 1 February 2027): click the task on the Home page → declare **not a trader** (a hobby app, no money). Consequence: the listing tells EU users that EU consumer protection does not apply to the deal with you.
 3. The 12-testers rule: personal accounts created after 13 November 2023 must run a **closed test with at least 12 testers, opted in for 14 days in a row**, before they may publish (https://support.google.com/googleplay/android-developer/answer/14151465). If your account is older, Play Console shows **Production** unlocked under Test and release: then step 6 is optional.
 4. Upload key exists and is backed up: [android-signing-key.md](android-signing-key.md).
-5. Signed AAB ready: built on beefy and signed on fastpi ([android/README.md](../../android/README.md#signing-fastpi-only)), file `app-release-signed.aab` in the run folder under `~/.cache/claude-work/wgc-android/latest/`. Copy it to your computer (`scp`).
+5. Signed AAB ready: built on beefy ([android/README.md](../../android/README.md#release-build)) and signed on fastpi ([Signing](../../android/README.md#signing-fastpi-only)), file `~/.cache/claude-work/wgc-android/release/wg-chores-<version>.aab` on fastpi. Copy it to your computer (`scp`).
 6. Demo server live with the reviewer account ([go-live-holy-grail.md](go-live-holy-grail.md) steps 4–7), demo password in KeePassXC.
 7. Demo server serves `/privacy` and `/account-deletion` (every server does, rendered from `docs/`); repo pushed to GitHub as the fallback for the links.
 8. A contact email for the listing. It is **public**: use an address you don't mind showing (e.g. an alias).
@@ -39,7 +39,7 @@ Left menu **Grow users** → **Store presence** → **Store listings** (main lis
 1. App name, short and full description: copy from [android/store/listing-en.md](../../android/store/listing-en.md).
 2. **App icon**: `android/store/icon-512.png` (512×512 PNG).
 3. **Feature graphic**: `android/store/feature-graphic.png` (1024×500).
-4. **Phone screenshots**: the PNGs in `android/store/screenshots/` (2–8 images; 4+ at 1080 px or more help).
+4. **Phone screenshots**: the 6 PNGs in `android/store/screenshots/` (1080×2400, in file name order).
 5. Tablet, Chromebook, video: leave empty.
 6. **Save**.
 7. German: **Manage translations** / **Add language** → Deutsch (de-DE) → texts from [listing-de.md](../../android/store/listing-de.md) → **Save**.
@@ -69,7 +69,7 @@ Left menu **Monitor and improve** → **Policy and programs** → **App content*
 No review, live in minutes. Left menu **Test and release** → **Testing** → **Internal testing**.
 1. Tab **Testers** → **Create email list** → name `WG` → your Google account email and Rafi's (the account each of you uses in the Play Store) → **Save changes** → **Create**.
 2. Tick the list `WG`. Feedback URL or email: `https://github.com/tomigorn/WG-Chores/issues` → **Save changes**.
-3. **Create new release** → upload `app-release-signed.aab` → Play App Signing switches on.
+3. **Create new release** → upload `wg-chores-<version>.aab` → Play App Signing switches on.
 4. Release name: leave the default (`1 (1.0.0)` style). Release notes: the text from [listing-en.md](../../android/store/listing-en.md) between `<en-GB>` and `</en-GB>`, the German from listing-de.md between `<de-DE>` and `</de-DE>` (the box shows this format).
 5. **Next** → warnings are fine, errors must be fixed → **Save and publish**.
 6. Tab **Testers** → **Copy link** (opt-in link) → send it to Rafi. Each of you: open the link on the phone → **Become a tester** → **Download it on Google Play**.
