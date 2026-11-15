@@ -1,5 +1,5 @@
 import { api } from './api';
-import { Done, type DoneApi } from './done';
+import { Done, sendWith, type DoneApi } from './done';
 import { Outbox, idbCache, idbStore, memoryCache, memoryStore, type CacheStore, type OutboxItem, type OutboxStore } from './outbox';
 
 export interface SyncDeps {
@@ -106,7 +106,7 @@ export async function clearUserCache(user: number): Promise<void> {
 function browserDeps(): SyncDeps {
   return {
     ...browserStores(),
-    send: async (i) => void (await api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note })),
+    send: sendWith(api),
     api,
     events: globalThis as unknown as EventTarget,
   };

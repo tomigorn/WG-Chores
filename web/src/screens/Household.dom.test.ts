@@ -67,7 +67,8 @@ beforeEach(() => {
   };
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await startSync(me.id).discard();
   if (app) unmount(app);
   if (host) unmount(host);
   unwatch?.();

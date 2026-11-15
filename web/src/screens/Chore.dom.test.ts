@@ -5,7 +5,7 @@ import Chore from './Chore.svelte';
 import SnackHost from '../components/SnackHost.svelte';
 import { api, OfflineError } from '../lib/api';
 import { clearSnack } from '../lib/snack';
-import { stopSync } from '../lib/sync';
+import { startSync, stopSync } from '../lib/sync';
 import { anna, button, config, dialogs, entry, fixedTime, me, text, toilet } from './testkit';
 
 let apps: ReturnType<typeof mount>[] = [];
@@ -23,7 +23,8 @@ beforeEach(() => {
   vi.spyOn(api, 'history').mockResolvedValue({ items: [entry('a', '2026-10-19'), entry('b', '2026-10-12', anna, 'used the new cleaner')], next: null });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await startSync(me.id).discard();
   for (const a of apps) unmount(a);
   apps = [];
   stopSync();
@@ -87,6 +88,22 @@ describe('Chore page', () => {
     expect(del).not.toHaveBeenCalled();
     (document.querySelector('.confirm button[type=submit]') as HTMLElement).click();
     await vi.waitFor(() => expect(del).toHaveBeenCalledWith('b'));
+  });
+
+  it('entry_deleted_offline_is_hidden_and_sent_later', async () => {
+    const del = vi.spyOn(api, 'deleteCompletion').mockRejectedValueOnce(new OfflineError()).mockResolvedValue(undefined);
+    await open();
+    (document.querySelectorAll('.history li button')[1] as HTMLElement).click();
+    flushSync();
+    button('Delete entry')!.click();
+    flushSync();
+    (document.querySelector('.confirm button[type=submit]') as HTMLElement).click();
+    await vi.waitFor(() => expect(document.querySelectorAll('.history li')).toHaveLength(1));
+    expect(document.querySelector('.snack')?.textContent).toContain('Entry deleted');
+    expect(del).toHaveBeenCalledWith('b');
+    await startSync(me.id).outbox.flush();
+    expect(del).toHaveBeenCalledTimes(2);
+    expect(await startSync(me.id).outbox.items()).toEqual([]);
   });
 
   it('entry_change_offline_says_connect', async () => {

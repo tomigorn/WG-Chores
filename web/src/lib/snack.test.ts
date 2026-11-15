@@ -30,6 +30,7 @@ describe('snack store', () => {
     flushed({ sent: 0, dropped: [{ uuid: 'a', choreId: 7, doneOn: '2026-11-14', note: null }] });
     flushed({ sent: 0, dropped: [{ uuid: 'b', choreId: 8, doneOn: '2026-11-14', note: null }] });
     flushed({ sent: 1, dropped: [] });
+    flushed({ sent: 0, dropped: [{ uuid: 'c', choreId: 7, doneOn: '', note: null, kind: 'delete' }] });
     expect(seen.slice(1)).toEqual(['Clean toilet could not be saved and was removed from the queue.', 'A done mark could not be saved and was removed from the queue.']);
   });
 });

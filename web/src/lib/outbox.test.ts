@@ -50,7 +50,7 @@ describe('outbox', () => {
     box.onChange((n) => seen.push(n));
     await box.add(item('a'));
     expect(await box.update('a', { doneOn: '2026-11-12', note: 'late' })).toBe(true);
-    expect(await box.items()).toEqual([{ uuid: 'a', choreId: 1, doneOn: '2026-11-12', note: 'late' }]);
+    expect(await box.items()).toEqual([{ uuid: 'a', choreId: 1, doneOn: '2026-11-12', note: 'late', at: expect.any(Number) }]);
     expect(await box.remove('a')).toBe('removed');
     expect(await box.remove('a')).toBe('absent');
     expect(await box.update('a', { doneOn: '2026-11-12' })).toBe(false);
@@ -129,5 +129,56 @@ describe('outbox', () => {
     await box.flush();
     expect(sent.length).toBe(1);
     expect(sent[0]!.doneOn).toBe(updated ? '2026-11-10' : '2026-11-14');
+  });
+
+  it('cancel_removes_an_untried_mark_and_turns_a_tried_one_into_a_delete', async () => {
+    const box = new Outbox(memoryStore(), 1, async () => {
+      throw new OfflineError();
+    });
+    await box.add(item('a'));
+    expect(await box.cancel('a', 1)).toBe('removed');
+    expect(await box.items()).toEqual([]);
+
+    await box.add(item('b'));
+    await box.flush();
+    expect((await box.items())[0]).toMatchObject({ uuid: 'b', tried: true });
+    expect(await box.cancel('b', 1)).toBe('queued');
+    expect(await box.items()).toEqual([expect.objectContaining({ uuid: 'b', kind: 'delete' })]);
+
+    expect(await box.cancel('sent-before', 3)).toBe('queued');
+    expect((await box.items()).map((i) => [i.uuid, i.kind, i.choreId])).toEqual([['b', 'delete', 1], ['sent-before', 'delete', 3]]);
+  });
+
+  it('mark_is_flagged_tried_before_the_request_goes_out', async () => {
+    const store = memoryStore();
+    let release!: () => void;
+    const box = new Outbox(store, 1, () => new Promise<void>((r) => (release = r)));
+    await box.add(item('a'));
+    const f = box.flush();
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    expect((await store.all(1))[0]).toMatchObject({ uuid: 'a', tried: true });
+    release();
+    await f;
+  });
+
+  it('items_older_than_30_days_are_dropped', async () => {
+    let now = Date.parse('2026-11-01T10:00:00Z');
+    const send = vi.fn(async () => {
+      throw new OfflineError();
+    });
+    const box = new Outbox(memoryStore(), 1, send, () => now);
+    const seen: string[][] = [];
+    box.onFlushed((r) => seen.push(r.dropped.map((i) => i.uuid)));
+    await box.add(item('old'));
+    now += 20 * 86_400_000;
+    await box.add(item('new'));
+    now += 10 * 86_400_000 - 1;
+    await box.flush();
+    expect((await box.items()).map((i) => i.uuid)).toEqual(['old', 'new']);
+    now += 1;
+    const r = await box.flush();
+    expect(r.dropped.map((i) => i.uuid)).toEqual(['old']);
+    expect(seen).toEqual([['old']]);
+    expect((await box.items()).map((i) => i.uuid)).toEqual(['new']);
   });
 });

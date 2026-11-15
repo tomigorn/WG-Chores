@@ -8,7 +8,7 @@
   import { applyCompletion, dayWord, doneWhen, rebase, todayIn } from '../lib/chores';
   import { newUuid } from '../lib/done';
   import { t, type Lang } from '../lib/i18n';
-  import type { FlushResult, OutboxItem } from '../lib/outbox';
+  import { marks, type FlushResult, type OutboxItem } from '../lib/outbox';
   import { navigate } from '../lib/router';
   import { clearSnack, rememberChores, showSnack, toast } from '../lib/snack';
   import { startSync } from '../lib/sync';
@@ -52,7 +52,7 @@
 
   const meBy: By = $derived({ id: me.id, display_name: me.display_name, former: false });
   const entries: Entry[] = $derived([
-    ...queued
+    ...marks(queued)
       .filter((q) => q.choreId === id)
       .map((q) => ({ id: q.uuid, done_on: q.doneOn, note: q.note, by: meBy, waiting: true }))
       .sort((a, b) => (a.done_on < b.done_on ? 1 : -1)),
@@ -64,7 +64,7 @@
   const back = $derived(hid ? `/households/${hid}` : '/households');
 
   function withQueued(c: Chore, q: OutboxItem[]): Chore {
-    return q.filter((i) => i.choreId === c.id).reduce((acc, i) => applyCompletion(acc, { doneOn: i.doneOn, by: meBy }, today), c);
+    return marks(q).filter((i) => i.choreId === c.id).reduce((acc, i) => applyCompletion(acc, { doneOn: i.doneOn, by: meBy }, today), c);
   }
 
   async function load() {
@@ -155,11 +155,12 @@
     edited();
     chore = prev;
     queued = queued.filter((q) => q.uuid !== uuid);
-    const r = await done.undo(uuid);
+    const r = await done.undo(uuid, id);
     if (r === 'ok') return load();
-    chore = now;
     queued = await outbox.items();
-    toast(t(r === 'offline' ? 'done.connect' : 'done.failed'));
+    if (r === 'queued') return;
+    chore = now;
+    toast(t('done.failed'));
   }
 
   function openNew() {
@@ -201,13 +202,11 @@
     confirmDelete = null;
     if (!e) return;
     edited();
-    const r = await done.undo(e.id);
-    if (r === 'ok') {
-      toast(t('entry.deleted'));
-      queued = await outbox.items();
-      return load();
-    }
-    toast(t(r === 'offline' ? 'done.connect' : 'done.failed'));
+    const r = await done.undo(e.id, id);
+    queued = await outbox.items();
+    if (r === 'error') return toast(t('done.failed'));
+    toast(t('entry.deleted'));
+    if (r === 'ok') return load();
   }
 
   async function restore() {

@@ -1,5 +1,5 @@
 import { ApiError, OfflineError } from './api';
-import type { Outbox } from './outbox';
+import type { Outbox, OutboxItem } from './outbox';
 
 export interface DoneApi {
   deleteCompletion(id: string): Promise<unknown>;
@@ -7,6 +7,23 @@ export interface DoneApi {
 }
 
 export type EditResult = 'ok' | 'offline' | 'error';
+/** 'queued': the Undo waits in the outbox and is sent once the server answers. */
+export type UndoResult = 'ok' | 'queued' | 'error';
+
+/** Sends one outbox item; a delete the server no longer knows counts as done. */
+export function sendWith(api: {
+  complete(choreId: number, c: { id: string; done_on?: string; note?: string | null }): Promise<unknown>;
+  deleteCompletion(id: string): Promise<unknown>;
+}): (i: OutboxItem) => Promise<void> {
+  return async (i) => {
+    if (i.kind !== 'delete') return void (await api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note }));
+    try {
+      await api.deleteCompletion(i.uuid);
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 404)) throw e;
+    }
+  };
+}
 
 function outcome(e: unknown): EditResult {
   if (e instanceof OfflineError) return 'offline';
@@ -30,6 +47,10 @@ export class Done {
     private uuid: () => string = newUuid,
   ) {}
 
+  newId(): string {
+    return this.uuid();
+  }
+
   async mark(choreId: number, doneOn: string, note: string | null, uuid = this.uuid()): Promise<{ uuid: string; queued: boolean; rejected?: true }> {
     await this.outbox.add({ uuid, choreId, doneOn, note });
     await this.outbox.idle();
@@ -39,16 +60,17 @@ export class Done {
     return { uuid, queued };
   }
 
-  async undo(uuid: string): Promise<EditResult> {
-    const r = await this.outbox.remove(uuid);
-    if (r === 'removed') return 'ok';
-    if (r === 'in_flight') await this.outbox.idle();
-    try {
-      await this.api.deleteCompletion(uuid);
-      return 'ok';
-    } catch (e) {
-      return outcome(e);
+  async undo(uuid: string, choreId: number): Promise<UndoResult> {
+    let r = await this.outbox.cancel(uuid, choreId);
+    if (r === 'in_flight') {
+      await this.outbox.idle();
+      r = await this.outbox.cancel(uuid, choreId);
     }
+    if (r === 'removed') return 'ok';
+    await this.outbox.idle();
+    const f = await this.outbox.flush();
+    if (f.dropped.some((i) => i.uuid === uuid)) return 'error';
+    return (await this.outbox.items()).some((i) => i.uuid === uuid) ? 'queued' : 'ok';
   }
 
   async change(uuid: string, p: { doneOn: string; note: string | null }): Promise<EditResult> {

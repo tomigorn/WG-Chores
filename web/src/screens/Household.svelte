@@ -10,7 +10,7 @@
   import { applyCompletion, doneWhen, groupChores, rebase, todayIn, withPending } from '../lib/chores';
   import { newUuid } from '../lib/done';
   import { t, type Lang } from '../lib/i18n';
-  import type { FlushResult } from '../lib/outbox';
+  import { marks, type FlushResult } from '../lib/outbox';
   import { navigate } from '../lib/router';
   import { clearSnack, rememberChores, showSnack, toast } from '../lib/snack';
   import { startSync } from '../lib/sync';
@@ -78,7 +78,7 @@
       today = todayIn(config.tz);
       household = h;
       rememberChores(list);
-      chores = withPending(list, queued, meBy, today);
+      chores = withPending(list, marks(queued), meBy, today);
       offline = false;
       failed = false;
       if (!loaded && me.last_household_id !== hid) {
@@ -99,7 +99,7 @@
           today = todayIn(config.tz);
           household = c.household;
           rememberChores(c.chores);
-          chores = withPending(rebase(c.chores, today), await outbox.items(), meBy, today);
+          chores = withPending(rebase(c.chores, today), marks(await outbox.items()), meBy, today);
           loaded = true;
         } else failed = true;
       } else if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
@@ -140,10 +140,11 @@
     clearSnack();
     const now = current(id);
     setRow(prev);
-    const r = await done.undo(uuid);
+    const r = await done.undo(uuid, id);
     if (r === 'ok') return load();
+    if (r === 'queued') return;
     if (now) setRow(now);
-    toast(t(r === 'offline' ? 'done.connect' : 'done.failed'));
+    toast(t('done.failed'));
   }
 
   function openSheet(c: Chore, prev: Chore, uuid: string | null, initial: { doneOn: string; note: string | null }) {

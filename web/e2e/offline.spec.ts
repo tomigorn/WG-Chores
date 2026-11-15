@@ -41,6 +41,22 @@ test('offline tap is queued, counted, and sent exactly once when back online', a
   expect(await anna.completions(c.id)).toHaveLength(2);
 });
 
+test('undo offline of a sent mark survives a reload and is sent when back online', async ({ page, context }) => {
+  const { anna, c, tick } = await setup(page, context);
+  await page.waitForFunction(() => navigator.serviceWorker?.controller !== null);
+  await tick.click();
+  await expect.poll(async () => (await anna.completions(c.id)).length).toBe(2);
+  await context.setOffline(true);
+  await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
+  await expect(waiting(page)).toHaveAccessibleName('1 done marks waiting to sync');
+  await page.reload();
+  await expect(page.getByText('Clean the bathroom')).toBeVisible();
+  expect(await anna.completions(c.id)).toHaveLength(2);
+  await context.setOffline(false);
+  await expect.poll(async () => (await anna.completions(c.id)).map((x) => x.done_on)).toEqual([isoDay(9)]);
+  await expect(waiting(page)).toHaveCount(0);
+});
+
 test('the last list stays readable offline, also after a reload', async ({ page, context }) => {
   await setup(page, context);
   await page.waitForFunction(() => navigator.serviceWorker?.controller !== null);

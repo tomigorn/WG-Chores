@@ -5,6 +5,20 @@ export interface OutboxItem {
   choreId: number;
   doneOn: string;
   note: string | null;
+  /** Absent: create the completion; 'delete': an Undo still to be sent. */
+  kind?: 'delete';
+  /** A send was started, so the server may already have it. */
+  tried?: true;
+  /** Queued at, ms since epoch. */
+  at?: number;
+}
+
+/** Queued items older than this are dropped unsent. */
+export const MAX_AGE_MS = 30 * 86_400_000;
+
+/** Waiting done marks, without queued Undos. */
+export function marks(items: readonly OutboxItem[]): OutboxItem[] {
+  return items.filter((i) => i.kind !== 'delete');
 }
 
 export interface OutboxStore {
@@ -91,7 +105,7 @@ export function idbStore(): OutboxStore {
   return {
     all: async (user) => {
       const rows = (await tx(OUTBOX, 'readonly', (s) => s.index('user').getAll(user))) as Row[];
-      return rows.sort((a, b) => a.seq - b.seq).map(({ uuid, choreId, doneOn, note }) => ({ uuid, choreId, doneOn, note }));
+      return rows.sort((a, b) => a.seq - b.seq).map(({ key: _k, user: _u, seq: _s, ...i }) => i);
     },
     put: async (user, i) => {
       const key = `${user}:${i.uuid}`;
@@ -130,6 +144,7 @@ export class Outbox {
     private store: OutboxStore,
     private user: number,
     private send: (i: OutboxItem) => Promise<void>,
+    private now: () => number = Date.now,
   ) {}
 
   // Store reads and writes that must not interleave with a flush picking the next item.
@@ -159,7 +174,7 @@ export class Outbox {
   }
 
   async add(i: OutboxItem): Promise<void> {
-    await this.lock(() => this.store.put(this.user, i));
+    await this.lock(() => this.store.put(this.user, { ...i, at: i.at ?? this.now() }));
     await this.changed();
   }
 
@@ -186,6 +201,23 @@ export class Outbox {
     return r;
   }
 
+  /** Undo: an unsent mark is removed; one the server may have (or an absent one) becomes a queued delete. */
+  async cancel(uuid: string, choreId: number): Promise<'removed' | 'in_flight' | 'queued'> {
+    const r = await this.lock(async () => {
+      if (uuid === this.inFlight) return 'in_flight' as const;
+      const cur = (await this.items()).find((i) => i.uuid === uuid);
+      if (cur && !cur.kind && !cur.tried) {
+        await this.store.delete(this.user, uuid);
+        return 'removed' as const;
+      }
+      if (cur?.kind === 'delete') return 'queued' as const;
+      await this.store.put(this.user, { uuid, choreId, doneOn: cur?.doneOn ?? '', note: null, kind: 'delete', at: this.now() });
+      return 'queued' as const;
+    });
+    if (r !== 'in_flight') await this.changed();
+    return r;
+  }
+
   async clear(): Promise<void> {
     await this.lock(() => this.store.clear(this.user));
     await this.changed();
@@ -203,11 +235,17 @@ export class Outbox {
 
   private async run(): Promise<FlushResult> {
     const result: FlushResult = { sent: 0, dropped: [] };
+    result.dropped = await this.lock(async () => {
+      const old = (await this.items()).filter((i) => i.at !== undefined && this.now() - i.at >= MAX_AGE_MS);
+      for (const i of old) await this.store.delete(this.user, i.uuid);
+      return old;
+    });
     const tried = new Set<string>();
     for (;;) {
       const next = await this.lock(async () => {
         const i = (await this.items()).find((x) => !tried.has(x.uuid));
         this.inFlight = i?.uuid ?? null;
+        if (i && !i.kind && !i.tried) await this.store.put(this.user, { ...i, tried: true });
         return i;
       });
       if (!next) break;
