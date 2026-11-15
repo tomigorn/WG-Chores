@@ -1,10 +1,12 @@
-# WG Chores for self-hosters: docker compose -f compose.example.yaml up -d
+# WG Chores for self-hosters: docker compose -f deploy/compose.example.yaml up -d
 # Put it behind a reverse proxy with https (and HSTS) and set PUBLIC_URL to that address.
+name: wg-chores
 services:
   wg-chores:
-    # until the image is published, build it: docker build -t wg-chores:local .
-    # then use a version tag, e.g. ghcr.io/tomigorn/wg-chores:2 (or pin a digest), never :latest
-    image: wg-chores:local
+    # pin a release and update by changing the tag; :latest follows main
+    # until the image is on Docker Hub: docker build -t wg-chores:local . and use image: wg-chores:local
+    image: tomigorn/wg-chores:v1.0.0
+    container_name: wg-chores
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"   # change only when the proxy runs on another host

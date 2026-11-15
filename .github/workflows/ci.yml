@@ -39,6 +39,19 @@ jobs:
         working-directory: server
         run: cargo test --locked
 
+  readme:
+    name: README fits Docker Hub
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: At most 25,000 bytes file size, only absolute links
+        run: |
+          test "$(wc -c < README.md)" -le 25000
+          ! grep -nE '\]\((\.|[a-z]+/)' README.md
+
   web:
     name: Web (test, check, build)
     runs-on: ubuntu-24.04
