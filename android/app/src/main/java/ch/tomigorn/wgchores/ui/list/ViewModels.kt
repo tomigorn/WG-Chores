@@ -86,7 +86,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     "cancelled" -> R.string.error_invite_cancelled
                     else -> R.string.error_invite_not_found
                 }
-                households.update { it.copy(join = it.join.copy(busy = false, token = token, preview = p, error = reason)) }
+                households.update { it.copy(join = it.join.copy(busy = false, token = token, preview = p, error = reason, now = java.time.Instant.now())) }
             } catch (e: OfflineException) {
                 joinError(R.string.error_offline)
             } catch (e: ApiException) {

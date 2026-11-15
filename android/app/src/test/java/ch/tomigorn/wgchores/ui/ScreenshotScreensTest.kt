@@ -72,7 +72,7 @@ object Screens {
 
     val households = HouseholdsUi(
         listOf(Household(1, "WG Zürich", 2), Household(2, "Family", 3)), loaded = true,
-        join = JoinUi(link = "https://chores.example.com/invite/abc", token = "abc", preview = InvitePreview("Lake House", "Sam", "2026-11-20T13:00:00Z", valid = true)),
+        join = JoinUi(link = "https://chores.example.com/invite/abc", token = "abc", preview = InvitePreview("Lake House", "Sam", "2026-11-20T13:00:00Z", valid = true), now = now),
     )
 
     val household = HhUi(

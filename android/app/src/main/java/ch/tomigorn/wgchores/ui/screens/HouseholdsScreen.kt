@@ -73,6 +73,7 @@ data class JoinUi(
     val error: Int? = null,
     val errorArg: String? = null,
     val busy: Boolean = false,
+    val now: java.time.Instant = java.time.Instant.now(),
 )
 
 interface JoinActions {
@@ -182,7 +183,7 @@ private fun JoinCard(j: JoinUi, act: JoinActions) {
             Text(stringResource(R.string.invite_preview, p.invitedBy), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.muted)
             Text(p.householdName, style = MaterialTheme.typography.titleLarge, color = Wgc.colors.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (p.valid) {
-                Text(ch.tomigorn.wgchores.ui.household.expiryText(ch.tomigorn.wgchores.domain.Rules.expiresIn(p.expiresAt, java.time.Instant.now())), style = MaterialTheme.typography.bodySmall, color = Wgc.colors.muted)
+                Text(ch.tomigorn.wgchores.ui.household.expiryText(ch.tomigorn.wgchores.domain.Rules.expiresIn(p.expiresAt, j.now)), style = MaterialTheme.typography.bodySmall, color = Wgc.colors.muted)
                 j.error?.let { Alert(stringResource(it)) }
                 PrimaryButton(stringResource(R.string.invite_join, p.householdName), act::join, Modifier.testTag("join-submit"), busy = j.busy)
             } else {
