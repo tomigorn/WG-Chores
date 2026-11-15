@@ -151,8 +151,7 @@
     <string name="error_invite_cancelled">Dieser Einladungslink wurde zurückgezogen.</string>
     <string name="error_invite_not_found">Dieser Einladungslink ist ungültig.</string>
     <string name="error_wrong_password">Das aktuelle Passwort ist falsch.</string>
-    <string name="error_user_not_found">Keinen Benutzer mit diesem Benutzernamen gefunden.</string>
-    <string name="error_already_member">Schon Mitglied dieses Haushalts.</string>
+    <string name="error_cannot_add">Kein Benutzer mit diesem Namen kann hinzugefügt werden.</string>
     <string name="error_too_many_invites">Zu viele offene Einladungslinks. Zieh zuerst ein paar zurück.</string>
     <string name="error_confirmation_mismatch">Das passt nicht zu deinem Konto.</string>
     <string name="error_not_found">Nicht gefunden. Vielleicht wurde es gelöscht.</string>

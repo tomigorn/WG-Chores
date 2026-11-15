@@ -35,7 +35,7 @@ class ErrorTextTest {
         assertEquals(R.string.done_connect, ErrorText.of(offline, R.string.done_connect))
         assertEquals(R.string.error_offline, ErrorText.of(offline))
         assertEquals(R.string.error_wrong_password, ErrorText.of(ch.tomigorn.wgchores.api.ApiException(403, "wrong_password")))
-        assertEquals(R.string.error_already_member, ErrorText.of(ch.tomigorn.wgchores.api.ApiException(409, "already_member")))
+        assertEquals(R.string.error_cannot_add, ErrorText.of(ch.tomigorn.wgchores.api.ApiException(404, "cannot_add")))
         assertEquals(R.string.error_generic, ErrorText.of(ch.tomigorn.wgchores.api.ApiException(500, "http_500")))
         assertEquals(R.string.error_generic, ErrorText.of(IllegalStateException()))
     }

@@ -152,8 +152,7 @@
     <string name="error_invite_cancelled">This invite link was cancelled.</string>
     <string name="error_invite_not_found">This invite link is not valid.</string>
     <string name="error_wrong_password">The current password is wrong.</string>
-    <string name="error_user_not_found">No user with this username.</string>
-    <string name="error_already_member">Already a member of this household.</string>
+    <string name="error_cannot_add">No user with that name can be added.</string>
     <string name="error_too_many_invites">Too many open invite links. Cancel some first.</string>
     <string name="error_confirmation_mismatch">That does not match your account.</string>
     <string name="error_not_found">Not found. It may have been deleted.</string>
