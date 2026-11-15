@@ -92,6 +92,9 @@ roborazzi {
 }
 
 // goldens live in src/, which beefy-build.sh does not copy back; build/outputs is
+// app/gradle.lockfile pins every resolved library (Trivy scans it); refresh: scripts/beefy-build.sh --write-locks
+dependencyLocking { lockAllConfigurations() }
+
 val exportScreenshots = tasks.register<Sync>("exportScreenshots") {
     from("src/test/screenshots")
     into(layout.buildDirectory.dir("outputs/screenshots"))

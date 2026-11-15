@@ -10,7 +10,7 @@ Builds run on beefy (x86_64, KVM) in Docker, driven from fastpi. Nothing is inst
 | `android/scripts/beefy-build.sh --emulator connectedCheck` | instrumented tests on a headless emulator |
 | `android/scripts/beefy-build.sh bundleRelease assembleRelease` | unsigned release AAB + APK (sign them on fastpi, below) |
 | `android/scripts/beefy-build.sh --self-test` | build env self-test: smoke app builds, its Compose test passes on the emulator |
-| `android/scripts/beefy-build.sh --help` | all options (`--project`, `--head`, `--allow-untracked`, `--dry-run`) |
+| `android/scripts/beefy-build.sh --help` | all options (`--project`, `--head`, `--allow-untracked`, `--write-locks`, `--dry-run`) |
 | `android/scripts/test-beefy-build.sh` | offline checks: arguments, secret guard, completion |
 
 Artifacts (APK/AAB, reports, `screenshots/<package>.png` of the app on the emulator, `emulator.log`): `~/.cache/claude-work/wgc-android/latest/` (last 10 runs kept).
@@ -54,6 +54,13 @@ Completion:
 | `android/scripts/beefy-build.sh verifyRoborazziDebug` | compare with the goldens in `app/src/test/screenshots/`; diffs in `latest/app/build/outputs/roborazzi/` |
 | `android/scripts/beefy-build.sh --emulator connectedDebugAndroidTest` | sign-in, SSO callback alias, chore list (✓, Undo, date sheet, offline mark synced once after a restart), chore page (mark, change and delete entries), interval edit, invite share sheet, join by pasted link, account deletion, signing out another device, language switch, SSO in the emulator's Chrome (confirm page, form POST, 303 back to the app), background check via the WorkManager test driver (due + done notifications posted, tap opens the household), on the emulator against a fake server (`app/src/sharedTest/`) |
 | `android/scripts/beefy-build.sh --emulator releaseDeviceCheck` | R8 check on the emulator (JVM test `device/ReleaseDeviceCheck.kt` drives adb, screen set to 1080×1920): the release APK (debug key, inside the container) refuses `http://`; the `minified` build (release code and R8 rules, debug key, local http; never upload it) signs in to the fake server with demo data, marks a chore done, opens sheet, chore page, settings, runs the background check (job forced via `cmd jobscheduler`: poll + due notification) and takes the 5 store screenshots (1080×1920; list shots end at a whole row) to `latest/app/build/outputs/device-check/screenshots/` (copy them to `store/screenshots/`). Only this task runs `ch.tomigorn.wgchores.device.*` |
+
+## Dependency locks
+`app/gradle.lockfile` pins every library of all app configurations (release, test, androidTest; Trivy scans it). Gradle fails a build whose resolved versions differ from it. Renovate (`gradle` manager) updates it with each library bump.
+
+| Command | Does |
+|---|---|
+| `android/scripts/beefy-build.sh --write-locks` | after a change in `gradle/libs.versions.toml` or `app/build.gradle.kts`: resolves everything on beefy (`:app:dependencies assembleRelease testDebugUnitTest assembleDebugAndroidTest --write-locks`) and copies the new `app/gradle.lockfile` into `android/app/`; commit it with the change |
 
 Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs minor and patch below 100 (the build fails otherwise).
 
