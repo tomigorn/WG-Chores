@@ -107,6 +107,17 @@ fn parse_http_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
     }
 }
 
+/// https, or http on localhost / 127.0.0.1 for development.
+fn parse_https_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
+    let u = parse_url(key, v)?;
+    let local = matches!(u.host_str(), Some("localhost" | "127.0.0.1"));
+    match u.scheme() {
+        "https" => Ok(u),
+        "http" if local => Ok(u),
+        _ => Err(ConfigError::Invalid(key, "must be https".into())),
+    }
+}
+
 fn parse_bool(key: &'static str, v: Option<String>, default: bool) -> Result<bool, ConfigError> {
     match v.as_deref().map(str::trim) {
         None | Some("") => Ok(default),
@@ -170,7 +181,7 @@ impl Config {
                 .ok_or(ConfigError::Missing("OIDC_CLIENT_SECRET"))?;
             let sv = Sec(value);
             Some(OidcConfig {
-                issuer: parse_url("OIDC_ISSUER", &issuer)?,
+                issuer: parse_https_url("OIDC_ISSUER", &issuer)?,
                 issuer_id: issuer.trim().to_string(),
                 client_id: client_id.ok_or(ConfigError::Missing("OIDC_CLIENT_ID"))?,
                 client_secret: sv,
@@ -378,6 +389,23 @@ mod tests {
         assert!(o.required_group.is_none());
         assert!(Config::from_env(env(&full[..3])).is_err());
         assert!(Config::from_env(env(&[URL, ("OIDC_CLIENT_ID", "id")])).is_err());
+    }
+
+    #[test]
+    fn issuer_must_be_https_except_localhost() {
+        let with = |iss: &'static str| {
+            Config::from_env(env(&[
+                URL,
+                ("OIDC_ISSUER", iss),
+                ("OIDC_CLIENT_ID", "id"),
+                ("OIDC_CLIENT_SECRET", "s"),
+            ]))
+        };
+        assert!(with("http://sso.example.com").is_err());
+        assert!(with("ftp://sso.example.com").is_err());
+        assert!(with("https://sso.example.com").is_ok());
+        assert!(with("http://localhost:8081").is_ok());
+        assert!(with("http://127.0.0.1:8081").is_ok());
     }
 
     #[test]
