@@ -70,6 +70,15 @@ describe('marking done', () => {
     expect(await outbox.items()).toEqual([]);
   });
 
+  it('queued_mark_whose_entry_was_undone_elsewhere_is_settled', async () => {
+    const { done, api, outbox, net } = setup(false);
+    await done.mark(4, '2026-11-14', null);
+    net.online = true;
+    api.complete.mockRejectedValueOnce(new ApiError(410, 'deleted', 'x'));
+    expect(await outbox.flush()).toEqual({ sent: 1, dropped: [] });
+    expect(await outbox.items()).toEqual([]);
+  });
+
   it('undo_after_a_sent_mark_survives_an_offline_moment', async () => {
     const { done, api, outbox, net } = setup();
     const { uuid } = await done.mark(4, '2026-11-14', null);

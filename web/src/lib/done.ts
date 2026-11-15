@@ -10,25 +10,20 @@ export type EditResult = 'ok' | 'offline' | 'error';
 /** 'queued': the Undo waits in the outbox and is sent once the server answers. */
 export type UndoResult = 'ok' | 'queued' | 'error';
 
-/** Sends one outbox item; a delete the server no longer knows counts as done. */
+/** Sends one outbox item; a delete the server no longer knows and a mark undone since (410) count as done. */
 export function sendWith(api: {
   complete(choreId: number, c: { id: string; done_on?: string; note?: string | null }): Promise<unknown>;
   deleteCompletion(id: string): Promise<unknown>;
 }): (i: OutboxItem) => Promise<void> {
   return async (i) => {
-    if (i.kind !== 'delete') return void (await api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note }));
+    const settled = i.kind === 'delete' ? 404 : 410;
     try {
-      await api.deleteCompletion(i.uuid);
+      if (i.kind === 'delete') await api.deleteCompletion(i.uuid);
+      else await api.complete(i.choreId, { id: i.uuid, done_on: i.doneOn, note: i.note });
     } catch (e) {
-      if (!(e instanceof ApiError && e.status === 404)) throw e;
+      if (!(e instanceof ApiError && e.status === settled)) throw e;
     }
   };
-}
-
-function outcome(e: unknown): EditResult {
-  if (e instanceof OfflineError) return 'offline';
-  if (e instanceof ApiError && e.status === 404) return 'ok';
-  return 'error';
 }
 
 export function newUuid(): string {
@@ -81,7 +76,7 @@ export class Done {
       await this.api.patchCompletion(uuid, { done_on: p.doneOn, note: p.note });
       return 'ok';
     } catch (e) {
-      return e instanceof ApiError && e.status === 404 ? 'error' : outcome(e);
+      return e instanceof OfflineError ? 'offline' : 'error';
     }
   }
 }

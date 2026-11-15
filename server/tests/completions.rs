@@ -52,6 +52,19 @@ async fn retry_with_same_uuid_is_idempotent() {
 }
 
 #[tokio::test]
+async fn replay_of_an_undone_entry_is_gone() {
+    let (_app, mut a, _, c) = setup().await;
+    let body = json!({"id": uuid(1), "done_on": "2025-12-30"});
+    assert_eq!(a.post(&cpath(c), body.clone()).await.status, 201);
+    let one = format!("/api/v1/completions/{}", uuid(1));
+    assert_eq!(a.delete(&one, json!({})).await.status, 204);
+    let r = a.post(&cpath(c), body).await;
+    assert_eq!(r.status, 410);
+    assert_eq!(r.body["error"], "deleted");
+    assert_eq!(a.get(&cpath(c)).await.body["items"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
 async fn completion_id_validation_and_conflict() {
     let (_app, mut a, h, c) = setup().await;
     for id in ["nope", "", "00000000-0000-4000-8000-00000000000g"] {

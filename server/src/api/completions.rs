@@ -109,11 +109,22 @@ pub async fn create(
             if member_chore(&tx, chore, uid)?.is_none() {
                 return Ok(Err(not_found()));
             }
-            let owner: Option<i64> = tx
-                .query_row("SELECT chore_id FROM completions WHERE id = ?1", [&id], |r| r.get(0))
+            let owner: Option<(i64, bool)> = tx
+                .query_row(
+                    "SELECT chore_id, deleted_at IS NOT NULL FROM completions WHERE id = ?1",
+                    [&id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
                 .optional()?;
             match owner {
-                Some(o) if o == chore => {
+                Some((o, true)) if o == chore => {
+                    return Ok(Err(ApiError::new(
+                        StatusCode::GONE,
+                        "deleted",
+                        "This entry was undone.",
+                    )));
+                }
+                Some((o, false)) if o == chore => {
                     let v = load(&tx, &id)?.expect("completion exists");
                     return Ok(Ok((StatusCode::OK, v)));
                 }
@@ -231,7 +242,7 @@ pub struct Patch {
     note: Option<Option<String>>,
 }
 
-/// Chore id of a live completion the user may touch.
+/// Whether the completion is live and the user is a member of its household.
 fn editable(c: &Connection, id: &str, uid: i64) -> rusqlite::Result<bool> {
     let chore: Option<i64> = c
         .query_row(

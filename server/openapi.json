@@ -505,6 +505,16 @@
        }
       }
      },
+     "410": {
+      "description": "Replay of an id whose completion was undone since: error `deleted`; clients drop the queued mark",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
      "default": {
       "description": "Error",
       "content": {
