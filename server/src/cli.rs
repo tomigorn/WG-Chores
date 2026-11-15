@@ -568,7 +568,9 @@ fn backup(ctx: &Ctx, file: &Path, force: bool) -> Result<String, String> {
 }
 
 async fn demo_reset(ctx: &Ctx) -> Result<String, String> {
-    if env_of(ctx, "DEMO_MODE").as_deref().map(str::trim) != Some("true") {
+    let demo = crate::config::parse_bool("DEMO_MODE", env_of(ctx, "DEMO_MODE"), false)
+        .map_err(|e| e.to_string())?;
+    if !demo {
         return Err(
             "demo-reset deletes ALL data and only runs with DEMO_MODE=true; this server is not a demo server".into(),
         );

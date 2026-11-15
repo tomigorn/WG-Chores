@@ -170,7 +170,11 @@ fn parse_https_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
     }
 }
 
-fn parse_bool(key: &'static str, v: Option<String>, default: bool) -> Result<bool, ConfigError> {
+pub fn parse_bool(
+    key: &'static str,
+    v: Option<String>,
+    default: bool,
+) -> Result<bool, ConfigError> {
     match v.as_deref().map(str::trim) {
         None | Some("") => Ok(default),
         Some("true" | "1") => Ok(true),

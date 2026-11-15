@@ -171,6 +171,21 @@ async fn demo_reset_refused_without_demo_mode() {
 }
 
 #[tokio::test]
+async fn demo_mode_accepts_every_boolean_spelling() {
+    let d = Scratch::new("demo-one");
+    let mut env = demo_env(&d);
+    env.retain(|(k, _)| *k != "DEMO_MODE");
+    env.push(("DEMO_MODE", " 1 ".into()));
+    cli::run(Command::DemoReset, ctx(&env, "x")).await.unwrap();
+    env.retain(|(k, _)| *k != "DEMO_MODE");
+    env.push(("DEMO_MODE", "yes".into()));
+    let e = cli::run(Command::DemoReset, ctx(&env, "x"))
+        .await
+        .unwrap_err();
+    assert!(e.contains("DEMO_MODE"), "{e}");
+}
+
+#[tokio::test]
 async fn demo_reset_needs_a_good_password() {
     let d = Scratch::new("demo-pw");
     let mut env = demo_env(&d);
