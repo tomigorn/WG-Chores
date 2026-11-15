@@ -29,6 +29,7 @@ check "custom project" 0 "project: android/other" --dry-run --project android/ot
 
 check "project outside android" 2 "must be inside android/" --dry-run --project server assembleDebug
 check "ships only android" 0 "ships: android/" --dry-run assembleDebug
+check "ships the shared test vectors" 0 "ships: android/ docs/test-vectors/" --dry-run assembleDebug
 ver=$(sed -n 's/^version = "\(.*\)"/\1/p' "$here/../../server/Cargo.toml" | head -1)
 check "passes the app version" 0 "gradle: assembleDebug -Pwgc.version=$ver" --dry-run assembleDebug
 check "explicit version wins" 0 "gradle: help -Pwgc.version=1.2.100" --dry-run help -Pwgc.version=1.2.100

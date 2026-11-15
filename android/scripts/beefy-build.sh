@@ -22,7 +22,7 @@ Usage: beefy-build.sh [options] <gradle args…>
 
 Builds android/ on beefy in Docker (image wgc-android-build:local) and copies
 APKs/AABs, test reports and screenshots back to ~/.cache/claude-work/wgc-android/latest/.
-Only android/ is shipped to beefy; no keystore ever goes there.
+Only android/ (plus docs/test-vectors/) is shipped to beefy; no keystore ever goes there.
 
 Options:
   --emulator          start a headless emulator (KVM) for connected tests
@@ -101,7 +101,7 @@ fi
 
 if [ "$dry_run" = 1 ]; then
     echo "host: $REMOTE"
-    echo "ships: android/"
+    echo "ships: android/ docs/test-vectors/"
     echo "project: $project"
     echo "emulator: $([ "$emulator" = 1 ] && echo yes || echo no)"
     echo "source: $([ "$head_only" = 1 ] && echo "HEAD" || echo "working tree")"
@@ -201,10 +201,16 @@ esac
 tmp_dir=$(mktemp -d)
 export GIT_INDEX_FILE=$tmp_dir/index
 if [ "$head_only" = 1 ]; then
-    sub=$(git -C "$repo" rev-parse HEAD:android) &&
-        tree=$(printf '040000 tree %s\tandroid\n' "$sub" | git -C "$repo" mktree)
+    sub=$(git -C "$repo" rev-parse HEAD:android) && {
+        printf '040000 tree %s\tandroid\n' "$sub"
+        if vec=$(git -C "$repo" rev-parse -q --verify HEAD:docs/test-vectors 2>/dev/null); then
+            printf '040000 tree %s\tdocs\n' "$(printf '040000 tree %s\ttest-vectors\n' "$vec" | git -C "$repo" mktree)"
+        fi
+    } | git -C "$repo" mktree >"$tmp_dir/tree" && tree=$(cat "$tmp_dir/tree")
 else
-    git -C "$repo" add -A -- android && tree=$(git -C "$repo" write-tree)
+    paths=(android)
+    [ -d "$repo/docs/test-vectors" ] && paths+=(docs/test-vectors)
+    git -C "$repo" add -A -- "${paths[@]}" && tree=$(git -C "$repo" write-tree)
 fi
 rc=$?
 [ "$rc" = 0 ] && commit=$(git -C "$repo" commit-tree "$tree" -m "beefy-build snapshot")
