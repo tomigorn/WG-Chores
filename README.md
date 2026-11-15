@@ -97,6 +97,7 @@ Unmapped v1 names become former members; details under Admin commands.
 
 ## Releases
 GitHub Actions: `ci.yml` (tests on pull requests), `release.yml` (tests, then the multi-arch image `tomigorn/wg-chores` on every push to `main`, on `v*` tags and weekly); Renovate (`renovate.json`) keeps dependencies and base image digests current. Setup and rollback: [docs/guides/docker-hub-release.md](docs/guides/docker-hub-release.md).
+Author's server (fastpi, Holy Grail SSO + public demo): kit in `deploy/holy-grail/`, steps in [docs/guides/go-live-holy-grail.md](docs/guides/go-live-holy-grail.md).
 
 ## Development
 | Command | What |
