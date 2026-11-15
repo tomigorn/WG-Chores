@@ -32,7 +32,7 @@ class NotifyPermissionUi(val state: OsNotify, val request: (onGranted: () -> Uni
 @Composable
 fun rememberNotifyPermission(store: NotifyStore): NotifyPermissionUi {
     val context = LocalContext.current
-    val asked by store.asked.collectAsStateWithLifecycle(initialValue = true)
+    val asked by store.asked.collectAsStateWithLifecycle<Boolean?>(initialValue = null)
     var tick by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) {
         tick++
@@ -68,7 +68,7 @@ private fun Context.activity(): Activity? = when (this) {
     else -> null
 }
 
-fun osNotify(context: Context, asked: Boolean): OsNotify {
+fun osNotify(context: Context, asked: Boolean?): OsNotify {
     val sdk = Build.VERSION.SDK_INT
     val granted = sdk < NotifyPermission.ASK_FROM_SDK ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED

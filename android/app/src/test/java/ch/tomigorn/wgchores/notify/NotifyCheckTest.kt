@@ -38,7 +38,7 @@ class NotifyCheckTest {
     private val account = Account(fake.url, fake.me, fake.tz, api, outbox, Done(outbox, api))
     private val store by lazy { NotifyStore(PreferenceDataStoreFactory.create(scope = io) { File(tmp.root, "notify.preferences_pb") }) }
 
-    data class Shown(val kind: String, val account: String, val household: Long, val title: String, val body: String)
+    data class Shown(val kind: String, val account: String, val household: Long, val items: List<String>, val since: String? = null, val lang: String = "en")
 
     private val shown = mutableListOf<Shown>()
     private var allowed = true
@@ -50,13 +50,13 @@ class NotifyCheckTest {
 
     private val show = object : NotifyShow {
         override fun allowed() = allowed
-        override fun due(account: String, household: Ref, title: String, body: String) {
+        override fun due(account: String, household: Ref, names: List<String>, lang: String) {
             if (failShow) throw IllegalStateException("no notification")
-            shown += Shown("due", account, household.id, title, body)
+            shown += Shown("due", account, household.id, names, lang = lang)
         }
-        override fun done(account: String, household: Ref, title: String, body: String) {
+        override fun done(account: String, household: Ref, since: String?, items: List<DoneItem>, lang: String) {
             if (failShow) throw IllegalStateException("no notification")
-            shown += Shown("done", account, household.id, title, body)
+            shown += Shown("done", account, household.id, items.map { "${it.by} ✓ ${it.chore}" }, since, lang)
         }
     }
 
@@ -73,7 +73,7 @@ class NotifyCheckTest {
     private fun polls() = fake.requests.count { it.url.encodedPath == "/api/v1/notifications/poll" }
     private fun run() = runBlocking { check.run() }
     private fun cursor() = runBlocking { store.cursor(account.key) }
-    private fun lastDone(hid: Long) = shown.last { it.kind == "done" && it.household == hid }
+    private fun doneItems(hid: Long) = shown.filter { it.kind == "done" && it.household == hid }.flatMap { it.items }
 
     @After fun stop() {
         io.cancel()
@@ -83,7 +83,7 @@ class NotifyCheckTest {
     @Test fun firstCheckShowsTheDueChoresPerHouseholdAndStoresTheCursor() {
         fake.dueChores += listOf(1L, 2L)
         assertEquals(Outcome.Done, run())
-        assertEquals(listOf(Shown("due", account.key, 1, "2 chores are due", "Clean shower, Clean toilet")), shown)
+        assertEquals(listOf(Shown("due", account.key, 1, listOf("Clean shower", "Clean toilet"))), shown)
         assertNotNull(cursor())
     }
 
@@ -91,7 +91,7 @@ class NotifyCheckTest {
         lang = "de"
         fake.dueChores += 2L
         run()
-        assertEquals("Clean toilet ist fällig" to "WG Zürich", shown.single().title to shown.single().body)
+        assertEquals("de", shown.single().lang)
     }
 
     @Test fun theNextCheckAcknowledgesTheDueNotices() {
@@ -112,7 +112,7 @@ class NotifyCheckTest {
         assertNull(cursor())
         assertEquals(Outcome.Done, run())
         run()
-        assertEquals(1, shown.count { it.title == "Clean toilet is due" })
+        assertEquals(1, shown.count { it.items == listOf("Clean toilet") })
     }
 
     @Test fun notShownMeansNotAcknowledged() {
@@ -122,7 +122,7 @@ class NotifyCheckTest {
         assertNull(cursor())
         failShow = false
         run()
-        assertEquals(listOf("Clean toilet is due"), shown.map { it.title })
+        assertEquals(listOf(listOf("Clean toilet")), shown.map { it.items })
         run()
         assertEquals(1, shown.size)
     }
@@ -135,9 +135,8 @@ class NotifyCheckTest {
         fake.doneBy("Sam", 4)
         clock = Instant.parse("2026-11-15T18:00:20Z")
         run()
-        assertEquals("WG Zürich" to "Since 14:00: Sam ✓ Wipe stove, Sam ✓ Clean fridge", lastDone(1).title to lastDone(1).body)
-        assertEquals("Family" to "Since 14:00: Lena Example ✓ Water plants", lastDone(2).title to lastDone(2).body)
-        assertEquals(2, shown.count { it.kind == "done" })
+        assertEquals(Shown("done", account.key, 1, listOf("Sam ✓ Wipe stove", "Sam ✓ Clean fridge"), "14:00"), shown.single { it.kind == "done" && it.household == 1L })
+        assertEquals(Shown("done", account.key, 2, listOf("Lena Example ✓ Water plants"), "14:00"), shown.single { it.kind == "done" && it.household == 2L })
     }
 
     @Test fun morePagesAreFetchedAndShownTogether() {
@@ -146,7 +145,8 @@ class NotifyCheckTest {
         fake.pollPage = 2
         run()
         assertEquals(4, polls())
-        assertEquals(5, lastDone(1).body.split("Sam ✓").size - 1)
+        assertEquals(5, doneItems(1).size)
+        assertEquals(3, shown.count { it.kind == "done" })
     }
 
     @Test fun atMostFivePagesPerCheckTheRestNextTime() {
@@ -155,9 +155,20 @@ class NotifyCheckTest {
         fake.pollPage = 1
         run()
         assertEquals(1 + NotifyCheck.MAX_PAGES, polls())
-        assertEquals(5, lastDone(1).body.split("Sam ✓").size - 1)
+        assertEquals(5, doneItems(1).size)
         run()
-        assertEquals(2, lastDone(1).body.split("Sam ✓").size - 1)
+        assertEquals(7, doneItems(1).size)
+    }
+
+    @Test fun aLostSecondPageIsFetchedAgainWithoutRepeatingTheFirst() {
+        run()
+        repeat(60) { fake.doneBy("Sam", 6) }
+        fake.dropPolls = setOf(3)
+        assertEquals(Outcome.Retry, run())
+        assertEquals(50, doneItems(1).size)
+        assertEquals(Outcome.Done, run())
+        assertEquals(60, doneItems(1).size)
+        assertEquals(1 + 2 + 1, polls())
     }
 
     @Test fun bothSwitchesOffNoPoll() {

@@ -19,6 +19,7 @@ class NotifyStore(private val prefs: DataStore<Preferences>) {
     private fun dueKey(account: String) = booleanPreferencesKey("due|$account")
     private val signatureKey = stringPreferencesKey("signature")
     private val askedKey = booleanPreferencesKey("asked")
+    private val languageKey = stringPreferencesKey("language")
 
     suspend fun cursor(account: String): String? = prefs.data.first()[cursorKey(account)]
 
@@ -47,6 +48,13 @@ class NotifyStore(private val prefs: DataStore<Preferences>) {
 
     suspend fun saveSignature(s: String?) {
         prefs.edit { if (s != null) it[signatureKey] = s else it.remove(signatureKey) }
+    }
+
+    /** The app language picked in Settings ("system", "en", "de"); null before the first pick. */
+    suspend fun language(): String? = prefs.data.first()[languageKey]
+
+    suspend fun saveLanguage(tag: String) {
+        prefs.edit { it[languageKey] = tag }
     }
 
     val asked: Flow<Boolean> = prefs.data.map { it[askedKey] ?: false }.distinctUntilChanged()

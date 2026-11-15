@@ -18,6 +18,8 @@ object NotifySchedule {
 
     fun zone(tz: String): ZoneId = runCatching { ZoneId.of(tz) }.getOrDefault(ZoneOffset.UTC)
 
+    fun validZone(tz: String): Boolean = runCatching { ZoneId.of(tz) }.isSuccess
+
     /** The first notify time strictly after [after]; null without valid times. A time in a DST gap moves past the gap, one in an overlap counts once. */
     fun next(after: Instant, times: List<String>, tz: String): Instant? {
         val list = times(times)

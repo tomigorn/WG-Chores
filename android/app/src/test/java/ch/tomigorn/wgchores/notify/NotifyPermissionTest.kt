@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class NotifyPermissionTest {
-    private fun s(sdk: Int = 36, enabled: Boolean = false, granted: Boolean = false, rationale: Boolean = false, asked: Boolean = false) =
+    private fun s(sdk: Int = 36, enabled: Boolean = false, granted: Boolean = false, rationale: Boolean = false, asked: Boolean? = false) =
         NotifyPermission.state(sdk, enabled, granted, rationale, asked)
 
     @Test fun enabledIsAllowed() {
@@ -21,4 +21,10 @@ class NotifyPermissionTest {
     @Test fun grantedButTurnedOffInTheSystem() = assertEquals(OsNotify.Blocked, s(granted = true, asked = true))
 
     @Test fun olderAndroidTurnedOffInTheSystem() = assertEquals(OsNotify.Blocked, s(sdk = 32))
+
+    @Test fun notKnownYetWhetherAskedIsUnknown() {
+        assertEquals(OsNotify.Unknown, s(asked = null))
+        assertEquals(OsNotify.Unknown, s(rationale = true, asked = null))
+        assertEquals(OsNotify.Allowed, s(enabled = true, asked = null))
+    }
 }

@@ -48,6 +48,7 @@ import ch.tomigorn.wgchores.ui.chore.account
 import ch.tomigorn.wgchores.ui.components.LinkButton
 import ch.tomigorn.wgchores.ui.components.PageBar
 import ch.tomigorn.wgchores.ui.components.RowsCard
+import ch.tomigorn.wgchores.ui.components.SecondaryButton
 import ch.tomigorn.wgchores.ui.components.SectionTitle
 import ch.tomigorn.wgchores.ui.components.ToastHost
 import ch.tomigorn.wgchores.ui.list.Notice
@@ -135,6 +136,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun language(tag: String) {
         ui.update { it.copy(language = tag) }
         AppLanguage.set(tag)
+        wgc.container.languageChanged(tag)
     }
 
     /** Saved on the server (PATCH /me), one change at a time; the switches also start or stop the background check. */
@@ -178,7 +180,7 @@ fun SettingsScreen(ui: SettingsUi, theme: ThemeMode, act: SettingsActions) {
                     HorizontalDivider(color = Wgc.colors.border)
                     Toggle(stringResource(R.string.settings_notify_due), stringResource(R.string.settings_notify_due_hint), ui.notifyDue && shown, ui.loaded, "notify-due") { act.notify(false, it) }
                 }
-                if (ui.os != OsNotify.Allowed) {
+                if (ui.os == OsNotify.Ask || ui.os == OsNotify.Rationale || ui.os == OsNotify.Blocked) {
                     val text = when (ui.os) {
                         OsNotify.Rationale -> R.string.notify_os_rationale
                         OsNotify.Blocked -> R.string.notify_os_blocked
@@ -186,11 +188,11 @@ fun SettingsScreen(ui: SettingsUi, theme: ThemeMode, act: SettingsActions) {
                     }
                     Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.text, modifier = Modifier.padding(start = 4.dp).testTag("notify-os-text"))
                     val button = if (ui.os == OsNotify.Blocked) R.string.notify_open_settings else R.string.notify_allow
-                    ch.tomigorn.wgchores.ui.components.SecondaryButton(stringResource(button), act::allowNotifications, Modifier.testTag("notify-allow"))
+                    SecondaryButton(stringResource(button), act::allowNotifications, Modifier.testTag("notify-allow"))
                 }
                 if (ui.loadFailed) {
                     Text(stringResource(R.string.settings_load_failed), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.dangerText, modifier = Modifier.padding(start = 4.dp))
-                    ch.tomigorn.wgchores.ui.components.SecondaryButton(stringResource(R.string.common_retry), act::reload, Modifier.testTag("notify-retry"))
+                    SecondaryButton(stringResource(R.string.common_retry), act::reload, Modifier.testTag("notify-retry"))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 4.dp)) {
                     val line = with(androidx.compose.ui.platform.LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() }

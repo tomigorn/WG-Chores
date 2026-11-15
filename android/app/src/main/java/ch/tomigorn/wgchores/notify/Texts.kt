@@ -17,6 +17,10 @@ object NotifyTexts {
         else -> if (system.language == "de") "de" else "en"
     }
 
+    /** Android 13+ knows the per-app language itself; older versions only in an activity, so the tag stored by Settings counts there. */
+    fun resolve(sdk: Int, stored: String?, current: String, system: Locale): String =
+        lang(if (sdk >= 33 || stored == null) current else stored, system)
+
     private fun german(lang: String) = lang == "de"
 
     /** Title and body for the due chores of one household, [names] in the server's order. */

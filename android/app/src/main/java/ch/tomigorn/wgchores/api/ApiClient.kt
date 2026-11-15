@@ -12,6 +12,7 @@ import ch.tomigorn.wgchores.domain.InviteAccepted
 import ch.tomigorn.wgchores.domain.InvitePreview
 import ch.tomigorn.wgchores.domain.Member
 import ch.tomigorn.wgchores.domain.NewInvite
+import ch.tomigorn.wgchores.notify.PollAnswer
 import java.net.URLEncoder
 import kotlinx.serialization.builtins.ListSerializer
 import java.io.IOException
@@ -181,8 +182,8 @@ class ApiClient(
     suspend fun devices(): List<Device> = get("/api/v1/me/devices", ListSerializer(Device.serializer()))
 
     /** The background check: done by others since [since] and chores newly due; presenting a cursor acknowledges the due notices it answered. */
-    suspend fun poll(since: String?): ch.tomigorn.wgchores.notify.PollAnswer =
-        get("/api/v1/notifications/poll" + (since?.let { "?since=" + enc(it) } ?: ""), ch.tomigorn.wgchores.notify.PollAnswer.serializer())
+    suspend fun poll(since: String?): PollAnswer =
+        get("/api/v1/notifications/poll" + (since?.let { "?since=" + enc(it) } ?: ""), PollAnswer.serializer())
 
     suspend fun deleteDevice(id: String) {
         call<Unit>(Request.Builder().url("$baseUrl/api/v1/me/devices/" + enc(id)).delete(), null, signedIn = true)

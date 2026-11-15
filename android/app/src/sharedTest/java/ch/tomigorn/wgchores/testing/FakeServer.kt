@@ -86,6 +86,8 @@ class FakeServer : Closeable {
     @Volatile var pollPage = 50
     /** The next n polls are handled but their answers are lost on the way (the app sees offline). */
     @Volatile var dropPollAnswers = 0
+    /** Poll numbers (1 = the first poll) whose answers are lost. */
+    @Volatile var dropPolls = emptySet<Int>()
     private var polls = 0
 
     fun doneBy(by: String, choreId: Long) = synchronized(pollDone) {
@@ -127,8 +129,8 @@ class FakeServer : Closeable {
         val dueJson = due.entries.joinToString(",") { (hid, list) ->
             """{"household":{"id":$hid,"name":${str(householdName(hid))}},"chores":[${list.joinToString(",") { """{"id":${it.id},"name":${str(it.name)}}""" }}]}"""
         }
-        if (dropPollAnswers > 0) {
-            dropPollAnswers--
+        if (dropPollAnswers > 0 || poll in dropPolls) {
+            if (poll !in dropPolls) dropPollAnswers--
             return MockResponse(503, headersOf("Content-Type", "text/html"), "<h1>lost</h1>")
         }
         json(200, """{"cursor":"c$cursorSeq.$poll","done":[$doneJson],"due":[$dueJson],"more":$more}""")

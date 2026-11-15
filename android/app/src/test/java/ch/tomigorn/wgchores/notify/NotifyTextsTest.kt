@@ -48,4 +48,19 @@ class NotifyTextsTest {
         assertEquals("de", NotifyTexts.lang("system", Locale.forLanguageTag("de-CH")))
         assertEquals("en", NotifyTexts.lang("system", Locale.FRENCH))
     }
+
+    @Test fun storedLanguageCountsWhereTheSystemDoesNotKnowIt() {
+        assertEquals("de", NotifyTexts.resolve(30, stored = "de", current = "system", system = Locale.ENGLISH))
+        assertEquals("en", NotifyTexts.resolve(30, stored = "system", current = "system", system = Locale.ENGLISH))
+        assertEquals("de", NotifyTexts.resolve(30, stored = null, current = "system", system = Locale.GERMAN))
+        assertEquals("en", NotifyTexts.resolve(36, stored = "de", current = "en", system = Locale.GERMAN))
+    }
+
+    @Test fun mergesKeepOldItemsAndAddNewOnesOnce() {
+        assertEquals(listOf("Clean toilet", "Clean shower"), NotifyMerge.due(listOf("Clean toilet"), listOf("Clean shower", "Clean toilet")))
+        val a = DoneItem("Sam", "Wipe stove", "2026-11-15")
+        val b = DoneItem("Lena Example", "Clean fridge", "2026-11-15")
+        assertEquals(listOf(a, b), NotifyMerge.done(listOf(a), listOf(a, b)))
+        assertEquals(listOf(a), DoneItem.decode(DoneItem.encode(listOf(a))))
+    }
 }

@@ -7,7 +7,11 @@ import android.content.Context
 import android.os.Looper
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.core.app.ApplicationProvider
+import android.content.Intent
 import androidx.work.Configuration
+import androidx.work.ListenableWorker
+import androidx.work.testing.TestListenableWorkerBuilder
+import androidx.work.workDataOf
 import androidx.work.NetworkType
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -69,7 +73,7 @@ class NotifyWorkerTest {
     @Before fun setUp() {
         TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
         shadowOf(context as Application).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
-        notifier.createChannels()
+        notifier.createChannels("en")
         WorkManagerTestInitHelper.initializeTestWorkManager(
             context,
             Configuration.Builder().setExecutor(SynchronousExecutor()).setWorkerFactory(NotifyWorkerFactory { job }).build(),
@@ -146,7 +150,7 @@ class NotifyWorkerTest {
         assertTrue(tap.isImmutable)
         val intent = shadowOf(tap).savedIntent
         assertEquals(MainActivity::class.java.name, intent.component?.className)
-        assertEquals(1L, Notifier.household(intent, account.key))
+        assertEquals(1L, Notifier.household(intent, account.key) { it == 1L })
     }
 
     @Test fun aRunThatStartsLateStillQueuesTheNextTimeAfterNow() = runBlocking {
@@ -166,14 +170,38 @@ class NotifyWorkerTest {
         assertEquals(id, infos().single().id)
     }
 
-    @Test fun aTapOnlyOpensForTheSignedInAccount() {
+    @Test fun aTapOnlyOpensAKnownHouseholdOfTheSignedInAccount() = runBlocking {
         val pi = Notifier.openIntent(context, account.key, 2, 7)
         val intent = shadowOf(pi).savedIntent
-        assertEquals(2L, Notifier.household(intent, account.key))
-        assertNull(Notifier.household(intent, "https://other.example.com#1"))
-        assertNull(Notifier.household(intent, null))
-        assertNull(Notifier.household(intent.setAction("android.intent.action.MAIN"), account.key))
-        assertNull(Notifier.household(null, account.key))
+        val known: suspend (Long) -> Boolean = { it == 2L }
+        assertEquals(2L, Notifier.household(intent, account.key, known))
+        assertNull(Notifier.household(intent, account.key) { false })
+        assertNull(Notifier.household(intent, "https://other.example.com#1", known))
+        assertNull(Notifier.household(intent, null, known))
+        assertNull(Notifier.household(Intent(intent).setAction("android.intent.action.MAIN"), account.key, known))
+        assertNull(Notifier.household(null, account.key, known))
+    }
+
+    @Test fun retriesUsedUpStillQueueTheNextCheck() = runBlocking {
+        fake.down = true
+        clock = Instant.parse("2026-11-15T13:20:00Z")
+        val worker = TestListenableWorkerBuilder.from(context, NotifyWorker::class.java)
+            .setWorkerFactory(NotifyWorkerFactory { job })
+            .setRunAttemptCount(NotifyWorker.MAX_RETRIES)
+            .setInputData(workDataOf(NotifyWorker.KEY_AT to Instant.parse("2026-11-15T13:00:00Z").toEpochMilli()))
+            .build() as NotifyWorker
+        assertEquals(ListenableWorker.Result.success(), worker.doWork())
+        assertEquals(Instant.parse("2026-11-15T18:00:00Z").toEpochMilli() - clock.toEpochMilli(), waiting().single().initialDelayMillis)
+    }
+
+    @Test fun anEarlierRetryIsRetried() = runBlocking {
+        fake.down = true
+        val worker = TestListenableWorkerBuilder.from(context, NotifyWorker::class.java)
+            .setWorkerFactory(NotifyWorkerFactory { job })
+            .setRunAttemptCount(1)
+            .build() as NotifyWorker
+        assertEquals(ListenableWorker.Result.retry(), worker.doWork())
+        assertTrue(waiting().isEmpty())
     }
 
 }

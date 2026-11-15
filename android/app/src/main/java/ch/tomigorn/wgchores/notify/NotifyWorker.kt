@@ -1,6 +1,7 @@
 package ch.tomigorn.wgchores.notify
 
 import android.content.Context
+import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -68,16 +69,17 @@ class NotifyScheduler(private val work: () -> WorkManager, private val store: No
             store.saveSignature(null)
             return
         }
+        if (!NotifySchedule.validZone(plan.tz)) Log.w("WgChores", "server time zone '${plan.tz}' unknown, notify times taken as UTC")
         val signature = "${plan.account}|${plan.times.joinToString(",")}|${plan.tz}"
         val policy = if (store.signature() == signature) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE
         work().enqueueUniqueWork(NAME, policy, request(at))
         store.saveSignature(signature)
     }
 
-    /** From the check itself: the first notify time after the one it ran for (or after now, when it ran late). It replaces the running check, which ends right after. */
+    /** From the check itself: the first notify time after the one it ran for (or after now, when it ran late); it waits behind the running check. */
     fun next(plan: NotifyPlan, ran: Instant) {
         val at = NotifySchedule.next(maxOf(now(), ran), plan.times, plan.tz) ?: return
-        work().enqueueUniqueWork(NAME, ExistingWorkPolicy.REPLACE, request(at))
+        work().enqueueUniqueWork(NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request(at))
     }
 
     private fun request(at: Instant): OneTimeWorkRequest = OneTimeWorkRequestBuilder<NotifyWorker>()

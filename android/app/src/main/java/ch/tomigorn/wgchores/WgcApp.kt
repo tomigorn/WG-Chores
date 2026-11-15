@@ -12,7 +12,6 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import androidx.work.WorkerFactory
 import ch.tomigorn.wgchores.auth.AuthController
-import ch.tomigorn.wgchores.auth.AuthState
 import ch.tomigorn.wgchores.data.Account
 import ch.tomigorn.wgchores.notify.NotifyCheck
 import ch.tomigorn.wgchores.notify.NotifyJob
@@ -20,18 +19,13 @@ import ch.tomigorn.wgchores.notify.NotifyPlan
 import ch.tomigorn.wgchores.notify.NotifyScheduler
 import ch.tomigorn.wgchores.notify.NotifyStore
 import ch.tomigorn.wgchores.notify.NotifyTexts
+import ch.tomigorn.wgchores.notify.NotifyWatch
 import ch.tomigorn.wgchores.notify.NotifyWorkerFactory
 import ch.tomigorn.wgchores.notify.Notifier
 import ch.tomigorn.wgchores.ui.account.AppLanguage
 import java.time.Instant
 import java.util.Locale
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.mapNotNull
 import ch.tomigorn.wgchores.data.SessionStore
 import ch.tomigorn.wgchores.data.SettingsStore
 import ch.tomigorn.wgchores.data.Sync
@@ -69,16 +63,29 @@ class AppContainer(context: Context) {
         flush = sync::flush,
         store = notifyStore,
         show = notifier,
-        lang = { NotifyTexts.lang(AppLanguage.current(), Locale.getDefault()) },
+        lang = ::notifyLang,
     )
     val notifyJob = object : NotifyJob {
-        override suspend fun check() = notifyCheck.run()
+        override suspend fun check(): NotifyCheck.Outcome {
+            notifier.createChannels(notifyLang())
+            return notifyCheck.run()
+        }
         override suspend fun scheduleAfter(ran: Instant) {
             notifyPlan()?.let { notifyScheduler.next(it, ran) }
         }
     }
     /** A notification tap asked for this household; the signed-in area opens it. */
     val openHousehold = MutableStateFlow<Long?>(null)
+
+    suspend fun notifyLang(): String = NotifyTexts.resolve(Build.VERSION.SDK_INT, notifyStore.language(), AppLanguage.current(), Locale.getDefault())
+
+    /** Settings changed the app language: remembered for background checks on Android 8–12, channel names follow. */
+    fun languageChanged(tag: String) {
+        scope.launch {
+            notifyStore.saveLanguage(tag)
+            notifier.createChannels(notifyLang())
+        }
+    }
 
     private suspend fun notifyPlan(): NotifyPlan? {
         val s = session.read()
@@ -89,54 +96,49 @@ class AppContainer(context: Context) {
         return NotifyPlan(Account.keyOf(server, id), config.notifyTimes, config.tz)
     }
 
-    private sealed interface Who {
-        data object Out : Who
-        data class In(val key: String) : Who
-    }
+    private val notifyWatch = NotifyWatch(
+        state = auth.state,
+        configs = session.configs,
+        enabled = notifyStore::enabled,
+        signedOut = {
+            guarded {
+                notifier.cancelAll()
+                notifyStore.forgetChecks()
+            }
+        },
+        apply = { plan -> guarded { notifyScheduler.apply(plan) } },
+    )
 
-    /** Sign-in, sign-out, server config and the switches decide the background check; Loading (a process started only for the check) changes nothing. */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun watchNotifications() {
-        scope.launch {
-            auth.state
-                .mapNotNull { st ->
-                    when (st) {
-                        AuthState.Loading -> null
-                        is AuthState.SignedIn -> st.userId?.let { Who.In(Account.keyOf(st.server, it)) }
-                        else -> Who.Out
-                    }
-                }
-                .distinctUntilChanged()
-                .flatMapLatest { who ->
-                    when (who) {
-                        Who.Out -> flowOf(who to null)
-                        is Who.In -> combine(session.configs, notifyStore.enabled(who.key)) { config, on ->
-                            who to config?.takeIf { on }?.let { NotifyPlan(who.key, it.notifyTimes, it.tz) }
-                        }
-                    }
-                }
-                .distinctUntilChanged()
-                .collect { (who, plan) ->
-                    try {
-                        if (who == Who.Out) {
-                            notifier.cancelAll()
-                            notifyStore.forgetChecks()
-                        }
-                        notifyScheduler.apply(plan)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.w("WgChores", "notification schedule failed", e)
-                    }
-                }
+    private suspend fun guarded(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("WgChores", "notification schedule failed", e)
         }
     }
 
-    /** From MainActivity: a notification tap counts only for the account signed in now. */
+    fun watchNotifications() {
+        scope.launch { notifyWatch.run() }
+        scope.launch { notifier.createChannels(notifyLang()) }
+    }
+
+    /** From MainActivity: a notification tap counts only for the account signed in now and a household it knows (cached list or the server's list). */
     fun openFromNotification(intent: Intent?) {
         if (intent?.action != Notifier.ACTION_OPEN) return
         scope.launch {
-            Notifier.household(intent, sync.account()?.key)?.let { openHousehold.value = it }
+            val a = sync.account() ?: return@launch
+            val known: suspend (Long) -> Boolean = { hid ->
+                sync.loadList(a, hid) != null || try {
+                    a.api.households().any { it.id == hid }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            Notifier.household(intent, a.key, known)?.let { openHousehold.value = it }
         }
     }
 
@@ -164,7 +166,6 @@ class WgcApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        container.notifier.createChannels()
         container.watchNotifications()
         container.sync.kick()
         runCatching {
