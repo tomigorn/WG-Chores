@@ -41,5 +41,7 @@ Quellcode: https://github.com/tomigorn/WG-Chores
 
 ## Versionshinweise 1.0.0 (500)
 ```
+<de-DE>
 Erste Version: Aufgaben nach Raum, «Tage seit»-Farben, erledigt mit einem Tipp samt Rückgängig, Notizen und andere Daten, mehrere Haushalte, Einladungslinks, Benachrichtigungen und Offline-Erledigen.
+</de-DE>
 ```

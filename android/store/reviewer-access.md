@@ -16,6 +16,6 @@ WG Chores connects to a server chosen by the user. Please use our public demo se
 1. Open the app. In "Server address" enter: wg-chores-demo.holy-grail.ch (https:// is already filled in), tap Connect.
 2. Sign in with the username and password above.
 3. Open the household "Demo WG". Tap the check mark next to a chore to mark it done today; long press the chore for another date or a note; tap its name for the history.
-4. Account deletion: tap the round account button (top right) > Delete account (enter the password). The demo data is reset every night, so deleting the reviewer account does no harm.
+4. Account deletion is at: round account button (top right) > Delete account. Please do not delete the reviewer account: it only comes back with the nightly reset, so a second review that day could not sign in.
 No other login is needed. The server is free to use and needs no subscription.
 ```
