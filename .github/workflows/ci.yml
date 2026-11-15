@@ -50,7 +50,7 @@ jobs:
       - name: At most 25,000 bytes file size, only absolute links
         run: |
           test "$(wc -c < README.md)" -le 25000
-          ! grep -nE '\]\((\.|[a-z]+/)' README.md
+          if grep -nP '\]\((?!https?://|mailto:|#)' README.md; then exit 1; fi
 
   web:
     name: Web (test, check, build)
