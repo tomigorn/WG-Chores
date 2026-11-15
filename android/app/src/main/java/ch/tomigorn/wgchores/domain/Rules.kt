@@ -39,6 +39,10 @@ object Rules {
         }
     }
 
+    /** At most [max] characters counted as code points (as the server counts), never half an emoji. */
+    fun cap(s: String, max: Int): String =
+        if (s.codePointCount(0, s.length) <= max) s else s.substring(0, s.offsetByCodePoints(0, max))
+
     /** New password: at least 12 characters (code points), and the repeat must match. */
     fun passwordProblem(pw: String, repeat: String): PasswordProblem? = when {
         pw.codePointCount(0, pw.length) < 12 -> PasswordProblem.Short

@@ -140,8 +140,8 @@ class ChoreEditViewModel(app: Application, private val choreId: Long?, private v
         override fun cancel() {}
         override fun save() = saveChore()
         override fun retry() = load()
-        override fun name(v: String) = ui.update { it.copy(name = v.take(80)) }
-        override fun category(v: String) = ui.update { it.copy(category = v.take(40)) }
+        override fun name(v: String) = ui.update { it.copy(name = Rules.cap(v, 80)) }
+        override fun category(v: String) = ui.update { it.copy(category = Rules.cap(v, 40)) }
         override fun interval(code: String) = ui.update { it.copy(interval = Intervals.toggle(it.interval, code)) }
         override fun renameAll(on: Boolean) = ui.update { it.copy(renameAll = on) }
         override fun askArchive() = ui.update { it.copy(confirmArchive = true) }

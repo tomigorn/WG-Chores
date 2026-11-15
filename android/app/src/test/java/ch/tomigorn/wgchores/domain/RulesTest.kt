@@ -48,6 +48,15 @@ class RulesTest {
         assertNull(Rules.passwordProblem("twelve chars", "twelve chars"))
     }
 
+    @Test fun capCountsCodePointsLikeTheServer() {
+        assertEquals("abc", Rules.cap("abcdef", 3))
+        assertEquals("ab🧽", Rules.cap("ab🧽", 3))
+        assertEquals("ab", Rules.cap("abc🧽", 2))
+        assertEquals("Küche putzen ", Rules.cap("Küche putzen 🧽", 13))
+        assertEquals("ab🧽", Rules.cap("ab🧽cd", 3))
+        assertEquals("", Rules.cap("🧽", 0))
+    }
+
     @Test fun deleteConfirmation() {
         assertTrue(Rules.canConfirmDelete("sso", "Jane Doe", "Jane Doe"))
         assertTrue(Rules.canConfirmDelete("sso", "Jane Doe", "  Jane Doe "))

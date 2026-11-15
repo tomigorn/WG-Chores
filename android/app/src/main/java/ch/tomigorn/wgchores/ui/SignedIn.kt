@@ -1,5 +1,6 @@
 package ch.tomigorn.wgchores.ui
 
+import ch.tomigorn.wgchores.domain.Rules
 import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -228,7 +229,7 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
                 override fun back() = back()
                 override fun retry() = vm.load()
                 override fun manage(url: String) = actions.openUrl(url)
-                override fun name(v: String) = vm.edit { it.copy(name = v.take(60), nameError = null) }
+                override fun name(v: String) = vm.edit { it.copy(name = Rules.cap(v, 60), nameError = null) }
                 override fun saveName() = vm.saveName()
                 override fun current(v: String) = vm.edit { it.copy(current = v) }
                 override fun pw(v: String) = vm.edit { it.copy(pw = v) }

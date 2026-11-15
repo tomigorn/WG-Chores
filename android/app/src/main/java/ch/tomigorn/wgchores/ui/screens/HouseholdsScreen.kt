@@ -1,5 +1,6 @@
 package ch.tomigorn.wgchores.ui.screens
 
+import ch.tomigorn.wgchores.domain.Rules
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -125,7 +126,7 @@ fun HouseholdsScreen(
                         Field(
                             stringResource(R.string.households_name),
                             name,
-                            { name = it.take(60) },
+                            { name = Rules.cap(it, 60) },
                             modifier = Modifier.testTag("household-name"),
                             hint = stringResource(R.string.households_name_placeholder),
                             error = ui.error?.let { stringResource(it) },

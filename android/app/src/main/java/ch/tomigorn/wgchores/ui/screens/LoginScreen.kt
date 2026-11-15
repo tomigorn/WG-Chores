@@ -1,5 +1,6 @@
 package ch.tomigorn.wgchores.ui.screens
 
+import ch.tomigorn.wgchores.domain.Rules
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -104,7 +105,7 @@ fun LoginScreen(
                     Field(
                         label = stringResource(R.string.login_display_name),
                         value = displayName,
-                        onValueChange = { displayName = it.take(60) },
+                        onValueChange = { displayName = Rules.cap(it, 60) },
                         hint = stringResource(R.string.login_display_name_hint),
                         modifier = Modifier.testTag("display-name"),
                     )
@@ -112,7 +113,7 @@ fun LoginScreen(
                 Field(
                     label = stringResource(R.string.login_username),
                     value = username,
-                    onValueChange = { username = it.take(32) },
+                    onValueChange = { username = Rules.cap(it, 32) },
                     modifier = Modifier.testTag("username"),
                 )
                 Field(

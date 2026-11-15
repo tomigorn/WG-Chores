@@ -229,7 +229,7 @@ class HouseholdSettingsViewModel(app: Application, private val hid: Long) : Andr
     val actions = object : HhActions {
         override fun back() {}
         override fun retry() = load()
-        override fun name(v: String) = ui.update { it.copy(name = v.take(60)) }
+        override fun name(v: String) = ui.update { it.copy(name = Rules.cap(v, 60)) }
 
         override fun rename() {
             val n = ui.value.name.trim()
@@ -241,7 +241,7 @@ class HouseholdSettingsViewModel(app: Application, private val hid: Long) : Andr
         }
 
         override fun who(v: String) {
-            ui.update { it.copy(who = v.take(60), addError = null) }
+            ui.update { it.copy(who = Rules.cap(v, 60), addError = null) }
             if (!ui.value.directory) return
             searchJob?.cancel()
             val q = v.trim()
