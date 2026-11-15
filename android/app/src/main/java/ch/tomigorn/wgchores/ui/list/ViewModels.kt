@@ -85,6 +85,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 class HouseholdViewModel(app: Application, val householdId: Long) : AndroidViewModel(app) {
     private val c = (app as WgcApp).container
     val controller = MutableStateFlow<ListController?>(null)
+
+    /** True while the list is on screen (resumed). */
+    var active = false
+        set(v) {
+            field = v
+            controller.value?.active = v
+        }
+
     private val fallback = MutableStateFlow(ListUi(java.time.LocalDate.now()))
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -101,7 +109,10 @@ class HouseholdViewModel(app: Application, val householdId: Long) : AndroidViewM
             c.auth.refreshUser()
             c.sync.account()
         } ?: return null
-        return ListController(a, householdId, cache, viewModelScope, onOpened = ::opened).also { controller.value = it }
+        return ListController(a, householdId, cache, viewModelScope, onOpened = ::opened).also {
+            it.active = active
+            controller.value = it
+        }
     }
 
     private suspend fun opened(id: Long) {

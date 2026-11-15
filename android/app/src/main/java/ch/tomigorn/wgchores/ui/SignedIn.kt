@@ -66,7 +66,7 @@ import kotlinx.serialization.Serializable
 /** Signed in: the last household (else the household list), with placeholders for the screens of later steps. */
 @Composable
 fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppActions) {
-    val home: HomeViewModel = viewModel(key = "home|${state.server}|${state.userName}")
+    val home: HomeViewModel = viewModel(key = "home|${state.server}|${state.userId}")
     val start by home.start.collectAsStateWithLifecycle()
     val pending by home.pending.collectAsStateWithLifecycle()
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -153,9 +153,14 @@ private fun HouseholdRouteContent(
     // on every resume and every 60 s while shown
     LaunchedEffect(vm) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            while (true) {
-                vm.load()
-                delay(60_000)
+            vm.active = true
+            try {
+                while (true) {
+                    vm.load()
+                    delay(60_000)
+                }
+            } finally {
+                vm.active = false
             }
         }
     }

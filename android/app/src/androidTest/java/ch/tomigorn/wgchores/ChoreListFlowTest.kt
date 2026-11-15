@@ -133,7 +133,8 @@ class ChoreListFlowTest {
             compose.waitForTag("chore-list")
             waitUntil("synced") { fake.created().size == 1 }
             waitUntil("outbox empty") { runBlocking { app.container.sync.account()!!.outbox.items() }.isEmpty() }
-            Thread.sleep(2_000)
+            compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("sync-chip")).fetchSemanticsNodes().isEmpty() }
+            compose.waitForIdle()
             assertEquals(1, fake.created().size)
             val posts = fake.requests.count { it.method == "POST" && it.url.encodedPath == "/api/v1/chores/2/completions" }
             assertTrue("posts: $posts", posts >= 1)

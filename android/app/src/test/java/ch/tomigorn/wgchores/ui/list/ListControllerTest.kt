@@ -44,7 +44,14 @@ class ListControllerTest {
     private var clock = 1_000_000L
     private val opened = mutableListOf<Long>()
 
-    private fun controller(hid: Long = 1) = ListController(account, hid, cache, scope, onOpened = { opened += it }, now = { clock })
+    private fun controller(hid: Long = 1, c: ListCache = cache) = ListController(account, hid, c, scope, onOpened = { opened += it }, now = { clock })
+
+    private val broken = object : ListCache {
+        override suspend fun save(a: Account, list: CachedList) = throw IllegalStateException("disk full")
+        override suspend fun load(a: Account, hid: Long): CachedList? = throw IllegalStateException("disk gone")
+    }
+
+    private fun listLoads() = fake.requests.count { it.url.encodedPath == "/api/v1/households/1/chores" }
 
     @After fun stop() {
         scope.cancel()
@@ -217,5 +224,39 @@ class ListControllerTest {
         val c = controller(hid = 99)
         onMain { c.load() }
         assertTrue(c.state.value.gone)
+    }
+
+    @Test fun cacheFailuresAreNoCrash() {
+        val c = controller(c = broken)
+        onMain { c.load() }
+        assertTrue(c.state.value.loaded)
+        fake.down = true
+        val offline = controller(c = broken)
+        onMain { offline.load() }
+        assertTrue(offline.state.value.failed)
+    }
+
+    @Test fun anUndoThatCouldNotBeSavedSaysSo() {
+        val c = loaded()
+        runBlocking {
+            outbox.add(ch.tomigorn.wgchores.data.outbox.OutboxItem("old-undo", 4, "", null, ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind.Delete, at = 1))
+            outbox.flush()
+        }
+        waitUntil("undo notice") { (c.state.value.snack as? Snack.Text)?.text == Notice.UndoDropped(1) }
+    }
+
+    @Test fun onlyTheShownListReloadsAfterAFlush() {
+        val shown = loaded()
+        val hidden = loaded()
+        hidden.active = false
+        val before = listLoads()
+        runBlocking {
+            outbox.add(ch.tomigorn.wgchores.data.outbox.OutboxItem("u-1", 4, fake.today.toString(), null))
+            outbox.flush()
+        }
+        waitUntil("shown list reloaded") { listLoads() == before + 1 }
+        Thread.sleep(300)
+        assertEquals(before + 1, listLoads())
+        assertTrue(shown.state.value.loaded)
     }
 }

@@ -148,4 +148,8 @@
     </plurals>
     <string name="common_back">Zurück</string>
     <string name="error_invalid_name">Der Name ist leer oder zu lang.</string>
+    <plurals name="done_undo_rejected">
+        <item quantity="one">Ein Rückgängig konnte nicht gespeichert werden, die Erledigt-Markierung bleibt.</item>
+        <item quantity="other">%1$d Rückgängig konnten nicht gespeichert werden, die Erledigt-Markierungen bleiben.</item>
+    </plurals>
 </resources>

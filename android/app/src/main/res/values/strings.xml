@@ -149,4 +149,8 @@
     </plurals>
     <string name="common_back">Back</string>
     <string name="error_invalid_name">The name is empty or too long.</string>
+    <plurals name="done_undo_rejected">
+        <item quantity="one">An Undo could not be saved, so the done mark stays.</item>
+        <item quantity="other">%1$d Undos could not be saved, so their done marks stay.</item>
+    </plurals>
 </resources>

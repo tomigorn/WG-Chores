@@ -100,7 +100,7 @@ fun TopBar(title: String?, userName: String, pending: Int, offline: Boolean, the
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp), color = Wgc.colors.text, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp), color = Wgc.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     Icon(painterResource(R.drawable.ic_chevron_down), contentDescription = null, tint = Wgc.colors.muted, modifier = Modifier.size(18.dp))
                 }
             } else {

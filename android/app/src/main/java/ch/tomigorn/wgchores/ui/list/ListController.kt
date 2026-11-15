@@ -11,6 +11,8 @@ import ch.tomigorn.wgchores.domain.Days
 import ch.tomigorn.wgchores.domain.Household
 import ch.tomigorn.wgchores.domain.PendingDone
 import java.time.LocalDate
+import ch.tomigorn.wgchores.data.outbox.OutboxItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -36,6 +38,7 @@ sealed interface Notice {
     data class Dropped(val count: Int, val name: String?) : Notice
     data class Waiting(val count: Int) : Notice
     data object Offline : Notice
+    data class UndoDropped(val count: Int) : Notice
 }
 
 data class DoneSheet(val chore: Chore, val prev: Chore, val uuid: String?, val doneOn: String, val note: String?)
@@ -71,6 +74,9 @@ class ListController(
     private val _state = MutableStateFlow(ListUi(today()))
     val state: StateFlow<ListUi> = _state
 
+    /** Only the list on screen reloads after a flush. */
+    @Volatile var active = true
+
     private var fetchSeq = 0
     private var mutations = 0
     private var opened = false
@@ -81,14 +87,27 @@ class ListController(
         scope.launch { outbox.count.collect { n -> _state.update { it.copy(pending = n) } } }
         scope.launch {
             outbox.flushed.collect { r ->
-                if (r.dropped.isNotEmpty()) {
-                    val name = r.dropped.singleOrNull()?.let { d -> current(d.choreId)?.name }
-                    snack(Snack.Text(Notice.Dropped(r.dropped.size, name)))
+                if (!active) return@collect
+                val (marks, undos) = r.dropped.partition { it.kind == OutboxItem.Kind.Mark }
+                if (marks.isNotEmpty()) {
+                    val name = marks.singleOrNull()?.let { d -> current(d.choreId)?.name }
+                    snack(Snack.Text(Notice.Dropped(marks.size, name)))
+                } else if (undos.isNotEmpty()) {
+                    snack(Snack.Text(Notice.UndoDropped(undos.size)))
                 }
                 load()
             }
         }
         scope.launch { outbox.refreshCount() }
+    }
+
+    /** The offline cache is a nice-to-have: a storage error must never break the list. */
+    private suspend fun <T> safely(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     private fun current(id: Long): Chore? = _state.value.chores.find { it.id == id }
@@ -120,7 +139,7 @@ class ListController(
             _state.update {
                 it.copy(household = h, chores = Chores.withPending(list, queued, account.me, d), loaded = true, offline = false, failed = false)
             }
-            cache.save(account, CachedList(h, list))
+            safely { cache.save(account, CachedList(h, list)) }
             if (!opened) {
                 opened = true
                 runCatching { onOpened(householdId) }
@@ -130,7 +149,7 @@ class ListController(
             if (stale()) return
             _state.update { it.copy(offline = true) }
             if (_state.value.loaded) return
-            val c = cache.load(account, householdId)
+            val c = safely { cache.load(account, householdId) }
             if (stale()) return
             if (c != null) {
                 val d = day()
