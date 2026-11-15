@@ -3,7 +3,7 @@
  "info": {
   "title": "WG Chores API",
   "version": "1",
-  "description": "Sessions: 30 days idle, at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in. The admin command `wg-chores revoke-sessions <username>` deletes all sessions of a user; their next request gets 401 `unauthenticated`."
+  "description": "Sessions: 30 days idle, at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in. The admin command `wg-chores revoke-sessions <username>` deletes all sessions of a user; their next request gets 401 `unauthenticated`. App device tokens (bearer) have the same lifetimes."
  },
  "servers": [
   {
@@ -23,7 +23,14 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/User"
+         "oneOf": [
+          {
+           "$ref": "#/components/schemas/User"
+          },
+          {
+           "$ref": "#/components/schemas/AppToken"
+          }
+         ]
         }
        }
       }
@@ -71,6 +78,18 @@
          },
          "password": {
           "type": "string"
+         },
+         "client": {
+          "type": "string",
+          "enum": [
+           "web",
+           "android"
+          ],
+          "description": "`android`: answers `{token, user}` instead of setting the cookie"
+         },
+         "device_name": {
+          "type": "string",
+          "description": "app only; cleaned, at most 60 characters, default `Android`"
          }
         },
         "required": [
@@ -108,9 +127,12 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ],
-    "description": "Deletes this session. Optional body `{push_endpoint}`: that push subscription is deleted too when it belongs to the signed-in user (sign-out on a shared device). An empty body is fine.",
+    "description": "Deletes this session. Optional body `{push_endpoint}`: that push subscription is deleted too when it belongs to the signed-in user (sign-out on a shared device). An empty body is fine. With a bearer token: ends that device session, no cookie is touched.",
     "requestBody": {
      "required": false,
      "content": {
@@ -141,7 +163,14 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/User"
+         "oneOf": [
+          {
+           "$ref": "#/components/schemas/User"
+          },
+          {
+           "$ref": "#/components/schemas/AppToken"
+          }
+         ]
         }
        }
       }
@@ -195,6 +224,18 @@
          },
          "invite": {
           "type": "string"
+         },
+         "client": {
+          "type": "string",
+          "enum": [
+           "web",
+           "android"
+          ],
+          "description": "`android`: answers `{token, user}` instead of setting the cookie"
+         },
+         "device_name": {
+          "type": "string",
+          "description": "app only; cleaned, at most 60 characters, default `Android`"
          }
         },
         "required": [
@@ -251,6 +292,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -318,6 +362,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -364,6 +411,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -413,6 +463,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -493,6 +546,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ],
     "description": "Other members get a \"done\" push 10 s later, unless the completion was deleted (undone) in the meantime."
@@ -540,6 +596,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -606,6 +665,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -642,6 +704,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -710,6 +775,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -762,6 +830,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -808,6 +879,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -871,6 +945,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -920,6 +997,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -987,6 +1067,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1036,6 +1119,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -1105,6 +1191,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1154,6 +1243,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -1198,6 +1290,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1246,6 +1341,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1302,6 +1400,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1351,6 +1452,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -1425,6 +1529,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1490,6 +1597,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1575,6 +1685,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1610,6 +1723,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -1692,6 +1808,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -1757,6 +1876,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ],
     "description": "Local accounts confirm with `current_password` (wrong: 403 `wrong_password`, counts towards the login rate limit), SSO accounts with `confirm_username` = their display name. Households left without members are deleted with their chores, completions, categories and invites."
@@ -1805,6 +1927,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1863,6 +1988,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -1925,6 +2053,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    },
@@ -1970,6 +2101,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -2017,6 +2151,9 @@
     "security": [
      {
       "cookie": []
+     },
+     {
+      "bearer": []
      }
     ]
    }
@@ -2064,7 +2201,39 @@
        }
       }
      }
-    }
+    },
+    "parameters": [
+     {
+      "name": "invite",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "client",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "enum": [
+        "web",
+        "android"
+       ]
+      }
+     },
+     {
+      "name": "challenge",
+      "in": "query",
+      "required": false,
+      "description": "with `client=android`: base64url(SHA-256(verifier)), 43 characters",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "description": "`client=android`: the callback redirects to `wgchores://auth?code=<one-time code>` (plus `&invite=<token>` when started from one; errors: `wgchores://auth?error=<code>`), no cookie is set. Missing or malformed challenge: 400."
    }
   },
   "/healthz": {
@@ -2096,6 +2265,227 @@
      }
     }
    }
+  },
+  "/api/v1/auth/app-token": {
+   "post": {
+    "summary": "Exchange the app's one-time SSO code for a device token",
+    "tags": [
+     "auth"
+    ],
+    "description": "The code is valid 60 s and single use: it is deleted on the first try, also when the verifier is wrong. Failed tries: 20 per client IP in 15 min. Needs header X-WGC: 1 (no bearer yet).",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "code": {
+          "type": "string"
+         },
+         "verifier": {
+          "type": "string",
+          "description": "PKCE verifier, 43-128 characters [A-Za-z0-9-._~]"
+         },
+         "device_name": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "code",
+         "verifier"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "token": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "`invalid_code`: unknown, used, expired or wrong verifier",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Too many attempts; `Retry-After` header",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/me/devices": {
+   "get": {
+    "summary": "List own sessions (browsers and app devices)",
+    "tags": [
+     "me"
+    ],
+    "security": [
+     {
+      "cookie": []
+     },
+     {
+      "bearer": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Device"
+         }
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/me/devices/{id}": {
+   "delete": {
+    "summary": "Sign out one of the own sessions",
+    "tags": [
+     "me"
+    ],
+    "security": [
+     {
+      "cookie": []
+     },
+     {
+      "bearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No content"
+     },
+     "404": {
+      "description": "`device_not_found`",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/notifications/poll": {
+   "get": {
+    "summary": "App background check: done by others and newly due chores",
+    "tags": [
+     "notifications"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ],
+    "description": "Bearer only (cookie: 403 `app_only`). Without `since`: no done backlog, only what is due now, and the current cursor. Bad cursor: 400 `invalid_cursor`.",
+    "parameters": [
+     {
+      "name": "since",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Poll"
+        }
+       }
+      }
+     },
+     "default": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -2105,6 +2495,11 @@
     "in": "cookie",
     "name": "__Host-wgc_session",
     "description": "Session cookie; unsafe methods also need header X-WGC: 1 and a same-origin Origin"
+   },
+   "bearer": {
+    "type": "http",
+    "scheme": "bearer",
+    "description": "App device token from `POST /api/v1/auth/login` / `register` with `client: android` or `POST /api/v1/auth/app-token`. No CSRF header needed when no cookie is sent; cookie and bearer together: 400 `ambiguous_auth`. A web session token is not accepted as bearer, nor an app token as cookie."
    }
   },
   "schemas": {
@@ -2146,6 +2541,10 @@
      },
      "version": {
       "type": "string"
+     },
+     "min_app_version": {
+      "type": "string",
+      "description": "oldest app version this server works with (`MIN_APP_VERSION`)"
      }
     }
    },
@@ -2183,6 +2582,134 @@
    },
    "Completion": {
     "type": "object"
+   },
+   "AppToken": {
+    "type": "object",
+    "properties": {
+     "token": {
+      "type": "string",
+      "description": "bearer token, 32 random bytes base64url"
+     },
+     "user": {
+      "$ref": "#/components/schemas/User"
+     }
+    },
+    "required": [
+     "token"
+    ]
+   },
+   "Device": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "web",
+       "android"
+      ]
+     },
+     "device_name": {
+      "type": "string",
+      "nullable": true
+     },
+     "created_at": {
+      "type": "string"
+     },
+     "last_seen_at": {
+      "type": "string"
+     },
+     "current": {
+      "type": "boolean"
+     }
+    }
+   },
+   "Poll": {
+    "type": "object",
+    "properties": {
+     "cursor": {
+      "type": "string",
+      "description": "opaque; send as `since` next time"
+     },
+     "done": {
+      "type": "array",
+      "description": "completions by other members since `since`, oldest first, at most 50; none without `since` or with `notify_done` off",
+      "items": {
+       "type": "object",
+       "properties": {
+        "household": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "integer"
+          },
+          "name": {
+           "type": "string"
+          }
+         }
+        },
+        "chore": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "integer"
+          },
+          "name": {
+           "type": "string"
+          }
+         }
+        },
+        "by": {
+         "type": "string"
+        },
+        "done_on": {
+         "type": "string",
+         "format": "date"
+        }
+       }
+      }
+     },
+     "due": {
+      "type": "array",
+      "description": "chores newly due for this device, once per due period; none with `notify_due` off",
+      "items": {
+       "type": "object",
+       "properties": {
+        "household": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "integer"
+          },
+          "name": {
+           "type": "string"
+          }
+         }
+        },
+        "chores": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "properties": {
+           "id": {
+            "type": "integer"
+           },
+           "name": {
+            "type": "string"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "more": {
+      "type": "boolean",
+      "description": "`done` was cut at 50: poll again with the new cursor"
+     }
+    }
    }
   }
  }

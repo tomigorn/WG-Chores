@@ -43,7 +43,8 @@ Secret files are read as uid 65035 (the container user): `chmod 644` the file, o
 | `LOCAL_ACCOUNTS` | `true` | username + password login |
 | `OPEN_REGISTRATION` | `false` | anyone may sign up; invite links work either way |
 | `MEMBER_DIRECTORY` | `false` | "Add member" lists every user of the server |
-| `NOTIFY_TIMES` | `14:00,19:00` | due notification checks, local time in `TZ` |
+| `NOTIFY_TIMES` | `14:00,19:00` | due notification checks, local time in `TZ` (the Android app polls at these times) |
+| `MIN_APP_VERSION` | `1.0.0` | oldest Android app version this server works with (`/api/v1/config` → `min_app_version`) |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` or `OIDC_CLIENT_SECRET_FILE` | off | SSO; all or none, the secret must not be empty; the issuer must be https (http only on `localhost` / `127.0.0.1`) |
 | `OIDC_NAME` | `SSO` | button "Sign in with …" |
 | `OIDC_REQUIRED_GROUP` | none | group (from the `groups` claim) needed to log in |
@@ -127,13 +128,22 @@ GitHub Actions: `ci.yml` (tests on pull requests), `release.yml` (tests, then th
 | Delivery | TTL 12 h, urgency normal, aes128gcm, endpoint re-checked; 404/410 deletes the subscription, so do 5 failed deliveries in a row (other status codes, endpoint no longer allowed); network errors don't count |
 | Body | due list cut at a name to 3000 bytes (JSON-escaped) with `, …`; the whole message JSON is cut to 3500 bytes, so it always fits one 4096-byte encrypted record (larger plaintext is never sent) |
 
+## Android app API
+| What | Value |
+|---|---|
+| Device token | `POST /api/v1/auth/login` or `/register` with `"client": "android"`, `"device_name"` (cleaned, ≤ 60 characters, default `Android`) → `{token, user}`, no cookie; send `Authorization: Bearer <token>` |
+| SSO | Custom Tab on `/auth/oidc/start?client=android&challenge=<base64url(SHA-256(verifier))>` (verifier 43–128 chars `[A-Za-z0-9-._~]`) → `wgchores://auth?code=<code>` (`&invite=<token>` when started from one; errors `wgchores://auth?error=<code>`); then `POST /api/v1/auth/app-token {code, verifier, device_name}` → `{token}`; code 60 s, single use (also burnt by a wrong verifier), stored hashed |
+| Rules | bearer requests need no `X-WGC` header and never get cookies; cookie + bearer = 400 `ambiguous_auth`; app tokens only as bearer, web tokens only as cookie; same lifetimes as web sessions; unauthenticated POSTs (login, app-token) still send `X-WGC: 1` |
+| Background check | `GET /api/v1/notifications/poll[?since=<cursor>]` (bearer only, else 403 `app_only`) → `{cursor, done, due, more}`: `done` = others' completions since the cursor, oldest first, max 50 (`more: true` → poll again); first call without `since`: no backlog; `due` once per due period per device; `notify_due` / `notify_done` respected |
+| Devices | `GET /api/v1/me/devices` (own sessions: `id`, `kind`, `device_name`, `created_at`, `last_seen_at`, `current`), `DELETE /api/v1/me/devices/{id}` signs one out |
+
 ## SSO (OIDC)
 | What | Value |
 |---|---|
 | Redirect URI to register at the provider | `<PUBLIC_URL>/auth/oidc/callback` |
 | Scopes requested | `openid profile email groups` |
 | Client type | confidential, authorization code + PKCE (S256), ID token signed RS256 |
-| Login start | `GET /auth/oidc/start` (optional `?invite=<token>`) |
+| Login start | `GET /auth/oidc/start` (optional `?invite=<token>`; app: `?client=android&challenge=…`, see Android app API) |
 | Errors | redirect to `/login?error=not_allowed` (group missing), `sso_failed`, `sso_unavailable` (retried after 30 s); details in the server log; a login started from an invite adds `&invite=<token>` |
 
 Authentik: the provider needs a signing key (RS256; without one it signs HS256, which is refused) and the `groups` claim in the ID token (scope mapping for `groups`, "Include claims in id_token" on).
@@ -235,8 +245,8 @@ Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/c
 ## Security
 | Topic | Detail |
 |---|---|
-| Rate limits | login: 5 failures per account and 20 per client IP in 15 min; registration: 20 per client IP in 15 min (own bucket); IPv6 clients count per /64; 429 + `Retry-After` |
-| Sessions | 30 days idle; at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in; `wg-chores revoke-sessions <username>` ends them all at once |
+| Rate limits | login: 5 failures per account and 20 per client IP in 15 min; registration: 20 per client IP in 15 min (own bucket); app code exchange: 20 failures per client IP in 15 min (own bucket); IPv6 clients count per /64; 429 + `Retry-After` |
+| Sessions | browser cookie and app device tokens alike: 30 days idle; at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in; `wg-chores revoke-sessions <username>` ends them all at once |
 | Add member | 20 attempts per hour per acting user (429); the added user is not asked first (consent step: open owner question) |
 | Names | display, household, category and chore names lose control characters and bidi overrides (U+202A–U+202E, U+2066–U+2069) on input |
 | Password hashing | at most 4 at once, 16 waiting; more → 503 `busy` + `Retry-After: 5` |
