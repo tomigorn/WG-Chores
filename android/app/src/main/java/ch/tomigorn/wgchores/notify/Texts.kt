@@ -6,7 +6,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Notification texts, the same wording as the server's web push (server/src/notify/texts.rs). */
+/** Notification texts; the due texts match server/src/notify/texts.rs, done lines are grouped per household here. */
 object NotifyTexts {
     const val MAX_BODY_BYTES = 3000
     private const val MORE = ", …"
