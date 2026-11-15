@@ -97,7 +97,7 @@ Config: `.github/dependabot.yml`; merging: `.github/workflows/dependabot-auto-me
 |---|---|
 | minor, patch (one grouped PR per ecosystem), Docker digest, Rust toolchain | PR on Monday 04:00 (Zurich); auto-merge (squash) once all required checks are green; the workflow then starts **Release** |
 | waiting time after a release | GitHub Actions 7 days, everything else 3 days (not for security updates) |
-| major | own PR with label `major`, you merge it |
+| major, and below 1.0 also a minor step (0.32 → 0.42) | own PR with label `major`, you merge it |
 | `@playwright/test` | own PR, you merge it (fastpi's preinstalled Chromium must match the version) |
 | known vulnerability (cargo, npm, GitHub Actions) | security PR at once, any day; minor/patch ones auto-merge too |
 | CI red (e.g. stale `android/app/gradle.lockfile`) | PR stays open; fix: `android/scripts/beefy-build.sh --write-locks`, commit the lockfile onto the PR branch, merge by hand |

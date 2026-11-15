@@ -35,6 +35,7 @@ jobs:
           UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
           ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
           NAMES: ${{ steps.meta.outputs.dependency-names }}
+          DEPS: ${{ steps.meta.outputs.updated-dependencies-json }}
         run: |
           merge=false
           case "$UPDATE_TYPE" in
@@ -44,11 +45,15 @@ jobs:
           case ",${NAMES// /}," in
             *,@playwright/test,*) merge=false ;;
           esac
+          # below 1.0 a minor step is breaking (0.32 -> 0.42), so it counts as major
+          zero_major=$(jq -r '[.[] | select((.prevVersion // "") | startswith("0.")) | select((.prevVersion | split(".")[0:2]) != ((.newVersion // "") | split(".")[0:2]))] | length' <<< "${DEPS:-[]}")
+          if [ "${zero_major:-0}" -gt 0 ]; then merge=false; major=true; else major=false; fi
           echo "update-type '$UPDATE_TYPE', ecosystem '$ECOSYSTEM', dependencies '$NAMES': merge=$merge"
           echo "merge=$merge" >> "$GITHUB_OUTPUT"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
 
       - name: Label major
-        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        if: steps.meta.outputs.update-type == 'version-update:semver-major' || steps.decide.outputs.major == 'true'
         run: gh pr edit "$PR_URL" --add-label major || echo "::warning::label 'major' missing in the repository"
 
       - name: Enable auto-merge (squash)
