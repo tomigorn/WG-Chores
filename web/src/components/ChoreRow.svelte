@@ -8,16 +8,19 @@
 
   let { chore, today, lang, ondone, onlong }: { chore: Chore; today: string; lang: Lang; ondone: () => void; onlong: () => void } = $props();
 
-  const who = $derived(
-    chore.last ? tIn(lang, 'list.who_when', { who: chore.last.by.display_name, when: dayWord(chore.last.done_on, today, lang) }) : tIn(lang, 'list.never_done'),
-  );
+  // who and when wrap as two units on narrow rows, never inside the date
+  const when = $derived(chore.last ? tIn(lang, 'list.who_when', { who: '', when: dayWord(chore.last.done_on, today, lang) }).trim() : '');
   const doneToday = $derived(chore.days_since === 0);
 </script>
 
 <li class="row" use:longpress={onlong}>
   <a class="main" href="/chores/{chore.id}" draggable="false">
-    <span class="name" data-nowrap>{chore.name}</span>
-    <span class="who" data-nowrap>{who}</span>
+    <span class="name clamp" data-clamp="2">{chore.name}</span>
+    {#if chore.last}
+      <span class="who"><span data-nowrap>{chore.last.by.display_name}</span> <span data-nowrap>{when}</span></span>
+    {:else}
+      <span class="who"><span data-nowrap>{tIn(lang, 'list.never_done')}</span></span>
+    {/if}
   </a>
   <DueBadge {chore} {lang} />
   <button class="done" class:today={doneToday} type="button" aria-label={tIn(lang, 'list.mark_done', { name: chore.name })} onclick={ondone}>
@@ -56,7 +59,6 @@
     -webkit-touch-callout: none;
   }
 
-  .name,
   .who {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -111,5 +113,80 @@
     background: var(--accent);
     border-color: var(--accent);
     color: var(--accent-text);
+  }
+
+  /* narrow list (small screen or large text): the name may take two lines next to badge and tick, who · when gets the full width below */
+  @container (max-width: 21em) {
+    .row {
+      grid-template-rows: auto auto;
+      row-gap: 0;
+      column-gap: var(--s2);
+      padding-block: var(--s1);
+    }
+
+    .main {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-row: 1 / span 2;
+      grid-template-columns: subgrid;
+      grid-template-rows: subgrid;
+      align-items: center;
+      min-height: 0;
+      padding: var(--s1) 0;
+    }
+
+    .name {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .who {
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: 0.3em;
+      grid-column: 1 / -1;
+      grid-row: 2;
+      white-space: normal;
+    }
+
+    .who > span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .row :global(.badge) {
+      grid-column: 2;
+      grid-row: 1;
+      pointer-events: none;
+    }
+
+    .done {
+      grid-column: 3;
+      grid-row: 1;
+    }
+  }
+
+  /* very narrow (a small phone at large text): name, then who · when, then badge and tick, each on the full width */
+  @container (max-width: 16em) {
+    .row {
+      grid-template-rows: auto auto auto;
+    }
+
+    .main {
+      grid-row: 1 / span 3;
+    }
+
+    .name {
+      grid-column: 1 / -1;
+    }
+
+    .row :global(.badge) {
+      grid-row: 3;
+    }
+
+    .done {
+      grid-row: 3;
+    }
   }
 </style>

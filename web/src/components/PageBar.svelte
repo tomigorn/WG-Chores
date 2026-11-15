@@ -14,7 +14,7 @@
       <a class="icon-btn" href={back} aria-label={t('chore.back')}><Icon name="arrow-left" size={22} /></a>
     {/if}
   </div>
-  <h1 class="title" data-nowrap>{title}</h1>
+  <h1 class="title clamp" data-clamp="2">{title}</h1>
   <div class="side end">
     {#if right}{@render right()}{/if}
   </div>
@@ -30,7 +30,7 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--s1);
-    height: var(--bar-h);
+    min-height: var(--bar-h);
     padding: 0 var(--s2);
     background: var(--bg);
     border-bottom: 1px solid var(--border);
@@ -46,14 +46,22 @@
     justify-content: flex-end;
   }
 
+  .end:empty {
+    min-width: 0;
+  }
+
   .title {
     padding: 0 var(--s1);
     font-size: var(--fs-lg);
     font-weight: 680;
     letter-spacing: -0.01em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.25;
+  }
+
+  @container (max-width: 21em) {
+    .title {
+      font-size: var(--fs-md);
+    }
   }
 
   .bar :global(.icon-btn) {

@@ -64,8 +64,8 @@
   <header class="invite card">
     <span class="mark"><Icon name="house" size={24} /></span>
     {#if preview}
-      <p class="lead">{t('invite.preview', { by: preview.invited_by })}</p>
-      <h1 class="household" data-nowrap>{preview.household_name}</h1>
+      <p data-copy class="lead">{t('invite.preview', { by: preview.invited_by })}</p>
+      <h1 class="household clamp" data-clamp="2">{preview.household_name}</h1>
       {#if preview.valid}<p class="expires" data-nowrap>{expiresIn(preview.expires_at, new Date(), lang)}</p>{/if}
     {:else}
       <h1 data-copy class="household">{t('invite.title')}</h1>
@@ -89,8 +89,8 @@
     {@render card()}
     {#if me && !invalid && preview}
       {#if joinError}<div class="alert" role="alert"><Icon name="circle-alert" size={18} /><span>{joinError}</span></div>{/if}
-      <button class="btn btn-primary btn-block" type="button" disabled={busy} onclick={join}><span class="ellipsis">{t('invite.join', { household: preview.household_name })}</span></button>
-      <p class="as"><Avatar name={me.display_name} picture={me.picture_url} size={24} /><span class="ellipsis">{t('invite.signed_in_as', { name: me.display_name })}</span></p>
+      <button class="btn btn-primary btn-block" type="button" disabled={busy} onclick={join}><span class="clamp">{t('invite.join', { household: preview.household_name })}</span></button>
+      <p class="as"><Avatar name={me.display_name} picture={me.picture_url} size={24} /><span class="clamp">{t('invite.signed_in_as', { name: me.display_name })}</span></p>
     {:else}
       <a class="btn btn-block" href={me ? '/' : '/login'}>{me ? t('invite.go_home') : t('login.title')}</a>
     {/if}
@@ -101,6 +101,7 @@
 
 <style>
   .page {
+    container-type: inline-size;
     width: 100%;
     max-width: 400px;
     margin: 0 auto;
@@ -142,9 +143,13 @@
     font-size: var(--fs-xl);
     font-weight: 700;
     letter-spacing: -0.01em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+
+  @container (max-width: 21em) {
+    .household {
+      width: 100%;
+      font-size: var(--fs-lg);
+    }
   }
 
   .invite .alert {

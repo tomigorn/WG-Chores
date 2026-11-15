@@ -57,6 +57,7 @@
   }
 
   .body {
+    container-type: inline-size;
     padding: var(--s2) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom));
   }
 

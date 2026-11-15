@@ -246,7 +246,7 @@
     {#if offline}<p data-copy class="note">{t('list.offline_note')}</p>{/if}
     {#each groups as g (g.category ?? '')}
       <section class="group">
-        <h2 class="cat" data-nowrap>{g.category ?? t('list.other_category')}</h2>
+        <h2 class="cat clamp" data-clamp="2">{g.category ?? t('list.other_category')}</h2>
         <ul class="list">
           {#each g.chores as c (c.id)}
             <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, null, null)} onlong={() => openSheet(c, c, null, { doneOn: todayIn(config.tz), note: null })} />
@@ -271,7 +271,7 @@
       <li>
         <button class="hh-item" type="button" aria-current={h.id === hid ? 'page' : undefined} onclick={() => go(`/households/${h.id}`)}>
           <Icon name="house" size={18} />
-          <span class="hh-name" data-nowrap>{h.name}</span>
+          <span class="hh-name clamp" data-clamp="2">{h.name}</span>
           {#if h.id === hid}<Icon name="check" size={18} />{/if}
         </button>
       </li>
@@ -285,9 +285,10 @@
 
 <style>
   .page {
+    container-type: inline-size;
     max-width: 640px;
     margin: 0 auto;
-    padding-bottom: calc(64px + 2rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(max(64px + 2rem, var(--snack-h, 0px) + var(--s3)) + env(safe-area-inset-bottom));
   }
 
   .group {
@@ -296,17 +297,14 @@
 
   .cat {
     position: sticky;
-    top: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
+    top: calc(var(--topbar-h, var(--bar-h)) + env(safe-area-inset-top, 0px));
     z-index: 5;
     padding: var(--s4) var(--s4) var(--s2);
     background: var(--bg);
     font-size: var(--fs-sm);
-    line-height: 20px;
+    line-height: max(20px, 1.4em);
     font-weight: 650;
     color: var(--muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .list {
@@ -431,9 +429,6 @@
   .hh-name {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   @media (min-width: 640px) {

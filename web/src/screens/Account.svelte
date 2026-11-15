@@ -96,8 +96,8 @@
   <section class="profile card card-pad">
     <Avatar name={me.display_name} picture={me.picture_url} size={64} />
     <div class="who">
-      <p class="name" data-nowrap>{me.display_name}</p>
-      {#if me.username}<p class="user" data-nowrap>@{me.username}</p>{/if}
+      <p class="name clamp" data-clamp="2">{me.display_name}</p>
+      {#if me.username}<p class="user clamp" data-clamp="2">@{me.username}</p>{/if}
     </div>
   </section>
 
@@ -184,16 +184,10 @@
   .name {
     font-size: var(--fs-lg);
     font-weight: 650;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .user {
     color: var(--muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .section > .btn {

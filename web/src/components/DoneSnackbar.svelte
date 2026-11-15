@@ -16,6 +16,14 @@
   const paused = $derived(snack !== null && pausedFor === snack.id);
   const pause = (on: boolean) => (pausedFor = on && snack ? snack.id : null);
 
+  let height = $state(0);
+
+  // the list keeps room below its end so the bar never covers the last controls
+  $effect(() => {
+    const h = snack ? height : 0;
+    document.documentElement.style.setProperty('--snack-h', `${h}px`);
+  });
+
   $effect(() => {
     if (!snack || paused) return;
     const timer = setTimeout(onexpire, duration);
@@ -26,10 +34,10 @@
 <div class="region" role="status" aria-live="polite">
   {#if snack}
     {#key snack.id}
-      <div class="snack" role="group" onfocusin={() => pause(true)} onfocusout={() => pause(false)} onpointerenter={() => pause(true)} onpointerleave={() => pause(false)}>
+      <div class="snack" bind:offsetHeight={height} role="group" onfocusin={() => pause(true)} onfocusout={() => pause(false)} onpointerenter={() => pause(true)} onpointerleave={() => pause(false)}>
         {#if snack.icon}<Icon name={snack.icon} size={18} />{/if}
         <span class="text">
-          {#if snack.strong}<span class="strong" data-nowrap>{snack.strong}</span>{/if}<span class="rest" data-nowrap={snack.strong ? '' : undefined}>{snack.text}</span>
+          {#if snack.strong}<span class="strong clamp" data-clamp="2">{snack.strong}</span>{/if}<span class="rest" data-nowrap={snack.strong ? '' : undefined}>{snack.text}</span>
         </span>
         {#if snack.actions?.length}
           <span class="acts">
@@ -45,6 +53,7 @@
 
 <style>
   .region {
+    container-type: inline-size;
     position: fixed;
     left: 0;
     right: 0;
@@ -84,9 +93,6 @@
 
   .strong {
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     min-width: 2.5em;
   }
 
@@ -98,6 +104,16 @@
   .text:not(:has(.strong)) .rest {
     flex: 1;
     white-space: normal;
+  }
+
+  @container (max-width: 21em) {
+    .text {
+      flex-wrap: wrap;
+    }
+
+    .strong {
+      max-width: 100%;
+    }
   }
 
   .acts {

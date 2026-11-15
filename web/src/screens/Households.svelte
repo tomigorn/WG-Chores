@@ -92,7 +92,7 @@
             <a class="open" href="/households/{h.id}">
               <Icon name="house" size={20} />
               <span class="text">
-                <span class="name" data-nowrap>{h.name}</span>
+                <span class="name clamp" data-clamp="2">{h.name}</span>
                 <span class="count" data-nowrap>{plural(h.member_count)}</span>
               </span>
             </a>
@@ -152,15 +152,18 @@
 
   .name {
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .count {
     font-size: var(--fs-sm);
     color: var(--muted);
     white-space: nowrap;
+  }
+
+  @container (max-width: 21em) {
+    .open > :global(svg) {
+      display: none;
+    }
   }
 
   .gear {

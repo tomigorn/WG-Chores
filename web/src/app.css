@@ -182,6 +182,7 @@ input {
 }
 
 .screen {
+  container-type: inline-size;
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
@@ -226,6 +227,25 @@ input {
 
 .rows > li + li {
   border-top: 1px solid var(--border);
+}
+
+/* names and titles: one line with an ellipsis; in a narrow container (small screen or large text) up to two lines, whole words */
+.clamp {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 21em) {
+  .clamp {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+  }
 }
 
 .ellipsis {

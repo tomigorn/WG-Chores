@@ -33,11 +33,17 @@
   } = $props();
 
   let menuOpen = $state(false);
+  let height = $state(0);
+
+  // sticky category headers sit right below the bar, which grows when the name takes two lines
+  $effect(() => {
+    if (height) document.documentElement.style.setProperty('--topbar-h', `${height}px`);
+  });
 </script>
 
-<header class="bar">
+<header class="bar" bind:offsetHeight={height}>
   <button class="hh" type="button" onclick={onswitch} aria-haspopup="dialog" aria-label="{title}, {t('menu.switch')}">
-    <span class="name" data-nowrap>{title}</span>
+    <span class="name clamp" data-clamp="2">{title}</span>
     <Icon name="chevron-down" size={18} />
   </button>
   {#if pending > 0}
@@ -60,13 +66,14 @@
 
 <style>
   .bar {
+    container-type: inline-size;
     position: sticky;
     top: env(safe-area-inset-top, 0);
     z-index: 10;
     display: flex;
     align-items: center;
     gap: var(--s1);
-    height: var(--bar-h);
+    min-height: var(--bar-h);
     padding: 0 var(--s2) 0 var(--s1);
     background: var(--bg);
     border-bottom: 1px solid var(--border);
@@ -86,8 +93,10 @@
     font-size: var(--fs-lg);
     font-weight: 680;
     letter-spacing: -0.01em;
+    text-align: left;
     cursor: pointer;
   }
+
 
   .hh:hover {
     background: var(--surface);
@@ -98,9 +107,7 @@
   }
 
   .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.25;
   }
 
   .chip {
@@ -162,5 +169,18 @@
 
   .avatar-link {
     text-decoration: none;
+  }
+
+  /* narrow: the household name gets the room; the account stays one tap away in the menu, the name itself still opens the switcher */
+  @container (max-width: 21em) {
+    .hh {
+      padding: 0 var(--s1) 0 var(--s2);
+      font-size: var(--fs-md);
+    }
+
+    .avatar-link,
+    .hh :global(svg) {
+      display: none;
+    }
   }
 </style>

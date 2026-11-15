@@ -315,7 +315,7 @@
             <button type="button" class="entry" aria-label={t('chore.entry_label', { date: day(e.done_on), who: who(e.by) }) + (e.note ? `, “${e.note}”` : '')} onclick={() => openEntry(e)}>
               <span class="d" data-nowrap>{day(e.done_on)}</span>
               <span class="w">
-                <span class="name" data-nowrap>{who(e.by)}</span>
+                <span class="name clamp" data-clamp="2">{who(e.by)}</span>
                 {#if e.note}<span class="n">“{e.note}”</span>{/if}
               </span>
               {#if e.waiting}<span class="wait" title={t('chore.waiting')}><Icon name="hourglass" size={14} /><span class="visually-hidden">{t('chore.waiting')}</span></span>{/if}
@@ -364,6 +364,7 @@
 
 <style>
   .page {
+    container-type: inline-size;
     max-width: 640px;
     margin: 0 auto;
     padding: var(--s3) var(--s4) calc(var(--tap) + var(--s12) + env(safe-area-inset-bottom));
@@ -524,17 +525,28 @@
     min-width: 0;
   }
 
-  .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   .n {
     font-size: var(--fs-sm);
     font-style: italic;
     color: var(--muted);
     overflow-wrap: anywhere;
+  }
+
+  /* narrow (small screen or large text): the day box above the lines, history dates above who and note */
+  @container (max-width: 21em) {
+    .last {
+      flex-wrap: wrap;
+    }
+
+    .entry {
+      flex-direction: column;
+      gap: var(--s1);
+    }
+
+    .d {
+      width: auto;
+    }
   }
 
   .wait {

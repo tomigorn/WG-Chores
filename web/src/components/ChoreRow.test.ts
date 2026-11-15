@@ -20,12 +20,16 @@ const base: Chore = {
 const noop = () => {};
 
 describe('ChoreRow', () => {
-  it('done_button_has_accessible_name_and_row_never_wraps', () => {
+  it('done_button_has_accessible_name_and_values_never_wrap', () => {
     const { body } = render(ChoreRow, { props: { chore: base, today: '2026-11-14', lang: 'en', ondone: noop, onlong: noop } });
     expect(body).toContain('aria-label="Mark Clean toilet done"');
-    expect(body).toContain('Rafi · yesterday');
+    expect(body.replace(/<[^>]*>/g, '')).toContain('Rafi · yesterday');
     expect(body).toContain('href="/chores/7"');
+    // who, when and the badge each stay on one line; the name may take two lines at whole words
     expect(body.match(/data-nowrap/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(body).toMatch(/<span data-nowrap=""[^>]*>Rafi<\/span>/);
+    expect(body).toMatch(/<span data-nowrap=""[^>]*>· yesterday<\/span>/);
+    expect(body).toMatch(/class="name clamp[^"]*" data-clamp="2"/);
   });
 
   it('never_done_row', () => {
