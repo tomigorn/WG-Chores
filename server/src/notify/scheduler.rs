@@ -37,9 +37,6 @@ pub fn tick(st: &AppState, at: DateTime<Utc>) -> tokio::task::JoinHandle<()> {
 
 /// Wakes at every `NOTIFY_TIMES` in `TZ` and sends due notifications.
 pub fn spawn(st: AppState) {
-    if st.cfg.notify_times.is_empty() {
-        return;
-    }
     tokio::spawn(async move {
         let mut floor = st.clock.now();
         loop {

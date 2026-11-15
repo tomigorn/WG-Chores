@@ -246,14 +246,14 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &str) -> Outcome {
         set_failures(st, sub.id, false).await;
         return Outcome::Failed;
     };
+    if payload.len() > webpush::MAX_PLAINTEXT {
+        eprintln!("push to {host} skipped: message too large");
+        return Outcome::Failed;
+    }
     let body = match (
         webpush::b64_decode(&sub.p256dh),
         webpush::b64_decode(&sub.auth),
     ) {
-        _ if payload.len() > webpush::MAX_PLAINTEXT => {
-            eprintln!("push to {host} skipped: message too large");
-            return Outcome::Failed;
-        }
         (Some(k), Some(a)) => webpush::encrypt(&k, &a, payload.as_bytes()),
         _ => None,
     };

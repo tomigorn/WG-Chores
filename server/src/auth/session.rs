@@ -120,7 +120,8 @@ async fn insert(
     let raw = URL_SAFE_NO_PAD.encode(bytes);
     let hash = hash_token(&raw);
     let now = clock.now();
-    let (now_s, exp_s) = (ts(now), ts(expiry(now, now, true)));
+    // The local-account rule is the loosest; lookup tightens it for SSO accounts.
+    let (now_s, exp_s) = (ts(now), ts(expiry(now, now, false)));
     db.run(move |c| {
         c.execute("DELETE FROM sessions WHERE expires_at < ?1", [&now_s])?;
         c.execute(

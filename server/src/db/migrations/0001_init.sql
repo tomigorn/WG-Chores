@@ -87,7 +87,7 @@ CREATE TABLE invites (
     cancelled_at TEXT
 );
 
--- completion_cursor: created_at of the newest completion this device was already told about
+-- completion_cursor: unused (done pushes come from done_events)
 -- failures: consecutive failed deliveries; the subscription is dropped at 5
 CREATE TABLE push_subscriptions (
     id INTEGER PRIMARY KEY,

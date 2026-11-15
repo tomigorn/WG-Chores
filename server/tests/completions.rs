@@ -61,7 +61,13 @@ async fn replay_of_an_undone_entry_is_gone() {
     let r = a.post(&cpath(c), body).await;
     assert_eq!(r.status, 410);
     assert_eq!(r.body["error"], "deleted");
-    assert_eq!(a.get(&cpath(c)).await.body["items"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        a.get(&cpath(c)).await.body["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
 }
 
 #[tokio::test]
