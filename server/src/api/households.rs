@@ -213,7 +213,7 @@ pub async fn add_member(
     let (uid, now) = (u.id, ts(st.clock.now()));
     let by_id = match (&b.username, b.user_id) {
         (Some(_), None) => None,
-        (None, Some(id)) if st.cfg.member_directory => Some(id),
+        (None, Some(id)) => Some(st.cfg.member_directory.then_some(id)),
         _ => {
             return Err(ApiError::bad_request(
                 "invalid_body",
@@ -236,26 +236,29 @@ pub async fn add_member(
                 return Ok(Err(not_found()));
             }
             let target: Option<i64> = match by_id {
-                Some(id) => tx.query_row(
-                    "SELECT id FROM users WHERE id = ?1 AND former = 0",
-                    [id],
-                    |r| r.get(0),
-                ),
-                None => tx.query_row(
-                    "SELECT id FROM users WHERE username = ?1 AND former = 0",
-                    [&username],
-                    |r| r.get(0),
-                ),
-            }
-            .optional()?;
+                Some(None) => None,
+                Some(Some(id)) => tx
+                    .query_row(
+                        "SELECT id FROM users WHERE id = ?1 AND former = 0",
+                        [id],
+                        |r| r.get(0),
+                    )
+                    .optional()?,
+                None => tx
+                    .query_row(
+                        "SELECT id FROM users WHERE username = ?1 AND former = 0",
+                        [&username],
+                        |r| r.get(0),
+                    )
+                    .optional()?,
+            };
+            let cannot_add =
+                || ApiError::not_found("cannot_add", "No user with that name can be added.");
             let Some(target) = target else {
-                return Ok(Err(ApiError::not_found("user_not_found", "No such user.")));
+                return Ok(Err(cannot_add()));
             };
             if is_member(&tx, hid, target)? {
-                return Ok(Err(ApiError::conflict(
-                    "already_member",
-                    "This user is already a member.",
-                )));
+                return Ok(Err(cannot_add()));
             }
             tx.execute(
                 "INSERT INTO memberships (household_id, user_id, joined_at) VALUES (?1, ?2, ?3)",

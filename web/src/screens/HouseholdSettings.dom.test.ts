@@ -85,6 +85,14 @@ describe('Household settings', () => {
     await vi.waitFor(() => expect(add).toHaveBeenCalledWith(1, { username: 'jane' }));
   });
 
+  it('add_member_refused_shows_one_text_for_every_reason', async () => {
+    vi.spyOn(api, 'addMember').mockRejectedValue(new ApiError(404, 'cannot_add', ''));
+    await open();
+    type('#add-member', 'jane');
+    document.querySelector<HTMLFormElement>('.add form')!.requestSubmit();
+    await vi.waitFor(() => expect(text()).toContain('No user with that name can be added.'));
+  });
+
   it('add_member_from_directory_search', async () => {
     vi.useRealTimers();
     vi.mocked(api.searchUsers).mockImplementation(async (q) => {

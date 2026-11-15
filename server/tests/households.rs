@@ -104,15 +104,13 @@ async fn add_member_by_exact_username() {
     let r = a.post(&m, json!({"username": "BEN"})).await;
     assert_eq!(r.status, 201);
     assert_eq!(r.body["id"], bid);
-    assert_eq!(
-        a.post(&m, json!({"username": "ben"})).await.body["error"],
-        "already_member"
-    );
+    let again = a.post(&m, json!({"username": "ben"})).await;
     let nf = a.post(&m, json!({"username": "nobody"})).await;
     assert_eq!(
         (nf.status, nf.body["error"].as_str()),
-        (404, Some("user_not_found"))
+        (404, Some("cannot_add"))
     );
+    assert_eq!((again.status, &again.body), (nf.status, &nf.body));
     let list = b.get(&m).await;
     assert_eq!(list.status, 200);
     let ids: Vec<_> = list
@@ -156,7 +154,10 @@ async fn directory_off_hides_user_search() {
             json!({"user_id": 2}),
         )
         .await;
-    assert_eq!(r.status, 400);
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (404, Some("cannot_add"))
+    );
 }
 
 #[tokio::test]
@@ -198,7 +199,7 @@ async fn directory_on_searches_name_and_username() {
     assert_eq!(r.status, 201);
     assert_eq!(
         a.post(&m, json!({"user_id": bid})).await.body["error"],
-        "already_member"
+        "cannot_add"
     );
     assert_eq!(a.post(&m, json!({"user_id": fid})).await.status, 404);
     assert_eq!(a.post(&m, json!({"user_id": 999})).await.status, 404);

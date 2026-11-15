@@ -1480,6 +1480,7 @@
    },
    "post": {
     "summary": "Add a member by username or user id",
+    "description": "Unknown user, already a member and `user_id` without `MEMBER_DIRECTORY` all answer the same 404 `cannot_add`; 20 adds per hour per user",
     "tags": [
      "households"
     ],
