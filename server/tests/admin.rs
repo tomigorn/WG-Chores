@@ -2,7 +2,7 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use wg_chores::auth::local::Hasher;
-use wg_chores::cli::{self, Command, Ctx};
+use wg_chores::cli::{self, Command, Ctx, Who};
 use wg_chores::db::Db;
 use wg_chores::domain::{DueLevel, Interval, due_level, interval_days};
 
@@ -318,8 +318,15 @@ fn parse_commands() {
     );
     assert!(matches!(
         args(&["revoke-sessions", "anna"]).unwrap(),
-        Command::RevokeSessions { username } if username == "anna"
+        Command::RevokeSessions { who: Who::Name(n) } if n == "anna"
     ));
+    assert!(matches!(
+        args(&["revoke-sessions", "--user-id", "7"]).unwrap(),
+        Command::RevokeSessions { who: Who::Id(7) }
+    ));
+    assert!(
+        matches!(args(&["revoke-sessions", "-h"]).unwrap(), Command::Help(t) if t.contains("--user-id"))
+    );
     match args(&[
         "migrate-v1",
         "--from",
@@ -363,6 +370,10 @@ fn usage_errors_name_the_next_command() {
         vec!["healthcheck", "extra"],
         vec!["revoke-sessions"],
         vec!["revoke-sessions", "a", "b"],
+        vec!["revoke-sessions", "--user-id"],
+        vec!["revoke-sessions", "--user-id", "x"],
+        vec!["revoke-sessions", "--user-id", "0"],
+        vec!["revoke-sessions", "--user-id", "7", "anna"],
     ] {
         let u = args(&bad).err().unwrap_or_else(|| panic!("{bad:?} parsed"));
         assert!(
@@ -392,6 +403,7 @@ fn completions_list_every_subcommand() {
             "from",
             "healthcheck",
             "revoke-sessions",
+            "user-id",
         ] {
             assert!(s.contains(w), "{f}: {w}");
         }
@@ -517,4 +529,51 @@ async fn revoke_sessions_deletes_every_session_of_that_user() {
 fn db_path_created(d: &Scratch) -> PathBuf {
     std::fs::create_dir_all(d.path("data")).unwrap();
     db_path(d)
+}
+
+#[tokio::test]
+async fn revoke_sessions_finds_sso_users_by_display_name_or_id() {
+    let d = Scratch::new("revoke-sso");
+    let env = data_env(&d);
+    let db = Db::open(&db_path_created(&d)).unwrap();
+    db.run(|c| {
+        c.execute_batch(
+            "INSERT INTO users (id, username, display_name, created_at) VALUES
+               (1, NULL, 'Jane Doe', 'x'), (2, NULL, 'Sam', 'x'), (3, NULL, 'Sam', 'x'), (4, 'anna', 'Ann B', 'x');
+             INSERT INTO identities (user_id, kind, issuer, subject) VALUES
+               (1, 'oidc', 'https://sso.example.com', 's1'), (2, 'oidc', 'https://sso.example.com', 's2'), (3, 'oidc', 'https://sso.example.com', 's3');
+             INSERT INTO sessions (token_hash, user_id, kind, created_at, last_seen_at, expires_at) VALUES
+               ('j1', 1, 'web', 'x', 'x', '2099-01-01T00:00:00.000Z'),
+               ('s2', 2, 'web', 'x', 'x', '2099-01-01T00:00:00.000Z'),
+               ('s3', 3, 'web', 'x', 'x', '2099-01-01T00:00:00.000Z'),
+               ('a1', 4, 'web', 'x', 'x', '2099-01-01T00:00:00.000Z');",
+        )
+    })
+    .await
+    .unwrap();
+    drop(db);
+    let run = |a: &'static [&'static str]| {
+        let env = env.clone();
+        async move { cli::run(args(a).unwrap(), ctx(&env, "unused")).await }
+    };
+    let out = run(&["revoke-sessions", "Jane Doe"]).await.unwrap();
+    assert!(out.contains("1 sessions"), "{out}");
+    let e = run(&["revoke-sessions", "Sam"]).await.unwrap_err();
+    assert!(e.contains("2, 3") && e.contains("--user-id"), "{e}");
+    assert!(run(&["revoke-sessions", "Ann B"]).await.is_err());
+    let out = run(&["revoke-sessions", "--user-id", "3"]).await.unwrap();
+    assert!(out.contains("1 sessions"), "{out}");
+    let e = run(&["revoke-sessions", "--user-id", "99"])
+        .await
+        .unwrap_err();
+    assert!(e.contains("99"), "{e}");
+    let db = Db::open(&db_path(&d)).unwrap();
+    let left: Vec<String> = db
+        .run(|c| {
+            let mut st = c.prepare("SELECT token_hash FROM sessions ORDER BY 1")?;
+            st.query_map([], |r| r.get(0))?.collect()
+        })
+        .await
+        .unwrap();
+    assert_eq!(left, ["a1", "s2"]);
 }

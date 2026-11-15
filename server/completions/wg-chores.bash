@@ -8,12 +8,13 @@ _wg_chores() {
     fi
     case $prev in
         --from|--password-file) COMPREPLY=($(compgen -f -- "$cur")); return ;;
-        --household|--map|--display-name) return ;;
+        --household|--map|--display-name|--user-id) return ;;
     esac
     case $cmd in
         migrate-v1) COMPREPLY=($(compgen -W "--from --household --map --force -h --help" -- "$cur")) ;;
         backup) COMPREPLY=($(compgen -W "--force -h --help" -- "$cur") $(compgen -f -- "$cur")) ;;
         create-user) COMPREPLY=($(compgen -W "--display-name --password-file -h --help" -- "$cur")) ;;
+        revoke-sessions) COMPREPLY=($(compgen -W "--user-id -h --help" -- "$cur")) ;;
         *) COMPREPLY=($(compgen -W "-h --help" -- "$cur")) ;;
     esac
 }

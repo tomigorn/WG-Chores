@@ -28,9 +28,17 @@ pub enum Command {
     DemoReset,
     Healthcheck,
     RevokeSessions {
-        username: String,
+        who: Who,
     },
     Help(String),
+}
+
+/// Whose sessions `revoke-sessions` ends.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Who {
+    /// Username; for SSO users without one, the exact display name.
+    Name(String),
+    Id(i64),
 }
 
 #[derive(Debug)]
@@ -121,14 +129,21 @@ Environment: LISTEN (default 0.0.0.0:8080).
 Example (compose): healthcheck: { test: [\"CMD\", \"/wg-chores\", \"healthcheck\"] }";
 
 const REVOKE_HELP: &str = "\
-Usage: wg-chores revoke-sessions <username>
+Usage: wg-chores revoke-sessions <username | display name> | --user-id <id>
 
 Deletes every session of that user (web and app), so they are signed out at once. Works for local and SSO accounts.
+The name is the username; an SSO user without one is found by the exact display name (refused when several share it: use --user-id).
 To remove someone from an SSO server: take them out of the SSO group first, then run this. Otherwise they can sign in again.
+
+Options:
+  --user-id <id>  the user's id (listed when a display name is ambiguous)
 
 Environment: DATA_DIR (default /data).
 
-Example: wg-chores revoke-sessions jane.doe";
+Examples:
+  wg-chores revoke-sessions jane.doe
+  wg-chores revoke-sessions \"Jane Doe\"
+  wg-chores revoke-sessions --user-id 7";
 
 fn usage_error(cmd: Option<&str>, message: impl Into<String>) -> Usage {
     let (usage, hint) = match cmd {
@@ -188,7 +203,7 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
     let mut it = rest.iter();
     let mut positional: Vec<String> = vec![];
     let (mut from, mut household, mut display, mut pwfile) = (None, None, None, None);
-    let (mut map, mut force) = (vec![], false);
+    let (mut map, mut force, mut user_id) = (vec![], false, None);
     while let Some(a) = it.next() {
         let mut value = |flag: &str| {
             it.next()
@@ -202,6 +217,7 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
             ("migrate-v1" | "backup", "--force") => force = true,
             ("create-user", "--display-name") => display = Some(value("--display-name")?),
             ("create-user", "--password-file") => pwfile = Some(value("--password-file")?),
+            ("revoke-sessions", "--user-id") => user_id = Some(value("--user-id")?),
             (_, f) if f.starts_with('-') && f.len() > 1 => {
                 return Err(err(format!("unknown option {f}")));
             }
@@ -234,12 +250,19 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
                 force,
             })
         }
-        "revoke-sessions" => match positional.as_slice() {
-            [u] => Ok(Command::RevokeSessions {
-                username: u.clone(),
+        "revoke-sessions" => match (positional.as_slice(), user_id) {
+            ([], Some(id)) => match id.parse::<i64>() {
+                Ok(id) if id > 0 => Ok(Command::RevokeSessions { who: Who::Id(id) }),
+                _ => Err(err(format!("--user-id needs a number, got \"{id}\""))),
+            },
+            ([x, ..], Some(_)) => Err(err(format!(
+                "give either a name or --user-id, not both (\"{x}\")"
+            ))),
+            ([u], None) => Ok(Command::RevokeSessions {
+                who: Who::Name(u.clone()),
             }),
-            [] => Err(err("the username is required".into())),
-            [_, x, ..] => Err(err(format!("unexpected argument \"{x}\""))),
+            ([], None) => Err(err("the username (or --user-id) is required".into())),
+            ([_, x, ..], None) => Err(err(format!("unexpected argument \"{x}\""))),
         },
         "backup" => match positional.as_slice() {
             [f] => Ok(Command::Backup {
@@ -303,7 +326,7 @@ pub async fn run(cmd: Command, mut ctx: Ctx) -> Result<String, String> {
         Command::Serve => Err("serve is started by the program itself".into()),
         Command::Backup { file, force } => backup(&ctx, &file, force),
         Command::DemoReset => demo_reset(&ctx).await,
-        Command::RevokeSessions { username } => revoke_sessions(&ctx, username).await,
+        Command::RevokeSessions { who } => revoke_sessions(&ctx, who).await,
         Command::Healthcheck => {
             let listen = env_of(&ctx, "LISTEN").unwrap_or_else(|| "0.0.0.0:8080".into());
             tokio::task::spawn_blocking(move || healthcheck(&listen))
@@ -405,30 +428,59 @@ fn healthcheck(listen: &str) -> Result<String, String> {
     }
 }
 
-async fn revoke_sessions(ctx: &Ctx, username: String) -> Result<String, String> {
+async fn revoke_sessions(ctx: &Ctx, who: Who) -> Result<String, String> {
     let db = open_db(ctx)?;
-    let name = username.trim().to_string();
-    let n = db
+    let label = match &who {
+        Who::Name(n) => n.trim().to_string(),
+        Who::Id(id) => format!("user {id}"),
+    };
+    let found = db
         .run(move |c| {
-            let id: Option<i64> = match c.query_row(
-                "SELECT id FROM users WHERE username = ?1 AND former = 0",
-                [&name],
-                |r| r.get(0),
-            ) {
-                Ok(id) => Some(id),
-                Err(rusqlite::Error::QueryReturnedNoRows) => None,
-                Err(e) => return Err(e),
+            let ids = |sql: &str, p: &dyn rusqlite::ToSql| -> rusqlite::Result<Vec<i64>> {
+                c.prepare(sql)?
+                    .query_map([p], |r| r.get(0))?
+                    .collect()
             };
-            id.map(|id| c.execute("DELETE FROM sessions WHERE user_id = ?1", [id]))
-                .transpose()
+            let ids = match &who {
+                Who::Id(id) => ids("SELECT id FROM users WHERE id = ?1 AND former = 0", id)?,
+                Who::Name(n) => {
+                    let n = n.trim();
+                    let by_name = ids("SELECT id FROM users WHERE username = ?1 AND former = 0", &n)?;
+                    if by_name.is_empty() {
+                        ids(
+                            "SELECT id FROM users u WHERE display_name = ?1 AND former = 0
+                             AND EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.kind = 'oidc') ORDER BY id",
+                            &n,
+                        )?
+                    } else {
+                        by_name
+                    }
+                }
+            };
+            match ids.as_slice() {
+                [id] => c
+                    .execute("DELETE FROM sessions WHERE user_id = ?1", [id])
+                    .map(Ok),
+                _ => Ok(Err(ids)),
+            }
         })
         .await
         .map_err(|e| e.to_string())?;
-    match n {
-        Some(n) => Ok(format!(
-            "Deleted {n} sessions of {username}.\nNext: check that {username} is out of the SSO group (or delete the account in the app)"
+    match found {
+        Ok(n) => Ok(format!(
+            "Deleted {n} sessions of {label}.\nNext: check that {label} is out of the SSO group (or delete the account in the app)"
         )),
-        None => Err(format!("no active user named {username}")),
+        Err(ids) if ids.is_empty() => Err(format!("no active user named {label}")),
+        Err(ids) => {
+            let list = ids
+                .iter()
+                .map(i64::to_string)
+                .collect::<Vec<_>>()
+                .join(", ");
+            Err(format!(
+                "several SSO users are named {label} (ids {list})\nNext: wg-chores revoke-sessions --user-id <id>"
+            ))
+        }
     }
 }
 

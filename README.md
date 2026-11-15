@@ -138,7 +138,7 @@ Two login tabs at once: only the one started last can finish; the other returns 
 
 Users are matched by issuer + `sub`; name, picture (https only) and username (`preferred_username`, if free) are refreshed at every login.
 
-Remove someone: take them out of the SSO group, then `wg-chores revoke-sessions <username>` (otherwise their sessions run until they expire, at most 30 days).
+Remove someone: take them out of the SSO group, then `wg-chores revoke-sessions <username or display name>` (or `--user-id <id>`) (otherwise their sessions run until they expire, at most 30 days).
 
 Fake provider for tests and the browser suite:
 ```
@@ -223,7 +223,7 @@ cd web && npm run dev
 | `migrate-v1 --from v1.db --household <id\|name> --map old=user[,…] [--force]` | import ONE household from a copy of the v1 file (opened read-only, one transaction); `--map` is repeatable, matches v1 member names and history names case-insensitively, targets (lowercased) must be active v2 users (else nothing is written); unmapped names with dated history become former members, the rest are listed as "not imported"; room → category (empty → "Other"); `DoneAt` without offset = UTC, day in `TZ`; a same-named v2 household refuses the import unless `--force` |
 | `backup <file> [--force]` | online backup of `DATA_DIR/wg-chores.db` (safe while running), written with mode 0600 (it holds password hashes); refuses to overwrite without `--force` |
 | `create-user <username> [--display-name N] [--password-file F]` | local account, same rules as registration; password asked twice without echo, or from a file; works with `LOCAL_ACCOUNTS=false` but warns |
-| `revoke-sessions <username>` | delete every session of that user (signed out everywhere at once); after removing someone from the SSO group |
+| `revoke-sessions <username \| display name>` or `--user-id <id>` | delete every session of that user (signed out everywhere at once); after removing someone from the SSO group; an SSO user without username is found by exact display name (several with that name: refused, ids listed) |
 | `healthcheck` | `GET /healthz` on the local `LISTEN` port (loopback for `0.0.0.0`/`::`), exit 0 on 200, else 1; for container health checks (the image has no shell or curl) |
 | `demo-reset` | needs `DEMO_MODE=true` and `DEMO_PASSWORD_FILE`; deletes ALL data, creates `reviewer`, household "Demo WG", 10 sample chores in 4 categories with history |
 

@@ -15,3 +15,4 @@ complete -c wg-chores -n '__fish_seen_subcommand_from migrate-v1 backup' -l forc
 complete -c wg-chores -n '__fish_seen_subcommand_from backup' -F -d 'Target file'
 complete -c wg-chores -n '__fish_seen_subcommand_from create-user' -l display-name -x -d 'Display name (default: the username)'
 complete -c wg-chores -n '__fish_seen_subcommand_from create-user' -l password-file -r -F -d 'Read the password from this file'
+complete -c wg-chores -n '__fish_seen_subcommand_from revoke-sessions' -l user-id -x -d 'The user id (when several SSO users share a name)'
