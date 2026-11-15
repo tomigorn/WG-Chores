@@ -89,7 +89,10 @@ Browser suite (`web/e2e/`):
 | Projects | `desktop`, `iphone` (iPhone 13 emulated in Chromium), `pixel` (Pixel 7), `layout`; WebKit is not installed, so real iOS Safari still needs a phone test |
 | Servers | every spec file starts its own `wg-chores` (temp `DATA_DIR` under `~/.cache/claude-work/wgc-e2e/`, free port, `PUBLIC_URL=http://localhost:<port>`) and, for SSO, `fake-oidc`; data is seeded through the API |
 | Specs | `auth`, `households`, `chores`, `invites` (sign-up via invite with `OPEN_REGISTRATION=false`, SSO from an invite), `offline` (queue, cached list, `resume_after_idle_offline_and_server_restart`), `push` (fake `PushManager`) |
-| Layout | every screen at 320, 375, 414, 768, 1280 px, light + dark, root font 100 % and 200 % (plus German at 320 px): no wrap in `[data-nowrap]`, no sideways scroll, no overlapping controls, controls ≥ 40×40 px at 100 %, fixed bars never cover controls at the page end; screenshots in `~/.cache/claude-work/wgc-layout/` |
+| Layout | every screen at 320, 375, 414, 768, 1280 px (1280 with a desktop user agent), light + dark, root font 100 % and 200 % (plus German at 320 px), fresh identical data per width; screenshots in `~/.cache/claude-work/wgc-layout/` |
+| Layout checks | `[data-nowrap]` (badges, dates, short values): one line, a cut one still shows ≥ 8 characters; `[data-clamp]` (names, titles): at most the clamp (2 lines), whole words, ≥ 8 characters; `[data-copy]` (UI text): never a word broken across lines; no sideways scroll; no overlapping controls (a control drawn on top of a larger one that holds it, like the tick on a row link, counts as nested); controls ≥ 40×40 px at 100 %; fixed bars never cover controls at the page end |
+| Wraps by design | button labels, menu items and segmented controls may wrap onto a second line at large text; overlap and sideways scroll are still checked |
+| Narrow screens | below 21em of container width (a small phone, or large text) names and titles take up to two lines, chore rows put who · when on its own line (below 16em also badge and tick), the top bar drops the avatar and chevron (account is in the menu), the install banner puts its text below the icon |
 | Always failing on | any browser dialog, any uncaught page error |
 | Playwright | `@playwright/test` pinned to the preinstalled Chromium build; never `playwright install`; traces off |
 
