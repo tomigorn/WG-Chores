@@ -66,7 +66,7 @@ curl -X POST -H 'content-type: application/json' localhost:8081/_test/user \
 It prints the `OIDC_*` values to use.
 
 ## Web app (`web/`)
-Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
+Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 26.
 
 | Command (in `web/`) | What |
 |---|---|
