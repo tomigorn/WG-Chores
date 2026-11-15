@@ -29,7 +29,7 @@ RUN --mount=type=cache,id=wg-chores-cargo-registry,target=/usr/local/cargo/regis
     && cp /etc/ssl/certs/ca-certificates.crt /out/etc/ssl/certs/ \
     && echo 'wgchores:x:65035:65037::/data:/sbin/nologin' > /out/etc/passwd \
     && echo 'wgchores:x:65037:' > /out/etc/group \
-    && ! ldd /out/wg-chores 2>/dev/null
+    && ! readelf -lW /out/wg-chores | grep -q INTERP
 
 FROM build AS test
 RUN /out/wg-chores --help >/dev/null
