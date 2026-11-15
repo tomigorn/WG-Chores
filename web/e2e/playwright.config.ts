@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
-import os from 'node:os';
 import path from 'node:path';
+import { OUT } from './support/server';
 
-const out = path.join(os.homedir(), '.cache/claude-work/wgc-e2e/results');
+const out = path.join(OUT, 'results');
 
 // WebKit is not available on this host: iPhone and Pixel are Chromium with device emulation
 export default defineConfig({

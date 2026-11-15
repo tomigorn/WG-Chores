@@ -157,8 +157,8 @@ Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
 | `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, words, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
 | `npm run check` | svelte-check (types), and tsc for `e2e/` |
 | `npm run build` | `web/dist`, then `touch ../server/build.rs` and rebuild the server to embed it |
-| `npm run e2e:build` | web build + `cargo build --features test-util --bins` (server with the web app embedded, plus `fake-oidc`); on fastpi prefix the cargo step with the rust-build flock |
-| `npm run e2e` | browser suite (Playwright, Chromium only, about 3 min on fastpi); not part of `npm test` |
+| `npm run e2e:build` | web build + `cargo build --features test-util --bins` (server with the web app embedded, plus `fake-oidc`); on fastpi run it as `flock ~/.cache/claude-work/rust-build.lock npm run e2e:build` |
+| `npm run e2e` | browser suite (Playwright, Chromium only, about 3 min on fastpi); not part of `npm test`; output in `E2E_OUT` (default `web/e2e-out/`, gitignored; fastpi: `E2E_OUT=~/.cache/claude-work/wgc-e2e`) |
 | `npm run e2e:layout` | only the layout matrix |
 
 Browser suite (`web/e2e/`):
@@ -166,9 +166,9 @@ Browser suite (`web/e2e/`):
 | What | Detail |
 |---|---|
 | Projects | `desktop`, `iphone` (iPhone 13 emulated in Chromium), `pixel` (Pixel 7), `layout`; WebKit is not installed, so real iOS Safari still needs a phone test |
-| Servers | every spec file starts its own `wg-chores` (temp `DATA_DIR` under `~/.cache/claude-work/wgc-e2e/`, free port, `PUBLIC_URL=http://localhost:<port>`) and, for SSO, `fake-oidc`; data is seeded through the API |
+| Servers | every spec file starts its own `wg-chores` (temp `DATA_DIR` under `$E2E_OUT/servers/`, free port, `PUBLIC_URL=http://localhost:<port>`) and, for SSO, `fake-oidc`; data is seeded through the API |
 | Specs | `auth`, `households`, `chores`, `invites` (sign-up via invite with `OPEN_REGISTRATION=false`, SSO from an invite), `offline` (queue, cached list, `resume_after_idle_offline_and_server_restart`), `push` (fake `PushManager`) |
-| Layout | every screen at 320, 375, 414, 768, 1280 px (1280 with a desktop user agent), light + dark, root font 100 % and 200 % (plus German at 320 px), fresh identical data per width; screenshots in `~/.cache/claude-work/wgc-layout/` |
+| Layout | every screen at 320, 375, 414, 768, 1280 px (1280 with a desktop user agent), light + dark, root font 100 % and 200 % (plus German at 320 px), fresh identical data per width; screenshots in `$E2E_OUT/layout/` |
 | Layout checks | `[data-nowrap]` (badges, dates, short values): one line, a cut one still shows ≥ 8 characters; `[data-clamp]` (names, titles): at most the clamp (2 lines), whole words, ≥ 8 characters; `[data-copy]` (UI text): never a word broken across lines; no sideways scroll; no overlapping controls (a control drawn on top of a larger one that holds it, like the tick on a row link, counts as nested); controls ≥ 40×40 px at 100 %; fixed bars never cover controls at the page end |
 | Wraps by design | button labels, menu items and segmented controls may wrap onto a second line at large text; overlap and sideways scroll are still checked |
 | Narrow screens | below 21em of container width (a small phone, or large text) names and titles take up to two lines, chore rows put who · when on its own line (below 16em also badge and tick), the top bar drops the avatar and chevron (account is in the menu), the install banner puts its text below the icon |

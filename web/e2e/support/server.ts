@@ -1,14 +1,15 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 export const BIN = process.env.WGC_BIN ?? path.join(ROOT, 'server/target/debug/wg-chores');
 export const FAKE_OIDC_BIN = process.env.WGC_FAKE_OIDC_BIN ?? path.join(ROOT, 'server/target/debug/fake-oidc');
-export const WORK = path.join(os.homedir(), '.cache/claude-work/wgc-e2e');
+/** Test output (results, server data, layout screenshots) */
+export const OUT = path.resolve(process.env.E2E_OUT ?? path.join(ROOT, 'web/e2e-out'));
+export const WORK = path.join(OUT, 'servers');
 export const BUILD_HINT = 'build first: cd web && npm run e2e:build';
 
 export function freePort(): Promise<number> {

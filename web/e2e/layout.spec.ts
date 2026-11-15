@@ -1,12 +1,12 @@
 import { devices, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { Api, isoDay } from './support/api';
 import { expect, test, useServer } from './support/fixtures';
 import { checkLayout, setRootFont, settle, shownText } from './support/layout';
+import { OUT } from './support/server';
 
-const SHOTS = path.join(os.homedir(), '.cache/claude-work/wgc-layout');
+const SHOTS = path.join(OUT, 'layout');
 const WIDTHS = [320, 375, 414, 768, 1280];
 const THEMES = ['light', 'dark'] as const;
 const FONTS = [100, 200];
@@ -117,7 +117,11 @@ const SCREENS: Screen[] = [
       await p.locator('.snack').hover();
     },
     after: async (p) => {
-      await p.locator('.snack .act').first().click();
+      // the next goto would abort a DELETE still on its way
+      await Promise.all([
+        p.waitForResponse((r) => r.request().method() === 'DELETE' && r.url().includes('/api/v1/completions/')),
+        p.locator('.snack .act').first().click(),
+      ]);
       await p.locator('.snack').waitFor({ state: 'detached' });
       // undone: the next screens see the same data as every other width
       await expect(row(p, LONG_CHORE).locator('.badge')).toHaveText(/^3 /);
