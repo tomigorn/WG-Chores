@@ -43,6 +43,7 @@ Secret files are read as uid 65035 (the container user): `chmod 644` the file, o
 | `OPEN_REGISTRATION` | `false` | anyone may sign up; invite links work either way |
 | `MEMBER_DIRECTORY` | `false` | "Add member" lists every user of the server |
 | `NOTIFY_TIMES` | `14:00,19:00` | due notification checks, local time in `TZ` (the Android app polls at these times) |
+| `ANDROID_CERT_SHA256` | empty | comma-separated SHA-256 signing certificate fingerprints of the Android app (colons optional) for `/.well-known/assetlinks.json`; empty → 404 |
 | `MIN_APP_VERSION` | `1.0.0` | oldest Android app version this server works with (`/api/v1/config` → `min_app_version`) |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` or `OIDC_CLIENT_SECRET_FILE` | off | SSO; all or none, the secret must not be empty; the issuer must be https (http only on `localhost` / `127.0.0.1`) |
 | `OIDC_NAME` | `SSO` | button "Sign in with …" |
@@ -132,9 +133,10 @@ Author's server (fastpi, Holy Grail SSO + public demo): kit in `deploy/holy-grai
 | What | Value |
 |---|---|
 | Device token | `POST /api/v1/auth/login` or `/register` with `"client": "android"`, `"device_name"` (cleaned, ≤ 60 characters, default `Android`) → `{token, user}`, no cookie; send `Authorization: Bearer <token>` |
-| SSO | Custom Tab on `/auth/oidc/start?client=android&challenge=<base64url(SHA-256(verifier))>` (verifier 43–128 chars `[A-Za-z0-9-._~]`) → `wgchores://auth?code=<code>` (`&invite=<token>` when started from one; errors `wgchores://auth?error=<code>`); then `POST /api/v1/auth/app-token {code, verifier, device_name}` → `{token}`; code 60 s, single use (also burnt by a wrong verifier), stored hashed |
-| Rules | bearer requests need no `X-WGC` header and never get cookies; cookie + bearer = 400 `ambiguous_auth`; app tokens only as bearer, web tokens only as cookie; same lifetimes as web sessions; unauthenticated POSTs (login, app-token) still send `X-WGC: 1` |
-| Background check | `GET /api/v1/notifications/poll[?since=<cursor>]` (bearer only, else 403 `app_only`) → `{cursor, done, due, more}`: `done` = others' completions since the cursor, oldest first, max 50 (`more: true` → poll again); first call without `since`: no backlog; `due` once per due period per device; `notify_due` / `notify_done` respected |
+| SSO | Auth Tab (Chrome returns the `wgchores://` callback only to the app that opened it; on browsers without Auth Tab the app falls back to a Custom Tab, where another app claiming `wgchores://` could catch the code: residual risk, the code is still useless without the app's PKCE verifier) on `/auth/oidc/start?client=android&challenge=<base64url(SHA-256(verifier))>` (verifier 43–128 chars `[A-Za-z0-9-._~]`) → `wgchores://auth?code=<code>` (`&invite=<token>` when started from one; errors `wgchores://auth?error=<code>`); then `POST /api/v1/auth/app-token {code, verifier, device_name}` → `{token}`; code 60 s, single use (also burnt by a wrong verifier), stored hashed |
+| Rules | bearer requests need no `X-WGC` header and never get cookies; cookie + bearer, or a browser sign-in with a bearer header = 400 `ambiguous_auth`; app tokens only as bearer, web tokens only as cookie; same lifetimes as web sessions; unauthenticated POSTs (login, app-token) still send `X-WGC: 1` |
+| Background check | `GET /api/v1/notifications/poll[?since=<cursor>]` (bearer only, else 403 `app_only`) → `{cursor, done, due, more}`: `done` = others' completions since the cursor once past the 10 s undo window, oldest first, max 50 (`more: true` → poll again); first call without `since`: no backlog; `due` once per due period per device, acknowledged by sending the returned cursor (a lost answer is sent again); `notify_due` / `notify_done` respected; completions from `migrate-v1` and `demo-reset` create no done events |
+| App Links | `/.well-known/assetlinks.json` for `ch.tomigorn.wgchores` from `ANDROID_CERT_SHA256` (for verified https links such as invites) |
 | Devices | `GET /api/v1/me/devices` (own sessions: `id`, `kind`, `device_name`, `created_at`, `last_seen_at`, `current`), `DELETE /api/v1/me/devices/{id}` signs one out |
 
 ## SSO (OIDC)
