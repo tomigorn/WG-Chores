@@ -33,6 +33,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val c = (app as WgcApp).container
     val start = MutableStateFlow<Start?>(null)
     val households = MutableStateFlow(HouseholdsUi())
+    /** Scroll position of the households list: its screen is rebuilt each time it is opened (household → list wipes the back stack). */
+    var householdsScroll = 0
     private val account = MutableStateFlow<Account?>(null)
 
     @OptIn(ExperimentalCoroutinesApi::class)

@@ -3,6 +3,7 @@ package ch.tomigorn.wgchores.ui
 import ch.tomigorn.wgchores.domain.Rules
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -160,6 +162,8 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
         composable<HouseholdsRoute> { entry ->
             val ui by home.households.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) { home.loadHouseholds() }
+            val scroll = rememberScrollState(home.householdsScroll)
+            LaunchedEffect(scroll) { snapshotFlow { scroll.value }.collect { home.householdsScroll = it } }
             val join = object : JoinActions {
                 override fun link(v: String) = home.joinLink(v)
                 override fun show() = home.showInvite()
@@ -175,6 +179,7 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
                 onRetry = home::loadHouseholds,
                 onSettings = { id -> nav.navigate(HouseholdSettingsRoute(id)) },
                 join = join,
+                scroll = scroll,
             )
         }
         composable<ChoreRoute> { entry -> ChoreRouteContent(entry.toRoute<ChoreRoute>().id, app, nav, back) }

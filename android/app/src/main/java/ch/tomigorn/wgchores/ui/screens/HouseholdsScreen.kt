@@ -96,13 +96,14 @@ fun HouseholdsScreen(
     onRetry: () -> Unit,
     onSettings: (Long) -> Unit = {},
     join: JoinActions? = null,
+    scroll: androidx.compose.foundation.ScrollState = rememberScrollState(),
 ) {
     var creating by rememberSaveable { mutableStateOf(startCreating) }
     var name by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().background(Wgc.colors.bg)) {
         TopBar(null, userName, pending, ui.offline, theme, bar)
         Column(
-            Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars),
+            Modifier.fillMaxSize().imePadding().verticalScroll(scroll).windowInsetsPadding(WindowInsets.navigationBars),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
