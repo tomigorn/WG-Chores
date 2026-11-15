@@ -19,8 +19,8 @@ const chore = (p: Partial<Chore> = {}): Chore => ({
 
 describe('words', () => {
   it('interval_words_in_order', () => {
-    expect(INTERVAL_ORDER.map((c) => intervalWord(c, 'en'))).toEqual(['every 3 days', 'every week', 'every 2 weeks', 'every month', 'every 3 months', 'every 6 months', 'every year']);
-    expect(INTERVAL_ORDER.map((c) => intervalWord(c, 'de'))).toEqual(['alle 3 Tage', 'jede Woche', 'alle 2 Wochen', 'jeden Monat', 'alle 3 Monate', 'alle 6 Monate', 'jedes Jahr']);
+    expect(INTERVAL_ORDER.map((c) => intervalWord(c, 'en'))).toEqual(['every 3 days', 'every week', 'every 2 weeks', 'every month', 'every 2 months', 'every 3 months', 'every 6 months', 'every year']);
+    expect(INTERVAL_ORDER.map((c) => intervalWord(c, 'de'))).toEqual(['alle 3 Tage', 'jede Woche', 'alle 2 Wochen', 'jeden Monat', 'alle 2 Monate', 'alle 3 Monate', 'alle 6 Monate', 'jedes Jahr']);
     expect(intervalWord(null, 'en')).toBe('every month');
   });
 

@@ -41,7 +41,7 @@ describe('Add / edit chore', () => {
   it('edit_interval_none_means_month_hint', async () => {
     const create = vi.spyOn(api, 'createChore').mockImplementation(async (_h, c) => toilet({ id: 9, name: c.name }));
     await open({ choreId: null, householdId: 1 });
-    expect(chips().map((c) => c.textContent!.trim())).toEqual(['every 3 days', 'every week', 'every 2 weeks', 'every month', 'every 3 months', 'every 6 months', 'every year']);
+    expect(chips().map((c) => c.textContent!.trim())).toEqual(['every 3 days', 'every week', 'every 2 weeks', 'every month', 'every 2 months', 'every 3 months', 'every 6 months', 'every year']);
     expect(chips().every((c) => c.getAttribute('aria-pressed') === 'false')).toBe(true);
     expect(text()).toContain('Nothing picked = every month');
     chips()[1]!.click();

@@ -287,3 +287,32 @@ test('long_names_320px_200pct', async ({ browser }) => {
   await p.screenshot({ path: path.join(SHOTS, 'long_names_320px_200pct.png'), fullPage: true });
   await ctx.close();
 });
+
+for (const lang of ['en', 'de'] as const) {
+  test(`interval_chips_320px_200pct_${lang}`, async ({ browser }) => {
+    const seed = await makeSeed(`chips${lang}`);
+    const ctx = await contextFor(browser, 320, lang, seed.anna);
+    const p = await ctx.newPage();
+    await p.goto(`${box.server.url}/chores/${seed.longChore}/edit`);
+    await p.locator('#chore-name').waitFor();
+    await setRootFont(p, 200);
+    await settle(p);
+    // every chip label stays on one line, unclipped and inside the screen
+    const chips = await p.locator('.chips button').evaluateAll((els) =>
+      els.map((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const tops = new Set([...range.getClientRects()].map((x) => Math.round(x.top)));
+        const r = el.getBoundingClientRect();
+        return { text: el.textContent!.trim(), lines: tops.size, clipped: el.scrollWidth > el.clientWidth + 1, inside: r.left >= 0 && r.right <= 320 };
+      }),
+    );
+    const words = lang === 'en' ? ['every month', 'every 2 months', 'every 3 months'] : ['jeden Monat', 'alle 2 Monate', 'alle 3 Monate'];
+    expect(chips.map((c) => c.text).slice(3, 6)).toEqual(words);
+    expect(chips).toHaveLength(8);
+    for (const c of chips) expect(c, c.text).toMatchObject({ lines: 1, clipped: false, inside: true });
+    expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await p.screenshot({ path: path.join(SHOTS, `interval_chips_320px_200pct_${lang}.png`), fullPage: true });
+    await ctx.close();
+  });
+}

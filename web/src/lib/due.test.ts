@@ -20,8 +20,8 @@ describe('due rules', () => {
   });
 
   it('interval_days_table', () => {
-    expect([null, '3d', '1w', '2w', '1m', '3m', '6m', '1y'].map((c) => intervalDays(c as IntervalCode | null))).toEqual([
-      30, 3, 7, 14, 30, 91, 182, 365,
+    expect([null, '3d', '1w', '2w', '1m', '2m', '3m', '6m', '1y'].map((c) => intervalDays(c as IntervalCode | null))).toEqual([
+      30, 3, 7, 14, 30, 61, 91, 182, 365,
     ]);
   });
 

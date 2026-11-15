@@ -1,4 +1,4 @@
-export type IntervalCode = '3d' | '1w' | '2w' | '1m' | '3m' | '6m' | '1y';
+export type IntervalCode = '3d' | '1w' | '2w' | '1m' | '2m' | '3m' | '6m' | '1y';
 export type DueLevel = 'fresh' | 'soon' | 'close' | 'due' | 'overdue' | 'long_overdue' | 'never';
 
 export const INTERVALS: Record<IntervalCode, number> = {
@@ -6,6 +6,7 @@ export const INTERVALS: Record<IntervalCode, number> = {
   '1w': 7,
   '2w': 14,
   '1m': 30,
+  '2m': 61,
   '3m': 91,
   '6m': 182,
   '1y': 365,

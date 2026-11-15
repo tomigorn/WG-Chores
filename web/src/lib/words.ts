@@ -3,7 +3,7 @@ import { dayWord } from './chores';
 import type { IntervalCode } from './due';
 import { tIn, type Lang } from './i18n';
 
-export const INTERVAL_ORDER: readonly IntervalCode[] = ['3d', '1w', '2w', '1m', '3m', '6m', '1y'];
+export const INTERVAL_ORDER: readonly IntervalCode[] = ['3d', '1w', '2w', '1m', '2m', '3m', '6m', '1y'];
 
 function plural(lang: Lang, key: string, n: number, extra: Record<string, string | number> = {}): string {
   return tIn(lang, n === 1 ? `${key}_one` : `${key}_other`, { n, ...extra });
