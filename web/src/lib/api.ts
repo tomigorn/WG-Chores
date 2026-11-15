@@ -170,7 +170,20 @@ export function setUnauthenticatedHandler(h: () => void): void {
   onUnauthenticated = h;
 }
 
+/** A hung connection (e.g. after phone sleep) counts as offline after this long. */
+export const REQUEST_TIMEOUT_MS = 15_000;
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await send<T>(method, path, body, ctrl.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function send<T>(method: string, path: string, body: unknown, signal: AbortSignal): Promise<T> {
   const headers: Record<string, string> = { 'X-WGC': '1', Accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
   let res: Response;
@@ -180,6 +193,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       headers,
       credentials: 'same-origin',
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
   } catch {
     throw new OfflineError();
@@ -189,7 +203,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (res.status === 204) return undefined as T;
     // e.g. a proxy's login or error page answered instead of the server
     if (!isJson) throw new ApiError(res.status, 'invalid_response', 'Unexpected response.');
-    return (await res.json()) as T;
+    try {
+      return (await res.json()) as T;
+    } catch (e) {
+      if (signal.aborted) throw new OfflineError();
+      throw e;
+    }
   }
   // a gateway error without our JSON means the server is restarting or unreachable
   if (!isJson && [502, 503, 504].includes(res.status)) throw new OfflineError();
@@ -197,6 +216,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   let message = res.statusText;
   if (isJson) {
     const e = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    if (signal.aborted) throw new OfflineError();
     code = e.error ?? code;
     message = e.message ?? message;
   }

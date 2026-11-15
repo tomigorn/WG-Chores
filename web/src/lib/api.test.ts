@@ -64,6 +64,48 @@ describe('api client', () => {
     await expect(api.me()).rejects.toBeInstanceOf(OfflineError);
   });
 
+  it('hung_request_times_out_as_offline', async () => {
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      vi.stubGlobal('fetch', vi.fn((_u: string, init: RequestInit) => new Promise<Response>((_res, rej) => {
+        init.signal!.addEventListener('abort', () => {
+          aborted = true;
+          rej(new DOMException('aborted', 'AbortError'));
+        });
+      })));
+      const p = api.households();
+      const seen = expect(p).rejects.toBeInstanceOf(OfflineError);
+      await vi.advanceTimersByTimeAsync(14_999);
+      expect(aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await seen;
+      expect(aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('hung_response_body_times_out_as_offline', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+        const body = new ReadableStream({
+          start(c) {
+            init.signal!.addEventListener('abort', () => c.error(new DOMException('aborted', 'AbortError')));
+          },
+        });
+        return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
+      }));
+      const p = api.households();
+      const seen = expect(p).rejects.toBeInstanceOf(OfflineError);
+      await vi.advanceTimersByTimeAsync(15_000);
+      await seen;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('logout_accepts_no_content', async () => {
     vi.stubGlobal('fetch', respond(204));
     await expect(api.logout()).resolves.toBeUndefined();
