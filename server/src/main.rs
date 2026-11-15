@@ -112,6 +112,7 @@ async fn serve() {
     .with_graceful_shutdown(shutdown_signal())
     .await
     .expect("serve");
+    push.shutdown();
     let _ = tokio::time::timeout(std::time::Duration::from_secs(10), push.wait_idle()).await;
 }
 

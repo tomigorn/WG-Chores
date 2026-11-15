@@ -37,6 +37,7 @@ required-features = ["test-util"]
 wg-chores = { path = ".", features = ["test-util"] }
 tower = { version = "0.5", features = ["util"] }
 p256 = { version = "0.14", features = ["ecdh"] }
+tokio = { version = "1", features = ["test-util"] }
 
 [profile.dev.package.num-bigint-dig]
 opt-level = 3

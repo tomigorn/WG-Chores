@@ -48,6 +48,7 @@ impl TestApp {
         let mut state = AppState::new(cfg, Db::open_memory().unwrap());
         state.clock = clock.clone();
         state.hasher = Hasher::insecure_for_tests();
+        state.push.set_done_delay(std::time::Duration::ZERO);
         TestApp {
             router: router(state.clone()),
             state,

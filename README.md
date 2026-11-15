@@ -118,7 +118,7 @@ Unmapped v1 names become former members; details under Admin commands.
 | Subscribe | `POST /api/v1/push/subscriptions` with the browser's `PushSubscription` JSON plus `lang` (`en`/`de`, default `en`): 204; https on port 443 at a known push service (`PUSH_ALLOWED_HOSTS` adds more), max 20 per user (oldest dropped); the same endpoint from another account moves to it |
 | Unsubscribe | `DELETE /api/v1/push/subscriptions {"endpoint": …}`: own only, 404 otherwise |
 | Toggles | `PATCH /api/v1/me {"notify_due": bool, "notify_done": bool}` (SSO accounts too) |
-| Done by someone else | sent right after a new completion to the other members' devices; payload `{title, body, url, tag}`, tag `done-<completion id>` |
+| Done by someone else | sent 10 s after a new completion to the other members' devices, only if it was not undone in the meantime (pending ones go out at once on shutdown); payload `{title, body, url, tag}`, tag `done-<completion id>` |
 | Due | at each `NOTIFY_TIMES`: chores due or overdue, once per due period per device (a newer completion re-arms), one push per household, tag `due-<household id>` |
 | Delivery | TTL 12 h, urgency normal, aes128gcm, endpoint re-checked; 404/410 deletes the subscription, so do 5 failed deliveries in a row (other status codes, endpoint no longer allowed); network errors don't count |
 | Body | due list cut at a name to 3000 bytes (JSON-escaped) with `, …`; the whole message JSON is cut to 3500 bytes, so it always fits one 4096-byte encrypted record (larger plaintext is never sent) |

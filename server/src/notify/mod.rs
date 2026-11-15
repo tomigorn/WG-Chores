@@ -8,20 +8,23 @@ use rusqlite::{OptionalExtension, params};
 use serde_json::json;
 use std::future::Future;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
-use tokio::sync::Notify;
+use tokio::sync::{Notify, watch};
 use tokio::task::{JoinHandle, JoinSet};
 use webpush::Vapid;
 
 pub const TTL_SECS: u32 = 12 * 3600;
 const MAX_FAILURES: i64 = 5;
+const DONE_DELAY: Duration = Duration::from_secs(10);
 
 pub struct Push {
     pub vapid: Vapid,
     http: reqwest::Client,
     inflight: AtomicUsize,
     idle: Notify,
+    done_delay_ms: AtomicU64,
+    closing: watch::Sender<bool>,
 }
 
 struct Inflight(Arc<Push>);
@@ -47,7 +50,36 @@ impl Push {
             http,
             inflight: AtomicUsize::new(0),
             idle: Notify::new(),
+            done_delay_ms: AtomicU64::new(DONE_DELAY.as_millis() as u64),
+            closing: watch::Sender::new(false),
         }
+    }
+
+    /// Wait before a "done" push, so a mark undone in the meantime sends nothing.
+    pub fn done_delay(&self) -> Duration {
+        Duration::from_millis(self.done_delay_ms.load(Ordering::Relaxed))
+    }
+
+    /// Ends pending delays, so `wait_idle` at shutdown sends what is waiting instead of dropping it.
+    pub fn shutdown(&self) {
+        self.closing.send_replace(true);
+    }
+
+    async fn delay_done(&self) {
+        let delay = self.done_delay();
+        if delay.is_zero() {
+            return;
+        }
+        let mut closing = self.closing.subscribe();
+        tokio::select! {
+            _ = tokio::time::sleep(delay) => {}
+            _ = closing.wait_for(|c| *c) => {}
+        }
+    }
+
+    pub fn set_done_delay(&self, d: Duration) {
+        self.done_delay_ms
+            .store(d.as_millis() as u64, Ordering::Relaxed);
     }
 
     /// Runs push work in the background; `wait_idle` waits for it.
@@ -254,10 +286,11 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &str) -> Outcome {
     }
 }
 
-/// Tells the other members' devices about a new completion, in the background.
+/// Tells the other members' devices about a new completion, in the background, after `done_delay` unless it was undone.
 pub fn completion_created(st: &AppState, completion: String) {
     let st2 = st.clone();
     st.push.spawn(async move {
+        st2.push.delay_done().await;
         if let Err(e) = send_done(&st2, completion).await {
             eprintln!("{e}");
         }
@@ -272,7 +305,7 @@ async fn send_done(st: &AppState, completion: String) -> crate::db::Result<()> {
                 .query_row(
                     "SELECT ch.household_id, ch.name, u.display_name, co.user_id
                      FROM completions co JOIN chores ch ON ch.id = co.chore_id JOIN users u ON u.id = co.user_id
-                     WHERE co.id = ?1",
+                     WHERE co.id = ?1 AND co.deleted_at IS NULL",
                     [&completion],
                     |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)),
                 )
