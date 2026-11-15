@@ -76,7 +76,7 @@ Imports ONE household from a copy of the v1 SQLite file (opened read-only) in a 
   --map OLD=USER     v1 member name or history name -> existing active v2 username; repeatable or comma-separated
   --force            import even though a v2 household with that name exists (creates another one)
 
-Names without --map become former members. Missing v2 users: create them first with create-user.
+Names without --map become former members when they have dated history; the others are listed as not imported. Missing v2 users: create them first with create-user.
 Environment: DATA_DIR (default /data), TZ (default UTC; day of each completion).
 
 Example: wg-chores migrate-v1 --from v1.db --household 'Flat Alpha' --map anna=anna,ben=ben2";

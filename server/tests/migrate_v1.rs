@@ -380,4 +380,33 @@ fn map_syntax() {
     assert!(migrate_v1::parse_map(&["=x".into()]).is_err());
     assert!(migrate_v1::parse_map(&["a=".into()]).is_err());
     assert!(migrate_v1::parse_map(&["a=b,A=c".into()]).is_err());
+    assert_eq!(
+        migrate_v1::parse_map(&["Anna= Ben.Two ".into()]).unwrap(),
+        [("Anna".to_string(), "ben.two".to_string())]
+    );
+}
+
+#[tokio::test]
+async fn names_without_usable_history_are_listed_not_created() {
+    let d = Scratch::new("unused");
+    let v1 = v1_file(&d);
+    Connection::open(&v1)
+        .unwrap()
+        .execute_batch(
+            "INSERT INTO Members (Id, Username, HouseholdId, CreatedAt) VALUES (5, 'eve', 1, '2026-01-27 10:00:00');
+             INSERT INTO ChoreHistories (Id, ChoreId, MemberId, MemberName, DoneAt, Notes) VALUES (7, 1, NULL, 'Ghost Writer', 'not a date', NULL);",
+        )
+        .unwrap();
+    let db = v2_with_users(&d, &["ann", "ben2", "carl2"]).await;
+    let s = migrate_v1::run(&db, &v1, opts("1", &ALL, Tz::UTC), now())
+        .await
+        .unwrap();
+    assert_eq!(s.former, ["Old Flatmate"]);
+    assert_eq!(s.not_imported, ["eve", "Ghost Writer"]);
+    assert_eq!(s.skipped_bad_date, 1);
+    assert!(s.to_string().contains("eve, Ghost Writer"), "{s}");
+    assert_eq!(
+        count(&db, "SELECT count(*) FROM users WHERE display_name = 'Ghost Writer'").await,
+        0
+    );
 }

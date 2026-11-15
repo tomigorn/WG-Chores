@@ -218,7 +218,7 @@ cd web && npm run dev
 | Command | What |
 |---|---|
 | `serve` | run the server (default) |
-| `migrate-v1 --from v1.db --household <id\|name> --map old=user[,…] [--force]` | import ONE household from a copy of the v1 file (opened read-only, one transaction); `--map` is repeatable, matches v1 member names and history names case-insensitively, targets must be active v2 users (else nothing is written); unmapped names become former members; room → category (empty → "Other"); `DoneAt` without offset = UTC, day in `TZ`; a same-named v2 household refuses the import unless `--force` |
+| `migrate-v1 --from v1.db --household <id\|name> --map old=user[,…] [--force]` | import ONE household from a copy of the v1 file (opened read-only, one transaction); `--map` is repeatable, matches v1 member names and history names case-insensitively, targets (lowercased) must be active v2 users (else nothing is written); unmapped names with dated history become former members, the rest are listed as "not imported"; room → category (empty → "Other"); `DoneAt` without offset = UTC, day in `TZ`; a same-named v2 household refuses the import unless `--force` |
 | `backup <file> [--force]` | online backup of `DATA_DIR/wg-chores.db` (safe while running), written with mode 0600 (it holds password hashes); refuses to overwrite without `--force` |
 | `create-user <username> [--display-name N] [--password-file F]` | local account, same rules as registration; password asked twice without echo, or from a file; works with `LOCAL_ACCOUNTS=false` but warns |
 | `revoke-sessions <username>` | delete every session of that user (signed out everywhere at once); after removing someone from the SSO group |

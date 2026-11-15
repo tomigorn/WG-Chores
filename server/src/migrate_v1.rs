@@ -37,6 +37,8 @@ pub struct Summary {
     pub skipped_bad_date: usize,
     pub members: Vec<String>,
     pub former: Vec<String>,
+    /// v1 names without --map and without importable history: nothing was created for them.
+    pub not_imported: Vec<String>,
 }
 
 impl std::fmt::Display for Summary {
@@ -57,7 +59,12 @@ impl std::fmt::Display for Summary {
             self.skipped_bad_date
         )?;
         writeln!(f, "  members:     {}", self.members.join(", "))?;
-        write!(f, "  former:      {}", self.former.join(", "))
+        writeln!(f, "  former:      {}", self.former.join(", "))?;
+        write!(
+            f,
+            "  not imported (no --map, no dated history): {}",
+            self.not_imported.join(", ")
+        )
     }
 }
 
@@ -78,7 +85,7 @@ pub fn parse_map(args: &[String]) -> Result<Vec<(String, String)>, ImportError> 
             {
                 return msg(format!("--map names \"{old}\" twice"));
             }
-            out.push((old.to_string(), user.to_string()));
+            out.push((old.to_string(), user.to_lowercase()));
         }
     }
     Ok(out)
@@ -418,13 +425,18 @@ fn write(
             if !sum.members.contains(username) {
                 sum.members.push(username.clone());
             }
-        } else if hist.iter().any(|h| h.who.to_lowercase() == key) {
+        } else if hist
+            .iter()
+            .any(|h| h.done_at.is_some() && h.who.to_lowercase() == key)
+        {
             tx.execute(
                 "INSERT INTO users (display_name, former, created_at, deleted_at) VALUES (?1, 1, ?2, ?2)",
                 params![clip(name, 60), now_s],
             )?;
             who_id.insert(key, tx.last_insert_rowid());
             sum.former.push(name.clone());
+        } else {
+            sum.not_imported.push(name.clone());
         }
     }
 
