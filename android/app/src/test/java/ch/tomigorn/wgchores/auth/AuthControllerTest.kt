@@ -190,6 +190,20 @@ class AuthControllerTest {
         assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
     }
 
+    @Test fun ssoTabClosedWithoutAResultLeavesTheLoginReadyForAnotherTry() = runBlocking {
+        auth.start()
+        auth.connect(fake.url)
+        val first = auth.beginSso()!!.substringAfter("challenge=")
+        // Cancel on the server's confirm page: the tab closes, the app gets no callback
+        val ready = auth.state.value as Login
+        assertEquals(false, ready.busy)
+        assertNull(ready.error)
+        val second = auth.beginSso()!!.substringAfter("challenge=")
+        assertTrue(first != second)
+        auth.finishSso("wgchores://auth?code=${fake.issueSsoCode(second)}")
+        assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
+    }
+
     @Test fun ssoErrorFromTheServerIsShown() = runBlocking {
         auth.start()
         auth.connect(fake.url)

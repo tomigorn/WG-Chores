@@ -163,4 +163,5 @@ dependencies {
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.mockwebserver)
     androidTestImplementation(libs.work.testing)
+    androidTestImplementation(libs.uiautomator)
 }

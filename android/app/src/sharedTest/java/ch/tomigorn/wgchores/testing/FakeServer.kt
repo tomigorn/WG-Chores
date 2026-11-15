@@ -55,6 +55,8 @@ class FakeServer : Closeable {
     val chores = java.util.concurrent.CopyOnWriteArrayList<Chore>()
     /** uuid → completion; the latest per chore decides days since. */
     val completions = java.util.concurrent.ConcurrentHashMap<String, Done>()
+    /** Undone completion uuids: a replay answers 410 like the server. */
+    private val undone: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     data class Done(val choreId: Long, val doneOn: String, val note: String?, val by: By)
 
@@ -143,6 +145,7 @@ class FakeServer : Closeable {
     fun seed() {
         chores.clear()
         completions.clear()
+        undone.clear()
         members.clear()
         members[1] = mutableListOf(users[0], users[1])
         members[2] = mutableListOf(users[0], users[2], users[3])
@@ -208,7 +211,11 @@ class FakeServer : Closeable {
 
     fun lastRequest(path: String): RecordedRequest? = requests.lastOrNull { it.url.encodedPath == path }
 
-    override fun close() = server.close()
+    /** Also drops the app client's pooled connections: a later fake on the same port must not get a socket nobody serves. */
+    override fun close() {
+        server.close()
+        ch.tomigorn.wgchores.api.ApiClient.defaultHttp.connectionPool.evictAll()
+    }
 
     private val userJson get() = """{"id":1,"username":"anna","display_name":"$displayName","kind":"$kind","picture_url":null,"account_url":null,"notify_due":$notifyDue,"notify_done":$notifyDone}"""
 
@@ -286,8 +293,8 @@ class FakeServer : Closeable {
                     val b = body(r)
                     val u = b["user_id"]?.jsonPrimitive?.content?.toLong()?.let { id -> users.find { it.id == id } }
                         ?: b["username"]?.jsonPrimitive?.content?.let { n -> users.find { it.username == n.trim() } }
-                        ?: return error(404, "user_not_found")
-                    if (mem.any { it.id == u.id }) return error(409, "already_member")
+                        ?: return error(404, "cannot_add")
+                    if (mem.any { it.id == u.id }) return error(404, "cannot_add")
                     mem += u
                     json(201, Json.encodeToString(Member.serializer(), u))
                 }
@@ -348,9 +355,30 @@ class FakeServer : Closeable {
 
     private fun newToken(): String = "tok-${nextToken++}".also { issued += it }
 
+    /** Confirm-form POSTs of the browser sign-in, each answered by a 303 to the app. */
+    val confirmPosts = java.util.concurrent.atomic.AtomicInteger()
+
+    /** The browser part of app SSO like the server: the provider is skipped, the confirm page posts a form, the answer is a 303 to wgchores://auth. */
+    private fun browserSso(r: RecordedRequest, path: String): MockResponse? = when {
+        path == "/auth/oidc/start" && r.method == "GET" -> {
+            val challenge = r.url.queryParameter("challenge").orEmpty().filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+            val page = """<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Confirm</title></head><body>""" +
+                """<h1>Sign in to the WG Chores app?</h1><form method="post" action="/auth/app/confirm"><input type="hidden" name="challenge" value="$challenge">""" +
+                """<button type="submit" style="width:100%;height:200px;font-size:32px">Continue to the app</button></form></body></html>"""
+            MockResponse(200, headersOf("Content-Type", "text/html; charset=utf-8"), page)
+        }
+        path == "/auth/app/confirm" && r.method == "POST" -> {
+            val challenge = r.body?.utf8().orEmpty().substringAfter("challenge=").substringBefore('&')
+            confirmPosts.incrementAndGet()
+            MockResponse(303, headersOf("Location", "wgchores://auth?code=${issueSsoCode(challenge)}"), "")
+        }
+        else -> null
+    }
+
     private fun handle(r: RecordedRequest): MockResponse {
         val path = r.url.encodedPath
         if (down) return MockResponse(503, headersOf("Content-Type", "text/html"), "<h1>down</h1>")
+        browserSso(r, path)?.let { return it }
         if (r.method == "POST" && r.headers["Authorization"] == null && r.headers["X-WGC"] != "1") return error(403, "csrf")
         if (path.startsWith("/api/v1/") && path !in open && bearer(r) == null) return error(401, "unauthenticated")
         if (path == "/api/v1/notifications/poll") return poll(r)
@@ -390,6 +418,7 @@ class FakeServer : Closeable {
             val doneOn = b["done_on"]?.jsonPrimitive?.contentOrNull ?: today.toString()
             if (doneOn > today.toString()) return error(400, "invalid_date")
             val note = b["note"]?.jsonPrimitive?.contentOrNull
+            if (id in undone) return error(410, "deleted")
             val old = completions[id]
             if (old != null) return if (old.choreId == cid) json(200, completionJson(id, old)) else error(409, "conflict")
             val d = Done(cid, doneOn, note, me)
@@ -403,6 +432,7 @@ class FakeServer : Closeable {
                 "DELETE" -> {
                     if (refuseDeletes) return error(403, "forbidden")
                     completions.remove(id)
+                    undone += id
                     MockResponse(204, headersOf(), "")
                 }
                 "PATCH" -> {
