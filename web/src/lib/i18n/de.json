@@ -51,8 +51,7 @@
     "households": "Meine Haushalte",
     "settings": "Einstellungen",
     "account": "Konto",
-    "logout": "Abmelden",
-    "home": "Aufgaben"
+    "logout": "Abmelden"
   },
   "theme": {
     "label": "Design",
@@ -62,23 +61,11 @@
   },
   "common": {
     "loading": "Lädt…",
-    "retry": "Noch einmal",
-    "signed_in_as": "Angemeldet als {name}",
-    "coming_soon": "Diese Seite gibt es noch nicht."
-  },
-  "due": {
-    "fresh": "Kürzlich erledigt",
-    "soon": "Bald fällig",
-    "close": "Fast fällig",
-    "due": "Fällig",
-    "overdue": "Überfällig",
-    "long_overdue": "Lange überfällig",
-    "never": "Nie erledigt"
+    "retry": "Noch einmal"
   },
   "day": {
     "today": "heute",
     "yesterday": "gestern",
-    "two_days": "vorgestern",
     "on": "am {date}"
   },
   "badge": {
@@ -106,8 +93,6 @@
     "snack": "– {when} erledigt",
     "undo": "Rückgängig",
     "other_date": "Anderes Datum",
-    "undone": "Rückgängig gemacht",
-    "saved": "Gespeichert",
     "rejected": "{name} konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.",
     "connect": "Verbinde dich mit dem Internet, um das zu speichern",
     "failed": "Speichern hat nicht geklappt. Bitte versuch es noch einmal.",
@@ -127,7 +112,6 @@
     "note": "Notiz (optional)",
     "note_placeholder": "z. B. neuen Reiniger benutzt",
     "save": "Speichern",
-    "cancel": "Abbrechen",
     "done_on": "– erledigt am"
   },
   "sync": {
@@ -140,7 +124,6 @@
     "new_household": "Neuer Haushalt",
     "switch": "Haushalt wechseln",
     "your_households": "Deine Haushalte",
-    "profile": "Konto",
     "household_settings": "Haushalt-Einstellungen"
   },
   "logout": {
@@ -231,12 +214,10 @@
     "members": "Mitglieder",
     "you": "du",
     "add": "Mitglied hinzufügen",
-    "add_username": "Benutzername",
     "add_hint_exact": "Genauer Benutzername",
     "add_search": "Nach Name oder Benutzername suchen",
     "add_button": "Hinzufügen",
     "added": "{name} hinzugefügt",
-    "search_short": "Mindestens 2 Buchstaben eintippen",
     "no_hits": "Niemand gefunden",
     "remove": "Entfernen",
     "remove_label": "{name} entfernen",
@@ -246,7 +227,6 @@
     "invites": "Einladungslinks",
     "invite_create": "Einladungslink erstellen",
     "invite_hint": "Ein Link gilt einmal, 7 Tage lang.",
-    "invite_new": "Neuer Link, {expires}",
     "copy": "Kopieren",
     "copied": "Link kopiert",
     "share": "Teilen",
@@ -275,8 +255,6 @@
     "joined": "Willkommen in {household}",
     "already": "Du bist schon Mitglied von {household}",
     "invalid_hint": "Bitte einen Mitbewohner um einen neuen Link.",
-    "signin": "Melde dich an oder erstell ein Konto, um beizutreten.",
-    "signin_only": "Melde dich an, um beizutreten.",
     "go_home": "Zu meinen Aufgaben",
     "signed_in_as": "Angemeldet als {name}"
   },
@@ -323,7 +301,6 @@
     "notify_due": "Fällige Aufgaben",
     "notify_due_hint": "Einmal, wenn eine Aufgabe fällig wird",
     "notify_note": "Benach\u00adrichti\u00adgungen kommen, sobald die App installiert ist.",
-    "saved": "Gespeichert",
     "blocked": "Auf diesem Gerät in den Browser-Einstellungen blockiert – dort erlauben, um sie hier zu bekommen.",
     "install_first": "Zuerst die App installieren (Teilen → Zum Home-Bildschirm)",
     "not_allowed": "Benach\u00adrichti\u00adgungen wurden nicht erlaubt. Schalter wieder einschalten, um erneut gefragt zu werden."

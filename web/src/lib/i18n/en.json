@@ -51,8 +51,7 @@
     "households": "My households",
     "settings": "Settings",
     "account": "Account",
-    "logout": "Sign out",
-    "home": "Chores"
+    "logout": "Sign out"
   },
   "theme": {
     "label": "Theme",
@@ -62,23 +61,11 @@
   },
   "common": {
     "loading": "Loading…",
-    "retry": "Try again",
-    "signed_in_as": "Signed in as {name}",
-    "coming_soon": "This screen is not built yet."
-  },
-  "due": {
-    "fresh": "Done recently",
-    "soon": "Due soon",
-    "close": "Almost due",
-    "due": "Due",
-    "overdue": "Overdue",
-    "long_overdue": "Long overdue",
-    "never": "Never done"
+    "retry": "Try again"
   },
   "day": {
     "today": "today",
     "yesterday": "yesterday",
-    "two_days": "2 days ago",
     "on": "on {date}"
   },
   "badge": {
@@ -106,8 +93,6 @@
     "snack": "– done {when}",
     "undo": "Undo",
     "other_date": "Other date",
-    "undone": "Undone",
-    "saved": "Saved",
     "rejected": "{name} could not be saved and was removed from the queue.",
     "connect": "Connect to the internet to save this",
     "failed": "Could not save. Please try again.",
@@ -127,7 +112,6 @@
     "note": "Note (optional)",
     "note_placeholder": "e.g. used the new cleaner",
     "save": "Save",
-    "cancel": "Cancel",
     "done_on": "– done on"
   },
   "sync": {
@@ -140,7 +124,6 @@
     "new_household": "New household",
     "switch": "Switch household",
     "your_households": "Your households",
-    "profile": "Account",
     "household_settings": "Household settings"
   },
   "logout": {
@@ -231,12 +214,10 @@
     "members": "Members",
     "you": "you",
     "add": "Add member",
-    "add_username": "Username",
     "add_hint_exact": "Their exact username",
     "add_search": "Search by name or username",
     "add_button": "Add",
     "added": "{name} added",
-    "search_short": "Type at least 2 letters",
     "no_hits": "Nobody found",
     "remove": "Remove",
     "remove_label": "Remove {name}",
@@ -246,7 +227,6 @@
     "invites": "Invite links",
     "invite_create": "Create invite link",
     "invite_hint": "A link works once, for 7 days.",
-    "invite_new": "New link, {expires}",
     "copy": "Copy",
     "copied": "Link copied",
     "share": "Share",
@@ -275,8 +255,6 @@
     "joined": "Welcome to {household}",
     "already": "You are already a member of {household}",
     "invalid_hint": "Ask a housemate for a new link.",
-    "signin": "Sign in or create an account to join.",
-    "signin_only": "Sign in to join.",
     "go_home": "Go to my chores",
     "signed_in_as": "Signed in as {name}"
   },
@@ -323,7 +301,6 @@
     "notify_due": "Chores due",
     "notify_due_hint": "Once when a chore becomes due",
     "notify_note": "Notifications arrive once the app is installed.",
-    "saved": "Saved",
     "blocked": "Blocked in browser settings on this device – allow notifications there to get them here.",
     "install_first": "Install the app first (Share → Add to Home Screen)",
     "not_allowed": "Notifications were not allowed. Turn the switch on again to be asked once more."
