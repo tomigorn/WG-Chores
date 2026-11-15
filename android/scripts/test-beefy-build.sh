@@ -27,4 +27,46 @@ check "self-test plan" 0 "project: android/build-env/smoke" --dry-run --self-tes
 check "self-test tasks" 0 "gradle: assembleDebug connectedCheck" --dry-run --self-test
 check "custom project" 0 "project: android/other" --dry-run --project android/other assembleDebug
 
+check "project outside android" 2 "must be inside android/" --dry-run --project server assembleDebug
+check "ships only android" 0 "ships: android/" --dry-run assembleDebug
+
+work=$(mktemp -d "${HOME}/.cache/claude-work/wgc-bbtest.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+git init -q "$work/repo"
+mkdir -p "$work/repo/android/scripts" "$work/repo/android/app"
+cp "$script" "$work/repo/android/scripts/"
+printf 'ignored.jks\n' > "$work/repo/android/.gitignore"
+touch "$work/repo/android/app/ignored.jks"
+script="$work/repo/android/scripts/beefy-build.sh"
+check "ignored keystore is fine" 0 "ships: android/" --dry-run assembleDebug
+touch "$work/repo/android/app/upload.jks"
+check "untracked keystore aborts" 2 "secret-like untracked file android/app/upload.jks" --dry-run assembleDebug
+check "allow untracked" 0 "ships: android/" --dry-run --allow-untracked assembleDebug
+rm "$work/repo/android/app/upload.jks"
+touch "$work/repo/android/.env.local"
+check "untracked env aborts" 2 "secret-like untracked file android/.env.local" --dry-run assembleDebug
+rm "$work/repo/android/.env.local"
+script="$here/beefy-build.sh"
+
+comp_bash() {
+    # shellcheck source=/dev/null
+    source "$here/completions/beefy-build.bash"
+    COMP_WORDS=("$@"); COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1 )); COMPREPLY=()
+    _beefy_build_sh
+    printf '%s\n' "${COMPREPLY[@]}"
+}
+check_comp() {
+    local name=$1 want=$2; shift 2
+    if comp_bash "$@" | grep -qxF -- "$want"; then echo "ok   $name"; else echo "FAIL $name: no $want in: $(comp_bash "$@" | tr '\n' ' ')"; fail=1; fi
+}
+check_comp "bash completes --self-test" --self-test beefy-build.sh --se
+check_comp "bash bare tab lists options" --emulator beefy-build.sh ""
+check_comp "bash bare tab lists tasks" assembleDebug beefy-build.sh ""
+if command -v fish >/dev/null; then
+    if fish -c "source $here/completions/beefy-build.fish; complete -C 'beefy-build.sh --se'" | grep -q -- '--self-test'; then
+        echo "ok   fish completes --self-test"; else echo "FAIL fish completion"; fail=1; fi
+else
+    echo "skip fish completion (fish not installed)"
+fi
+
 exit $fail
