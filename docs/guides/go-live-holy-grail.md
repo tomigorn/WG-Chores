@@ -56,7 +56,7 @@ sudo stat -c '%u:%g %a %n' ~/Projects/Docker/WG-Chores-*/secrets/*      # both 6
 Save the demo password in KeePassXC (Play reviewers need it): `sudo cat ~/Projects/Docker/WG-Chores-Demo/secrets/demo_password`, then clear the terminal scrollback: `clear && printf '\e[3J'`.
 
 ## 5. Start the containers
-Used the temporary local tag in step 0 and Docker Hub has the image now: first `docker rmi tomigorn/wg-chores:latest` (removes only the tag), then the commands below pull the real image.
+Used the temporary local tag in step 0 and Docker Hub has the image now: first `docker rmi tomigorn/wg-chores:latest` (removes only the tag), then the commands below pull the real image. Not published yet: skip the two `pull` lines.
 ```
 docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 pull
 docker compose --project-directory ~/Projects/Docker/WG-Chores-Demo pull
