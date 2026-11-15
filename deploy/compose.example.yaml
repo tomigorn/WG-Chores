@@ -1,12 +1,13 @@
 # WG Chores for self-hosters: docker compose -f compose.example.yaml up -d
-# Put it behind a reverse proxy with https and set PUBLIC_URL to that address.
+# Put it behind a reverse proxy with https (and HSTS) and set PUBLIC_URL to that address.
 services:
   wg-chores:
-    image: ghcr.io/tomigorn/wg-chores:latest
-    container_name: wg-chores
+    # until the image is published, build it: docker build -t wg-chores:local .
+    # then use a version tag, e.g. ghcr.io/tomigorn/wg-chores:2 (or pin a digest), never :latest
+    image: wg-chores:local
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"   # change only when the proxy runs on another host
     environment:
       PUBLIC_URL: https://chores.example.com   # required: the https address users open
       TZ: UTC                                   # dates and notification times, e.g. Europe/Berlin
@@ -26,7 +27,7 @@ services:
       - wg-chores-data:/data
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,noexec,nosuid,nodev
     cap_drop:
       - ALL
     security_opt:

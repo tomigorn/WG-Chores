@@ -8,13 +8,14 @@ Shared household chore tracker: who did what, how long ago. One small Rust serve
 | [docs/account-deletion.md](docs/account-deletion.md) | how to delete an account |
 
 ## Self-hosting
-Image: `ghcr.io/tomigorn/wg-chores` (amd64 + arm64, publishing comes with the first release; until then build it yourself, see below). One container, data in the `/data` volume, port 8080, needs an https reverse proxy in front.
+Image: `ghcr.io/tomigorn/wg-chores` (amd64 + arm64, publishing comes with the first release; until then build it yourself). One container, data in the `/data` volume, port 8080 on 127.0.0.1, needs an https reverse proxy in front; HSTS is the proxy's job.
 
 ```
-curl -O https://raw.githubusercontent.com/tomigorn/WG-Chores/main/deploy/compose.example.yaml
-# edit PUBLIC_URL (and TZ), then:
-docker compose -f compose.example.yaml up -d
-docker exec -it wg-chores /wg-chores create-user anna --display-name Anna
+git clone https://github.com/tomigorn/WG-Chores.git && cd WG-Chores
+docker build -t wg-chores:local .   # until the image is published
+# edit PUBLIC_URL (and TZ) in deploy/compose.example.yaml, then:
+docker compose -f deploy/compose.example.yaml up -d
+docker compose -f deploy/compose.example.yaml exec wg-chores /wg-chores create-user anna --display-name Anna
 ```
 Then open `PUBLIC_URL`, sign in, create a household and share an invite link (Household → Settings → Invite).
 
@@ -32,7 +33,7 @@ docker build --build-arg CARGO_BUILD_JOBS=2 -t wg-chores:local .   # small machi
 ```
 Base images are pinned by digest in the `Dockerfile` (`image:tag@sha256:…`); to update, take the tag's current digest from `docker buildx imagetools inspect <image:tag>`.
 
-Secret files are read as uid 65035 (the container user): `chmod 644` the file, or `sudo chown 65035:65037` it and `chmod 400`.
+Secret files are read as uid 65035 (the container user): `chmod 644` the file, or `sudo chown 65035:65037` it and `chmod 400`. A bind-mounted `/data` folder instead of the volume needs `sudo chown 65035:65037 <folder>`.
 
 ### Configuration (environment)
 | Variable | Default | Meaning |

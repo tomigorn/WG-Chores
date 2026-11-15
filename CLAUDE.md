@@ -9,7 +9,7 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 | `web/` | Svelte 5 web app (`src/lib/` api client, i18n, theme, router, due rules mirror, push, install banner logic; `src/screens/`, `src/components/`; `src/app.css` design tokens; `src/sw.ts` + `src/sw/core.ts` service worker built by `sw-plugin.ts`; `public/` manifest + icons from `scripts/icons.mjs`; `e2e/` Playwright browser and layout suite) |
 | `android/` | Kotlin app (later) |
 | `deploy/` | `compose.example.yaml` (self-hosters), `compose.holy-grail.yaml` (project `wg-chores-v2`), `compose.demo.yaml` (project `wg-chores-demo`), `.env.example`, `systemd/` demo-reset timer (not installed) |
-| `Dockerfile` | stages `web` (npm ci/test/build) → `build` (cargo test + static musl release) → `test` target → `scratch` (uid 65035:65037, `/data`, health check `wg-chores healthcheck`); bases pinned by digest |
+| `Dockerfile` | stages `web` (npm ci/test/build) → `build` (cargo test + static musl release) → `test` target → `scratch` (uid 65035:65037, `/data`, `/tmp` 1777, health check `wg-chores healthcheck`); bases pinned by digest |
 
 ## Build and test
 - `cd server && cargo test`

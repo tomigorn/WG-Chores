@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Static musl binary with the web app embedded, shipped on scratch. On fastpi build only under the rust-build lock:
 # flock ~/.cache/claude-work/rust-build.lock docker build -t wg-chores-v2:local .
 # `--target test` stops after the web and server test suites.
@@ -23,7 +22,8 @@ RUN --mount=type=cache,id=wg-chores-cargo-registry,target=/usr/local/cargo/regis
     --mount=type=cache,id=wg-chores-target,target=/src/server/target \
     cargo test --locked \
     && cargo build --release --locked \
-    && mkdir -p /out/data /out/etc/ssl/certs \
+    && mkdir -p /out/data /out/root/tmp /out/etc/ssl/certs \
+    && chmod 1777 /out/root/tmp \
     && cp target/release/wg-chores /out/wg-chores \
     && cp /etc/ssl/certs/ca-certificates.crt /out/etc/ssl/certs/ \
     && echo 'wgchores:x:65035:65037::/data:/sbin/nologin' > /out/etc/passwd \
@@ -37,6 +37,7 @@ FROM scratch
 COPY --from=build /out/wg-chores /wg-chores
 COPY --from=build /out/etc/ /etc/
 COPY --from=build --chown=65035:65037 /out/data /data
+COPY --from=build /out/root/ /
 USER 65035:65037
 ENV DATA_DIR=/data LISTEN=0.0.0.0:8080
 VOLUME /data
