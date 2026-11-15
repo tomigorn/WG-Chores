@@ -1,5 +1,5 @@
 // Play Store icon and feature graphic from the app mark: NODE_PATH=<dir with playwright> node android/store/graphics.mjs [roboto-600.woff2]
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,6 @@ function mark(size, scale, fg, bg, radius) {
 }
 
 const pages = [
-  ['icon-512.png', 512, 512, mark(512, 0.5, '#fff', ACCENT, 0)],
   ['feature-graphic.png', 1024, 500,
     `<div style="width:1024px;height:500px;background:${ACCENT};display:flex;align-items:center;justify-content:center;gap:44px">${mark(168, 0.56, ACCENT, '#fff', 0.22)}` +
     `<span style="font:600 92px Roboto,system-ui,sans-serif;color:#fff;letter-spacing:-0.5px">WG Chores</span></div>`],
@@ -34,4 +33,16 @@ for (const [name, width, height, html] of pages) {
   await page.screenshot({ path: join(out, name), clip: { x: 0, y: 0, width, height } });
   console.log(`wrote android/store/${name}`);
 }
+// Play wants the icon as 32-bit PNG: a canvas export keeps the (opaque) alpha channel, a page screenshot drops it
+const icon = await page.evaluate(async (svg) => {
+  const img = new Image();
+  img.src = 'data:image/svg+xml;base64,' + btoa(svg);
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  c.getContext('2d').drawImage(img, 0, 0);
+  return c.toDataURL('image/png').split(',')[1];
+}, mark(512, 0.5, '#fff', ACCENT, 0));
+writeFileSync(join(out, 'icon-512.png'), Buffer.from(icon, 'base64'));
+console.log('wrote android/store/icon-512.png');
 await browser.close();

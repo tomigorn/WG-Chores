@@ -39,7 +39,7 @@ Left menu **Grow users** → **Store presence** → **Store listings** (main lis
 1. App name, short and full description: copy from [android/store/listing-en.md](../../android/store/listing-en.md).
 2. **App icon**: `android/store/icon-512.png` (512×512 PNG).
 3. **Feature graphic**: `android/store/feature-graphic.png` (1024×500).
-4. **Phone screenshots**: the 6 PNGs in `android/store/screenshots/` (1080×2400, in file name order).
+4. **Phone screenshots**: the 5 PNGs in `android/store/screenshots/` (1080×1920, in file name order).
 5. Tablet, Chromebook, video: leave empty.
 6. **Save**.
 7. German: **Manage translations** / **Add language** → Deutsch (de-DE) → texts from [listing-de.md](../../android/store/listing-de.md) → **Save**.
