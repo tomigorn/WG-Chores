@@ -9,6 +9,8 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 | `web/` | Svelte 5 web app (`src/lib/` api client, i18n, theme, router, due rules mirror, push, install banner logic; `src/screens/`, `src/components/`; `src/app.css` design tokens; `src/sw.ts` + `src/sw/core.ts` service worker built by `sw-plugin.ts`; `public/` manifest + icons from `scripts/icons.mjs`; `e2e/` Playwright browser and layout suite) |
 | `android/` | Kotlin app (later) |
 | `deploy/` | `compose.example.yaml` (self-hosters), `compose.holy-grail.yaml` (project `wg-chores-v2`), `compose.demo.yaml` (project `wg-chores-demo`), `.env.example`, `systemd/` demo-reset timer (not installed) |
+| `.github/` | `workflows/ci.yml` (tests on pull requests, called by release), `workflows/release.yml` (multi-arch image `tomigorn/wg-chores` to Docker Hub); `renovate.json` at the root |
+| `docs/guides/` | owner guides (`docker-hub-release.md`) |
 | `Dockerfile` | stages `web` (npm ci/test/build) → `build` (cargo test + static musl release) → `test` target → `scratch` (uid 65035:65037, `/data`, `/tmp` 1777, health check `wg-chores healthcheck`); bases pinned by digest |
 
 ## Build and test
@@ -18,6 +20,7 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 - `cd server && cargo clippy --all-targets -- -D warnings`
 - Run: `PUBLIC_URL=http://localhost:8080 cargo run`, then `curl localhost:8080/healthz`
 - Release builds need `web/dist/index.html` or `WGC_ALLOW_PLACEHOLDER=1`
+- Rust version pinned in `rust-toolchain.toml` (same as the Dockerfile's `rust` base; Renovate bumps both)
 - On fastpi: `CARGO_BUILD_JOBS=2`, one build at a time (`flock ~/.cache/claude-work/rust-build.lock`)
 - Image: `flock ~/.cache/claude-work/rust-build.lock docker build -t wg-chores-v2:local .`; never `docker compose` for project `wg-chores` (live v1)
 

@@ -1,11 +1,11 @@
 # Docker Hub release
 
-The image `tomigorn/wg-chores` (amd64 + arm64) is built and pushed by GitHub Actions. You do steps 1 to 7 once.
+The image `tomigorn/wg-chores` (amd64 + arm64) is built and pushed by GitHub Actions. You do steps 1 to 8 once.
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| `.github/workflows/ci.yml` | pull requests, pushes to other branches, called by Release | server fmt + clippy + tests, web tests + types + build, browser suite (Chromium) |
-| `.github/workflows/release.yml` | push to `main`, tag `v*`, Monday 03:23 UTC, by hand | CI first; then per architecture on its own runner: image tests, start the image and run `wg-chores healthcheck`, push; then the tags |
+| `.github/workflows/ci.yml` | pull requests, by hand, called by Release (so every push to `main` and every tag is tested once) | server fmt + clippy + tests, web tests + types + build, browser suite (Chromium) |
+| `.github/workflows/release.yml` | push to `main`, tag `v*`, Monday 03:23 UTC, by hand | CI first; then per architecture on its own runner: image tests, push without a tag, start exactly that image and run `wg-chores healthcheck`; only then the tags |
 
 | Tag | When |
 |---|---|
@@ -40,10 +40,19 @@ Public repository: safe. Secrets are never handed to workflow runs from forks' p
 
 ## 4. Push
 1. Check the visibility: https://github.com/tomigorn/WG-Chores/settings, section **Danger Zone**, it says "This repository is currently public".
-2. Scan what you push for secrets, then push:
+2. Scan what you push for secrets. Which scan:
 ```
 cd ~/Documents/development/WG-Chores
-gitleaks git --log-opts="origin/main..HEAD"
+git fetch origin
+git rev-parse --verify -q origin/main && echo "range scan" || echo "full scan"
+```
+| Answer | Command |
+|---|---|
+| `range scan` (GitHub already has a `main`; the usual case) | `gitleaks git --log-opts="origin/main..HEAD"` |
+| `full scan` (first push, GitHub has no `main` yet) | `gitleaks git` |
+
+3. Any finding: stop, do not push. No findings ("no leaks found"):
+```
 git push origin main
 ```
 
@@ -75,13 +84,29 @@ docker buildx imagetools inspect tomigorn/wg-chores:latest
 | known vulnerability | PR at once, any day |
 
 ## 8. First version tag
-The version in `server/Cargo.toml` must be `1.0.0` first (commit `version bump to v1.0.0`, tag `v1.0.0`).
+The number is decided at the switch to v2 (`1.0.0` below, change it if you pick another). The tag must equal `version` in `server/Cargo.toml`.
+1. Set the version:
 ```
 cd ~/Documents/development/WG-Chores
-gitleaks git --log-opts="origin/main..HEAD"
-git push origin main v1.0.0
+sed -i '0,/^version = ".*"/s//version = "1.0.0"/' server/Cargo.toml
+grep -m1 '^version' server/Cargo.toml          # shows: version = "1.0.0"
+(cd server && cargo update -p wg-chores --offline)   # writes the new version into Cargo.lock
+git diff --stat                                  # only server/Cargo.toml and server/Cargo.lock
 ```
-Then Docker Hub has `v1.0.0` too.
+2. Commit and tag:
+```
+git commit -m "version bump to v1.0.0" -- server/Cargo.toml server/Cargo.lock
+git tag -a v1.0.0 -m "WG-Chores v1.0.0"
+```
+3. Scan (see step 4 for which scan), then push the commit and the tag:
+```
+gitleaks git --log-opts="origin/main..HEAD"
+git push origin main --follow-tags
+```
+4. Watch https://github.com/tomigorn/WG-Chores/actions: two **Release** runs start, one for `main` (moves `latest`) and one for `v1.0.0`. Both green = done.
+5. Check https://hub.docker.com/r/tomigorn/wg-chores/tags: `v1.0.0` is there with **linux/amd64** and **linux/arm64**.
+
+The `v1.0.0` run fails at **App version** when the tag and `server/Cargo.toml` differ. Fix: delete the tag (`git tag -d v1.0.0 && git push origin :refs/tags/v1.0.0`), fix the version, tag again.
 
 ## Roll back
 1. In the compose file, pin an older tag instead of `latest`, e.g. `image: tomigorn/wg-chores:v1.0.0` or `image: tomigorn/wg-chores:sha-abc1234`.
@@ -95,6 +120,7 @@ Never delete tags on Docker Hub: they are the way back.
 |---|---|
 | Base images (`node`, `rust` in the `Dockerfile`) | pinned by digest; Renovate moves the digest, merges after CI, the push to `main` starts a release |
 | Weekly rebuild (Monday 03:23 UTC) | without cache: fresh Alpine packages in the build stage, so the CA bundle (the only OS file in the `scratch` image) stays current |
+| Rust version (`rust-toolchain.toml`, used by CI) | Renovate PR "Rust toolchain", together with the `rust` digest in the `Dockerfile` |
 | Rust crates, npm packages, Actions | Renovate PRs, see step 7 |
 
 ## fastpi follows the image (at go-live, not yet applied)
