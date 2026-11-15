@@ -1,4 +1,5 @@
-use crate::auth::local::{Hasher, check_display_name, check_password, normalize_username};
+use crate::auth::hasher::Hasher;
+use crate::auth::local::{check_display_name, check_password, normalize_username};
 use crate::auth::session::ts;
 use crate::db::Db;
 use crate::migrate_v1::{self, Options};
@@ -298,14 +299,11 @@ fn env_of(ctx: &Ctx, key: &str) -> Option<String> {
 }
 
 fn data_dir(ctx: &Ctx) -> PathBuf {
-    env_of(ctx, "DATA_DIR").map_or_else(|| "/data".into(), PathBuf::from)
+    crate::config::data_dir(env_of(ctx, "DATA_DIR"))
 }
 
 fn tz(ctx: &Ctx) -> Result<Tz, String> {
-    match env_of(ctx, "TZ") {
-        None => Ok(chrono_tz::UTC),
-        Some(v) => v.trim().parse().map_err(|e| format!("TZ is invalid: {e}")),
-    }
+    crate::config::parse_tz(env_of(ctx, "TZ")).map_err(|e| format!("TZ is invalid: {e}"))
 }
 
 fn open_db(ctx: &Ctx) -> Result<Db, String> {
@@ -328,7 +326,7 @@ pub async fn run(cmd: Command, mut ctx: Ctx) -> Result<String, String> {
         Command::DemoReset => demo_reset(&ctx).await,
         Command::RevokeSessions { who } => revoke_sessions(&ctx, who).await,
         Command::Healthcheck => {
-            let listen = env_of(&ctx, "LISTEN").unwrap_or_else(|| "0.0.0.0:8080".into());
+            let listen = crate::config::listen(env_of(&ctx, "LISTEN"));
             tokio::task::spawn_blocking(move || healthcheck(&listen))
                 .await
                 .map_err(|e| e.to_string())?

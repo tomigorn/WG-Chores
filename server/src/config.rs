@@ -195,13 +195,7 @@ impl Config {
             return Err(ConfigError::Invalid("PUBLIC_URL", "must be https".into()));
         }
 
-        let tz = match get("TZ") {
-            None => chrono_tz::UTC,
-            Some(v) => v
-                .trim()
-                .parse::<Tz>()
-                .map_err(|e| ConfigError::Invalid("TZ", e.to_string()))?,
-        };
+        let tz = parse_tz(get("TZ")).map_err(|e| ConfigError::Invalid("TZ", e))?;
 
         let notify_times = get("NOTIFY_TIMES")
             .unwrap_or_else(|| "14:00,19:00".into())
@@ -294,20 +288,30 @@ impl Config {
             member_directory: parse_bool("MEMBER_DIRECTORY", get("MEMBER_DIRECTORY"), false)?,
             min_app_version: parse_version(get("MIN_APP_VERSION"))?,
             android_cert_sha256: parse_fingerprints(get("ANDROID_CERT_SHA256"))?,
-            data_dir: get("DATA_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| "/data".into()),
-            listen: get("LISTEN")
-                .unwrap_or_else(|| "0.0.0.0:8080".into())
-                .trim()
-                .parse()
-                .map_err(|e: std::net::AddrParseError| {
-                    ConfigError::Invalid("LISTEN", e.to_string())
-                })?,
+            data_dir: data_dir(get("DATA_DIR")),
+            listen: listen(get("LISTEN")).trim().parse().map_err(
+                |e: std::net::AddrParseError| ConfigError::Invalid("LISTEN", e.to_string()),
+            )?,
             trusted_proxies,
             push_allow_loopback_http: false,
             push_allowed_hosts,
         })
+    }
+}
+
+/// Shared with the admin commands, so they use the same defaults as the server.
+pub fn data_dir(v: Option<String>) -> PathBuf {
+    v.map_or_else(|| "/data".into(), PathBuf::from)
+}
+
+pub fn listen(v: Option<String>) -> String {
+    v.unwrap_or_else(|| "0.0.0.0:8080".into())
+}
+
+pub fn parse_tz(v: Option<String>) -> Result<Tz, String> {
+    match v {
+        None => Ok(chrono_tz::UTC),
+        Some(v) => v.trim().parse::<Tz>().map_err(|e| e.to_string()),
     }
 }
 
