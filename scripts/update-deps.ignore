@@ -1,0 +1,5 @@
+# Held back by update.yml: <ecosystem> <name> <major|all> <reason>
+# ecosystems: cargo, npm, gradle (key in [versions] of libs.versions.toml)
+npm @playwright/test all must match fastpi's preinstalled Chromium (1.65 needs Chromium 158 / rev 1254, fastpi has 148 / rev 1223, no browser path override): update by hand
+npm typescript major svelte-check 4.7.8 supports only TypeScript 5 and 6 (TypeScript 7 has no compiler API for it yet)
+npm @types/node major follows the Node major of the Dockerfile: bumped together with the node candidate
