@@ -319,7 +319,7 @@
 {#if chore && phase === 'ready' && !chore.archived}
   <footer class="foot">
     <button class="btn btn-primary" type="button" onclick={() => chore && m.tap(chore)}><Icon name="check" size={18} />{t('chore.done_today')}</button>
-    <button class="btn" type="button" onclick={openNew}>{t('chore.other_date')}</button>
+    <button class="btn other" type="button" onclick={openNew} aria-label={t('chore.other_date')} title={t('chore.other_date')}><Icon name="calendar" size={20} /></button>
   </footer>
 {/if}
 
@@ -595,6 +595,13 @@
     min-width: 0;
   }
 
+  .foot .other {
+    flex: none;
+    min-width: var(--tap);
+    aspect-ratio: 1;
+    padding: 0;
+  }
+
   @media (max-width: 400px) {
     .foot .btn {
       font-size: var(--fs-sm);
@@ -603,7 +610,7 @@
   }
 
   @media (max-width: 359px) {
-    .foot .btn :global(svg) {
+    .foot .btn-primary :global(svg) {
       display: none;
     }
   }

@@ -55,6 +55,20 @@ describe('Chore page', () => {
     expect(button('Other date…')).toBeDefined();
   });
 
+  it('other_date_is_an_icon_button_next_to_done_today', async () => {
+    await open();
+    const foot = document.querySelector('.foot')!;
+    const [doneToday, other] = [...foot.querySelectorAll('button')];
+    expect(doneToday!.textContent!.trim()).toBe('Done today');
+    expect(other!.getAttribute('aria-label')).toBe('Other date…');
+    expect(other!.getAttribute('title')).toBe('Other date…');
+    expect(other!.textContent!.trim()).toBe('');
+    expect(other!.querySelector('svg')).not.toBeNull();
+    other!.click();
+    flushSync();
+    expect(document.querySelector('dialog[open]')).not.toBeNull();
+  });
+
   it('usual_and_overdue_hidden_when_not_applicable', async () => {
     vi.mocked(api.chore).mockResolvedValue(toilet({ usual_interval: null, days_overdue: 0, days_since: 3, due_level: 'soon', last: { done_on: '2026-11-11', by: anna } }));
     await open();
