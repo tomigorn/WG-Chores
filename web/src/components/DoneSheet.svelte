@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
-  import { addDays, dayWord } from '../lib/chores';
+  import { addDays, dayWord, oldestDoneOn } from '../lib/chores';
   import { t, type Lang } from '../lib/i18n';
 
   let {
@@ -38,7 +38,7 @@
     note = initial.note ?? '';
   });
 
-  const minDate = $derived(addDays(today, -5 * 365));
+  const minDate = $derived(oldestDoneOn(today));
   const doneOn = $derived(choice === 'pick' ? picked : addDays(today, -choice));
   const valid = $derived(/^\d{4}-\d{2}-\d{2}$/.test(doneOn) && doneOn <= today && doneOn >= minDate);
 

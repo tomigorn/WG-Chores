@@ -1,5 +1,5 @@
 import type { By, Chore } from './api';
-import { daysOverdue, dueLevel, intervalDays } from './due';
+import { dayNumber, daysOverdue, dueLevel, intervalDays } from './due';
 import { formatDate, tIn, type Lang } from './i18n';
 
 export interface ChoreGroup {
@@ -53,17 +53,19 @@ export function todayIn(tz: string, now: Date = new Date()): string {
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-function dayNumber(iso: string): number {
-  const [y, m, d] = iso.split('-').map(Number);
-  return Math.round(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1) / 86_400_000);
-}
-
 export function daysBetween(from: string, to: string): number {
   return dayNumber(to) - dayNumber(from);
 }
 
 export function addDays(iso: string, n: number): string {
   return new Date((dayNumber(iso) + n) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** The oldest date a done mark may have: the same day 60 months back, clamped to the month's end (the server's rule). */
+export function oldestDoneOn(today: string): string {
+  const [y, m, d] = today.split('-').map(Number) as [number, number, number];
+  const last = new Date(Date.UTC(y - 5, m, 0)).getUTCDate();
+  return `${String(y - 5).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
 }
 
 export function dayWord(doneOn: string, today: string, lang: Lang): string {

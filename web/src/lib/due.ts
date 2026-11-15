@@ -35,7 +35,7 @@ export function daysOverdue(daysSince: number, intervalDaysValue: number): numbe
   return Math.max(0, daysSince - iv);
 }
 
-function dayNumber(isoDate: string): number {
+export function dayNumber(isoDate: string): number {
   const [y, m, d] = isoDate.split('-').map(Number);
   return Math.round(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1) / 86_400_000);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { By, Chore } from './api';
-import { addDays, applyCompletion, rebase, badgeLabel, badgeText, dayWord, doneWhen, groupChores, todayIn, withPending } from './chores';
+import { addDays, oldestDoneOn, applyCompletion, rebase, badgeLabel, badgeText, dayWord, doneWhen, groupChores, todayIn, withPending } from './chores';
 
 const anna: By = { id: 1, display_name: 'Anna', former: false };
 const rafi: By = { id: 2, display_name: 'Rafi', former: false };
@@ -109,5 +109,13 @@ describe('cached list', () => {
     const [r] = rebase([c, chore(2, 'never', null)], '2026-11-19');
     expect(r).toMatchObject({ days_since: 9, due_level: 'due', days_overdue: 2 });
     expect(rebase([chore(2, 'never', null)], '2026-11-19')[0]!.due_level).toBe('never');
+  });
+});
+
+describe('oldest date for a done mark', () => {
+  it('is_the_same_calendar_day_60_months_back_like_the_server', () => {
+    expect(oldestDoneOn('2026-11-15')).toBe('2021-11-15');
+    expect(oldestDoneOn('2028-02-29')).toBe('2023-02-28');
+    expect(oldestDoneOn('2026-03-31')).toBe('2021-03-31');
   });
 });
