@@ -46,7 +46,7 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
-        // release code and R8 rules, debug key and local http: the device check drives it against the fake server
+        // release code and R8 rules, debug key and local http, for the device check only: debug-signed, never upload it
         create("minified") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
@@ -71,7 +71,7 @@ android {
         getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
         // Room schema history for the migration test (Robolectric reads the app's assets); debug builds only
         getByName("debug").assets.srcDir("$projectDir/schemas")
-        getByName("minified").res.srcDir("src/debug/res")
+        getByName("minified").res.directories.add("src/debug/res")
     }
 
     testOptions {
@@ -107,7 +107,7 @@ val exportRoomSchemas = tasks.register<Sync>("exportRoomSchemas") {
 tasks.matching { it.name == "assembleDebug" || it.name == "testDebugUnitTest" }.configureEach { finalizedBy(exportRoomSchemas) }
 
 // the R8 builds on a connected emulator: beefy-build.sh --emulator releaseDeviceCheck (store screenshots in build/outputs/device-check/)
-tasks.matching { it.name == "testDebugUnitTest" }.configureEach { (this as Test).filter.excludeTestsMatching("ch.tomigorn.wgchores.device.*") }
+tasks.withType<Test>().matching { it.name != "releaseDeviceCheck" }.configureEach { filter.excludeTestsMatching("ch.tomigorn.wgchores.device.*") }
 tasks.register<Test>("releaseDeviceCheck") {
     val unit = tasks.getByName<Test>("testDebugUnitTest")
     testClassesDirs = unit.testClassesDirs

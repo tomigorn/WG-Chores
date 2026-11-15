@@ -7,6 +7,7 @@ import ch.tomigorn.wgchores.domain.Member
 import ch.tomigorn.wgchores.testing.FakeServer
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -30,14 +31,17 @@ class ReleaseDeviceCheck {
 
     @Before fun setUp() {
         assumeTrue("only in the releaseDeviceCheck task", prop("wgc.device.out").isNotEmpty())
+        adb.shell("wm size 1080x1920")
         demoStatusBar()
         seedDemo()
         fake.start()
     }
 
     @After fun tearDown() {
+        if (prop("wgc.device.out").isEmpty()) return
         fake.close()
         adb.run("uninstall", pkg)
+        adb.shell("wm size reset")
     }
 
     @Test fun a_releaseApkStartsAndRefusesLocalHttp() {
@@ -64,52 +68,102 @@ class ReleaseDeviceCheck {
         val fields = adb.dump().filter { it.cls == "android.widget.EditText" }
         adb.tap(fields[0])
         adb.shell("input text anna")
-        adb.tap(fields[1])
+        // the keyboard may cover the password field on the 1920 px screen
+        if ("mInputShown=true" in adb.shell("dumpsys input_method")) adb.shell("input keyevent KEYCODE_BACK")
+        adb.tap(adb.waitFor("password field") { n -> n.count { it.cls == "android.widget.EditText" } >= 2 }.filter { it.cls == "android.widget.EditText" }[1])
         adb.shell("input text '${fake.pw.replace(" ", "%s")}'")
         adb.shell("input keyevent KEYCODE_ENTER")
         adb.waitFor("chore list") { n -> n.any { it.text == "Wipe counters" } && n.any { it.text == "Demo WG" || it.desc.startsWith("Demo WG") } }
         hideKeyboard()
         settle()
-        adb.screenshot(File(shots, "1-chore-list.png"))
+        storeShot(File(shots, "1-chore-list.png"), list = true)
 
-        adb.tap(adb.waitFor("done button") { n -> n.any { it.desc == "Mark Dust the shelves done" } }.first { it.desc == "Mark Dust the shelves done" })
+        adb.tap(adb.waitFor("done button") { n -> n.any { it.desc == "Mark Wash the shower curtain done" } }.first { it.desc == "Mark Wash the shower curtain done" })
         adb.waitFor("snackbar") { n -> n.any { it.text == "Undo" } }
-        adb.screenshot(File(shots, "2-done-snackbar.png"))
+        storeShot(File(shots, "2-done-snackbar.png"), list = true)
         val end = System.currentTimeMillis() + 10_000
         while (fake.created().isEmpty() && System.currentTimeMillis() < end) Thread.sleep(200)
-        assertEquals("one completion for Dust the shelves reached the server", listOf(5L), fake.created().values.map { it.choreId })
+        assertEquals("one completion for Wash the shower curtain reached the server", listOf(8L), fake.created().values.map { it.choreId })
         adb.waitFor("snackbar gone", 20_000) { n -> n.none { it.text == "Undo" } }
 
-        adb.longPress(adb.dump().first { it.text == "Vacuum the living room" })
+        adb.longPress(adb.dump().first { it.text == "Descale the kettle" })
         adb.waitFor("date sheet") { n -> n.any { it.text == "Pick date" } }
         settle()
-        adb.screenshot(File(shots, "3-date-sheet.png"))
+        storeShot(File(shots, "3-date-sheet.png"))
         adb.shell("input keyevent KEYCODE_BACK")
         adb.waitFor("sheet closed") { n -> n.none { it.text == "Pick date" } }
 
         adb.tap(adb.dump().first { it.text == "Clean the oven" })
         adb.waitFor("chore page") { n -> n.any { it.text.contains("Used the oven spray") || it.desc.contains("Used the oven spray") } }
         settle()
-        adb.screenshot(File(shots, "4-chore-page.png"))
-        adb.shell("input keyevent KEYCODE_BACK")
-        adb.waitFor("chore list again") { n -> n.any { it.text == "Wipe counters" } }
-
-        openMenu("My households")
-        adb.waitFor("households") { n -> n.any { it.desc == "Settings for Demo WG" } }
-        settle()
-        adb.screenshot(File(shots, "5-households.png"))
+        storeShot(File(shots, "4-chore-page.png"))
         adb.shell("input keyevent KEYCODE_BACK")
         adb.waitFor("chore list again") { n -> n.any { it.text == "Wipe counters" } }
 
         openMenu("Settings")
         adb.waitFor("settings") { n -> n.any { it.text == "Theme" } && n.any { it.text == "Chores due" } }
         settle()
-        adb.screenshot(File(shots, "6-settings.png"))
+        storeShot(File(shots, "5-settings.png"))
 
         shots.listFiles()!!.forEach { f ->
             val img = ImageIO.read(f)
-            assertTrue("${f.name} is ${img.width}x${img.height}", img.width >= 1080 && img.height >= 1920)
+            val (short, long) = minOf(img.width, img.height) to maxOf(img.width, img.height)
+            assertTrue("${f.name} is ${img.width}x${img.height}: Play needs a short side of at least 1080 and long side at most twice the short", short >= 1080 && long <= 2 * short)
         }
+
+        backgroundCheckPollsAndNotifies()
+    }
+
+    /** The R8-shrunk WorkManager check: forced via the job scheduler, it polls the server and posts the due notification. */
+    private fun backgroundCheckPollsAndNotifies() {
+        fake.dueChores += 1L
+        val jobs = adb.shell("dumpsys jobscheduler")
+        // "JOB #u0a190/0: … pkg/…" or, with a namespace (WorkManager 2.10+), "JOB androidx.work.systemjobscheduler:u0a190/0: … @ns@pkg/…"
+        val ids = Regex("""JOB (?:#|(\S+):)u\d+a\d+/(\d+): \S+ \S*$pkg/androidx\.work""").findAll(jobs)
+            .map { m -> (if (m.groupValues[1].isEmpty()) "" else "-n ${m.groupValues[1]} ") + "$pkg ${m.groupValues[2]}" }.toSet()
+        check(ids.isNotEmpty()) { "no WorkManager job scheduled: ${jobs.lines().filter { "wgchores" in it }.take(20).joinToString(" | ")}" }
+        ids.forEach { adb.shell("cmd jobscheduler run -f $it") }
+        val end = System.currentTimeMillis() + 30_000
+        while (fake.lastRequest("/api/v1/notifications/poll") == null && System.currentTimeMillis() < end) Thread.sleep(300)
+        assertTrue("the background check polled the server", fake.lastRequest("/api/v1/notifications/poll") != null)
+        val end2 = System.currentTimeMillis() + 15_000
+        while ("Wipe counters is due" !in adb.shell("dumpsys notification --noredact") && System.currentTimeMillis() < end2) Thread.sleep(500)
+        assertTrue("the due notification was posted", "Wipe counters is due" in adb.shell("dumpsys notification --noredact"))
+    }
+
+    /** Screenshot for the store; [list]: everything below the last whole chore row (except the snackbar) is painted in the page colour, so no row is cut and nothing sits under the gesture bar. */
+    private fun storeShot(to: File, list: Boolean = false) {
+        val nodes = if (list) adb.dump() else emptyList()
+        adb.screenshot(to)
+        if (!list) return
+        val img = ImageIO.read(to).let { src -> BufferedImage(src.width, src.height, BufferedImage.TYPE_INT_RGB).also { it.graphics.drawImage(src, 0, 0, null) } }
+        val navBar = 70
+        val snack = darkBand(img)
+        val limit = minOf(snack?.first ?: img.height, img.height - navBar)
+        val cut = nodes.filter { it.longClickable && it.bottom <= limit }.maxOfOrNull { it.bottom } ?: error("no whole chore row on screen")
+        val shot = ImageIO.read(to)
+        val g = img.createGraphics()
+        g.color = java.awt.Color(img.getRGB(5, 5))
+        g.fillRect(0, cut, img.width, img.height - cut)
+        if (snack != null) {
+            val mid = (snack.first + snack.last) / 2
+            val xs = (0 until img.width).filter { isDark(shot.getRGB(it, mid)) }
+            val radius = ((0 until img.width).first { isDark(shot.getRGB(it, snack.first)) } - xs.first()).coerceAtLeast(8) + 2
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
+            g.clip = java.awt.geom.RoundRectangle2D.Float(xs.first().toFloat(), snack.first.toFloat(), (xs.last() - xs.first() + 1).toFloat(), (snack.last - snack.first + 1).toFloat(), 2f * radius, 2f * radius)
+            g.drawImage(shot, 0, 0, null)
+        }
+        g.dispose()
+        ImageIO.write(img, "png", to)
+    }
+
+    private fun isDark(c: Int) = ((c shr 16 and 255) * 3 + (c shr 8 and 255) * 6 + (c and 255)) / 10 < 70
+
+    /** Rows of the dark snackbar near the bottom, if one is shown. */
+    private fun darkBand(img: BufferedImage): IntRange? {
+        fun dark(y: Int) = (40 until img.width - 40).count { isDark(img.getRGB(it, y)) } > (img.width - 80) * 0.7
+        val rows = (img.height - 500 until img.height).filter(::dark)
+        return if (rows.size < 60) null else rows.first()..rows.last()
     }
 
     private fun openMenu(item: String) {
@@ -197,8 +251,8 @@ class ReleaseDeviceCheck {
     }
 }
 
-/** A node of `uiautomator dump`, centre in screen pixels. */
-data class UiNode(val text: String, val desc: String, val cls: String, val x: Int, val y: Int)
+/** A node of `uiautomator dump`: centre and vertical bounds in screen pixels. */
+data class UiNode(val text: String, val desc: String, val cls: String, val x: Int, val y: Int, val top: Int = 0, val bottom: Int = 0, val longClickable: Boolean = false)
 
 class Adb {
     fun run(vararg args: String): String {
@@ -245,7 +299,7 @@ class Adb {
         val a = m.value
         fun attr(n: String) = Regex("""\b$n="([^"]*)"""").find(a)?.groupValues?.get(1)?.let(::unescape).orEmpty()
         val b = Regex("""\[(\d+),(\d+)]\[(\d+),(\d+)]""").find(attr("bounds"))!!.groupValues.drop(1).map { it.toInt() }
-        UiNode(attr("text"), attr("content-desc"), attr("class"), (b[0] + b[2]) / 2, (b[1] + b[3]) / 2)
+        UiNode(attr("text"), attr("content-desc"), attr("class"), (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, b[1], b[3], attr("long-clickable") == "true")
     }.toList()
 
     private fun unescape(s: String) = s.replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&#10;", "\n").replace("&amp;", "&")
