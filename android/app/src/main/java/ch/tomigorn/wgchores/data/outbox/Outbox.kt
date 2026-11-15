@@ -77,6 +77,8 @@ class Outbox(
         val ok = mutex.withLock {
             if (uuid == inFlight) return@withLock false
             val cur = items().find { it.uuid == uuid && it.kind == OutboxItem.Kind.Mark } ?: return@withLock false
+            // the server may have it already and would answer a resend with the old date: such a mark is patched instead
+            if (cur.tried) return@withLock false
             store.put(cur.copy(doneOn = doneOn, note = note))
             true
         }

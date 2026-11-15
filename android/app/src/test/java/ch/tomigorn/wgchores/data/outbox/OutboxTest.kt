@@ -174,6 +174,14 @@ class OutboxTest {
         assertEquals("note", i.note)
     }
 
+    @Test fun aTriedMarkIsNotChangedInPlace() = runBlocking {
+        answers["a"] = { throw OfflineException() }
+        outbox.add(mark("a"))
+        outbox.flush()
+        assertFalse(outbox.update("a", "2026-11-12", "note"))
+        assertEquals("2026-11-14", outbox.items().single().doneOn)
+    }
+
     @Test fun markIsFlaggedTriedBeforeTheRequestGoesOut() = runBlocking {
         var seenTried = false
         val o = Outbox(store, send = { seenTried = store.all().single().tried }, scope = scope, now = { now })

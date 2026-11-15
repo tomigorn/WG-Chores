@@ -26,6 +26,9 @@ class DoneTest {
         @Volatile var offline = false
         @Volatile var fail: ApiException? = null
         @Volatile var gate: CompletableDeferred<Unit>? = null
+        /** The server stores the completion but the answer never arrives. */
+        @Volatile var loseAnswer = false
+        val patches = CopyOnWriteArrayList<String>()
 
         private fun check() {
             if (offline) throw OfflineException()
@@ -36,7 +39,8 @@ class DoneTest {
             gate?.await()
             calls += "complete $uuid $doneOn"
             check()
-            server[uuid] = doneOn
+            server.putIfAbsent(uuid, doneOn)
+            if (loseAnswer) throw OfflineException()
         }
 
         override suspend fun deleteCompletion(uuid: String) {
@@ -47,6 +51,7 @@ class DoneTest {
 
         override suspend fun patchCompletion(uuid: String, doneOn: String, note: String?) {
             calls += "patch $uuid $doneOn"
+            patches += uuid
             check()
             if (!server.containsKey(uuid)) throw ApiException(404, "not_found")
             server[uuid] = doneOn
@@ -135,11 +140,30 @@ class DoneTest {
         assertTrue(outbox.items().isEmpty())
     }
 
-    @Test fun changeOfAWaitingMarkStaysLocal() = runBlocking {
+    @Test fun changeOfAnUntriedMarkStaysLocal() = runBlocking {
+        outbox.add(OutboxItem("fresh", 7, "2026-11-14", null))
+        assertEquals(Done.Edit.Ok, done.change("fresh", "2026-11-12", "x"))
+        assertEquals("2026-11-12", outbox.items().single().doneOn)
+        assertTrue(api.patches.isEmpty())
+    }
+
+    @Test fun changeOfATriedMarkIsPatchedNotLostToTheReplay() = runBlocking {
+        api.loseAnswer = true
+        val r = done.mark(7, "2026-11-14", null)
+        assertTrue(r.queued)
+        api.loseAnswer = false
+        assertEquals(Done.Edit.Ok, done.change(r.uuid, "2026-11-12", "x"))
+        assertEquals(listOf(r.uuid), api.patches)
+        outbox.flush()
+        assertEquals("2026-11-12", api.server[r.uuid])
+        assertTrue(outbox.items().isEmpty())
+    }
+
+    @Test fun changeOfATriedMarkOfflineSaysConnect() = runBlocking {
         api.offline = true
         val r = done.mark(7, "2026-11-14", null)
-        assertEquals(Done.Edit.Ok, done.change(r.uuid, "2026-11-12", "x"))
-        assertEquals("2026-11-12", outbox.items().single().doneOn)
+        assertEquals(Done.Edit.Offline, done.change(r.uuid, "2026-11-12", "x"))
+        assertEquals("2026-11-14", outbox.items().single().doneOn)
     }
 
     @Test fun changeOfASentMarkPatches() = runBlocking {
