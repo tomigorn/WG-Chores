@@ -1,10 +1,12 @@
 package ch.tomigorn.wgchores
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ch.tomigorn.wgchores.auth.AuthState
 import ch.tomigorn.wgchores.data.ThemeMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -16,14 +18,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val theme: StateFlow<ThemeMode> = c.settings.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.System)
 
     init {
-        viewModelScope.launch {
+        act {
             c.auth.start()
             if (c.auth.state.value is AuthState.SignedIn) c.auth.refreshUser()
         }
     }
 
     private fun act(block: suspend () -> Unit) {
-        viewModelScope.launch { block() }
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("WgChores", "action failed", e)
+                c.auth.failed()
+            }
+        }
     }
 
     fun connect(url: String) = act { c.auth.connect(url) }

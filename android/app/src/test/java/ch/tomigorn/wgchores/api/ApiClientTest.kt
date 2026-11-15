@@ -112,6 +112,64 @@ class ApiClientTest {
         }
     }
 
+    private val shortTimeout = okhttp3.OkHttpClient.Builder().callTimeout(300, java.util.concurrent.TimeUnit.MILLISECONDS).build()
+
+    private fun slowBody(body: String) = MockResponse.Builder()
+        .code(200)
+        .setHeader("Content-Type", "application/json")
+        .body(body)
+        .throttleBody(1, 1, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
+    @Test fun probeWithAStalledBodyIsOffline() {
+        MockWebServer().use { other ->
+            other.enqueue(slowBody("""{"name":"WG Chores","local_accounts":true,"open_registration":false,"min_app_version":"1.0.0"}"""))
+            other.start()
+            failsWith<OfflineException> { runBlocking { ApiClient.probe(other.url("/").toString().trimEnd('/'), shortTimeout) } }
+        }
+    }
+
+    @Test fun stalledBodyOfACallIsOffline() {
+        MockWebServer().use { other ->
+            other.enqueue(slowBody("""{"id":1,"display_name":"Jane Doe"}"""))
+            other.start()
+            val a = ApiClient(other.url("/").toString().trimEnd('/'), bearer = { "t" }, http = shortTimeout)
+            failsWith<OfflineException> { runBlocking { a.me() } }
+        }
+    }
+
+    @Test fun probeRejectsHtmlWithoutReadingIt() {
+        MockWebServer().use { other ->
+            other.enqueue(MockResponse(200, headersOf("Content-Type", "text/html"), "<html>" + "x".repeat(200_000)))
+            other.start()
+            failsWith<NotWgChoresException> { runBlocking { ApiClient.probe(other.url("/").toString().trimEnd('/')) } }
+        }
+    }
+
+    @Test fun probeRejectsAHugeJsonBody() {
+        MockWebServer().use { other ->
+            val padding = "\"pad\":\"" + "x".repeat(70_000) + "\","
+            other.enqueue(
+                MockResponse(
+                    200,
+                    headersOf("Content-Type", "application/json"),
+                    """{$padding"name":"WG Chores","local_accounts":true,"open_registration":false,"min_app_version":"1.0.0"}""",
+                ),
+            )
+            other.start()
+            failsWith<NotWgChoresException> { runBlocking { ApiClient.probe(other.url("/").toString().trimEnd('/')) } }
+        }
+    }
+
+    @Test fun emptySuccessForMeIsAnInvalidResponse() {
+        MockWebServer().use { other ->
+            other.enqueue(MockResponse(204, headersOf(), ""))
+            other.start()
+            val a = ApiClient(other.url("/").toString().trimEnd('/'), bearer = { "t" })
+            assertEquals("invalid_response", failsWith<ApiException> { runBlocking { a.me() } }.code)
+        }
+    }
+
     @Test fun serverErrorWithoutJsonIsAnApiError() {
         MockWebServer().use { other ->
             other.enqueue(MockResponse(500, headersOf("Content-Type", "text/plain"), "boom"))

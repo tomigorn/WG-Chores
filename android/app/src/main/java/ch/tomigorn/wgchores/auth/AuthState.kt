@@ -2,7 +2,7 @@ package ch.tomigorn.wgchores.auth
 
 import ch.tomigorn.wgchores.data.ServerConfig
 
-enum class ServerError { Invalid, NotHttps, NotWgChores, Unreachable }
+enum class ServerError { Invalid, NotHttps, NotWgChores, Unreachable, Unexpected }
 
 sealed interface LoginError {
     data class Code(val code: String) : LoginError

@@ -172,6 +172,61 @@ class AuthControllerTest {
         assertEquals(LoginError.Code("not_allowed"), (auth.state.value as Login).error)
     }
 
+    @Test fun ssoCodeForAnotherChallengeFailsAndBurnsTheVerifier() = runBlocking {
+        auth.start()
+        auth.connect(fake.url)
+        auth.beginSso()
+        auth.finishSso("wgchores://auth?code=${fake.issueSsoCode("someone-elses-challenge")}")
+        assertEquals(LoginError.Code("invalid_code"), (auth.state.value as Login).error)
+        assertNull(store.takeVerifier())
+    }
+
+    @Test fun cachedMinimumVersionAppliesOfflineWhenSignedIn() {
+        signedInViaForm()
+        runBlocking { store.saveConfig(store.read().config!!.copy(minAppVersion = "2.0.0")) }
+        fake.close()
+        val again = AuthController(store, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
+        runBlocking { again.start() }
+        assertEquals(UpdateRequired(fake.url, "2.0.0", "1.0.0"), again.state.value)
+    }
+
+    @Test fun cachedMinimumVersionAppliesOfflineBeforeSignIn() = runBlocking {
+        auth.start()
+        auth.connect(fake.url)
+        store.saveConfig(store.read().config!!.copy(minAppVersion = "2.0.0"))
+        fake.close()
+        val again = AuthController(store, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
+        again.start()
+        assertTrue(again.state.value is UpdateRequired)
+    }
+
+    @Test fun keystoreFailureOnSignInIsACalmError() = runBlocking {
+        val broken = SessionStore(
+            PreferenceDataStoreFactory.create(scope = scope) { File(tmp.root, "b.preferences_pb") },
+            TokenCipher { throw java.security.KeyStoreException("gone") },
+        )
+        val a = AuthController(broken, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
+        a.start()
+        a.connect(fake.url)
+        a.login("anna", fake.pw)
+        assertEquals(LoginError.Code("keystore_failed"), (a.state.value as Login).error)
+    }
+
+    @Test fun unexpectedFailureEndsBusyWithTheGenericError() = runBlocking {
+        auth.start()
+        auth.connect(fake.url)
+        auth.failed()
+        val s = auth.state.value as Login
+        assertEquals(LoginError.Code("unexpected"), s.error)
+        assertEquals(false, s.busy)
+    }
+
+    @Test fun unexpectedFailureOnTheServerPicker() = runBlocking {
+        auth.start()
+        auth.failed()
+        assertEquals(ServerError.Unexpected, (auth.state.value as PickServer).error)
+    }
+
     @Test fun ssoCallbackWithoutAPendingStartIsRefused() = runBlocking {
         auth.start()
         auth.connect(fake.url)

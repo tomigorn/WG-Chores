@@ -9,11 +9,12 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** AES-GCM for the stored device token; output is base64(iv + ciphertext). */
 class TokenCipher(private val key: () -> SecretKey) {
-    fun encrypt(plain: String): String {
+    /** Null when the key is unusable (Keystore error); the caller treats that as "not stored". */
+    fun encrypt(plain: String): String? = runCatching {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
-        return Base64.getEncoder().encodeToString(cipher.iv + cipher.doFinal(plain.toByteArray()))
-    }
+        Base64.getEncoder().encodeToString(cipher.iv + cipher.doFinal(plain.toByteArray()))
+    }.getOrNull()
 
     fun decrypt(blob: String): String? = runCatching {
         val bytes = Base64.getDecoder().decode(blob)
@@ -28,6 +29,7 @@ class TokenCipher(private val key: () -> SecretKey) {
         private const val ALIAS = "wgc-token"
 
         /** Key kept in the Android Keystore: never leaves the device, not in backups. */
+        @Synchronized
         fun keystoreKey(): SecretKey {
             val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
             (ks.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }

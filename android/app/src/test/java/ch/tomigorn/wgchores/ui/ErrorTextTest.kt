@@ -16,6 +16,13 @@ class ErrorTextTest {
 
     @Test fun unknownCodesAreGeneric() = assertEquals(R.string.error_generic, ErrorText.of(LoginError.Code("busy")))
 
+    @Test fun keystoreFailureHasItsText() = assertEquals(R.string.error_keystore_failed, ErrorText.of(LoginError.Code("keystore_failed")))
+
+    @Test fun unexpectedIsGeneric() {
+        assertEquals(R.string.error_generic, ErrorText.of(LoginError.Code("unexpected")))
+        assertEquals(R.string.error_generic, ErrorText.of(ServerError.Unexpected))
+    }
+
     @Test fun offlineHasItsText() = assertEquals(R.string.error_offline, ErrorText.of(LoginError.Offline))
 
     @Test fun serverPickerErrors() {

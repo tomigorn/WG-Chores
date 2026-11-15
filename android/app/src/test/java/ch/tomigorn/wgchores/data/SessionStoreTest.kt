@@ -67,6 +67,20 @@ class SessionStoreTest {
         scope2.cancel()
     }
 
+    @Test fun tokenIsDecryptedOnceThenCached() = runBlocking {
+        var keyUses = 0
+        val counted = SessionStore(PreferenceDataStoreFactory.create(scope = scope) { File(tmp.root, "c.preferences_pb") }, TokenCipher { keyUses++; key })
+        counted.saveSignIn("tok-1", "Jane Doe")
+        repeat(3) { assertEquals("tok-1", counted.read().token) }
+        assertEquals(1, keyUses)
+    }
+
+    @Test fun keystoreFailureStoresNothing() = runBlocking {
+        val broken = SessionStore(PreferenceDataStoreFactory.create(scope = scope) { File(tmp.root, "b.preferences_pb") }, TokenCipher { throw java.security.KeyStoreException("gone") })
+        assertEquals(false, broken.saveSignIn("tok-1", "Jane Doe"))
+        assertNull(broken.read().token)
+    }
+
     @Test fun verifierIsKeptUntilTaken() = runBlocking {
         store.saveVerifier("v".repeat(43))
         assertEquals("v".repeat(43), store.takeVerifier())

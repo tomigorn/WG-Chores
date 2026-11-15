@@ -69,7 +69,8 @@ class ApiClient(
             put("device_name", deviceName)
         }["token"]?.jsonPrimitive?.content ?: throw ApiException(200, "invalid_response")
 
-    suspend fun me(): User = call(Request.Builder().url(baseUrl + "/api/v1/me").get(), User.serializer(), signedIn = true)!!
+    suspend fun me(): User = call(Request.Builder().url(baseUrl + "/api/v1/me").get(), User.serializer(), signedIn = true)
+        ?: throw ApiException(204, "invalid_response")
 
     suspend fun logout() {
         call<Unit>(Request.Builder().url(baseUrl + "/api/v1/auth/logout").post(EMPTY_JSON), null, signedIn = true)
@@ -82,7 +83,8 @@ class ApiClient(
         body: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit,
     ): T {
         val json = buildJsonObject(body).toString().toRequestBody(JSON_TYPE)
-        return call(Request.Builder().url(baseUrl + path).post(json), serializer, signedIn)!!
+        return call(Request.Builder().url(baseUrl + path).post(json), serializer, signedIn)
+            ?: throw ApiException(204, "invalid_response")
     }
 
     private suspend fun <T> call(builder: Request.Builder, serializer: KSerializer<T>?, signedIn: Boolean): T? {
@@ -98,6 +100,7 @@ class ApiClient(
     }
 
     companion object {
+        private const val MAX_CONFIG_BYTES = 64L * 1024
         private val JSON_TYPE = "application/json".toMediaType()
         private val EMPTY_JSON = "{}".toRequestBody(JSON_TYPE)
         internal val json = Json { ignoreUnknownKeys = true }
@@ -113,9 +116,10 @@ class ApiClient(
         suspend fun probe(baseUrl: String, http: OkHttpClient = probeHttp): ServerConfig {
             val request = Request.Builder().url("$baseUrl/api/v1/config").header("Accept", "application/json").build()
             return execute(http, request) { r ->
-                val text = r.body.string()
-                if (!r.isSuccessful) throw NotWgChoresException()
-                ServerConfig.parse(text) ?: throw NotWgChoresException()
+                if (!r.isSuccessful || r.header("Content-Type")?.startsWith("application/json") != true) throw NotWgChoresException()
+                val source = r.body.source()
+                if (source.request(MAX_CONFIG_BYTES + 1)) throw NotWgChoresException()
+                ServerConfig.parse(source.buffer.readUtf8()) ?: throw NotWgChoresException()
             }
         }
 
@@ -126,7 +130,13 @@ class ApiClient(
                 } catch (e: IOException) {
                     throw OfflineException(e)
                 }
-                response.use(read)
+                try {
+                    response.use(read)
+                } catch (e: OfflineException) {
+                    throw e
+                } catch (e: IOException) {
+                    throw OfflineException(e)
+                }
             }
 
         private fun <T> Response.readResult(serializer: KSerializer<T>?): T? {

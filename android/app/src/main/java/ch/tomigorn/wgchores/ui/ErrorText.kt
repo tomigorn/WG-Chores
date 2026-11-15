@@ -19,6 +19,7 @@ object ErrorText {
         "password_too_short" to R.string.error_password_too_short,
         "password_too_long" to R.string.error_password_too_long,
         "invalid_display_name" to R.string.error_invalid_display_name,
+        "keystore_failed" to R.string.error_keystore_failed,
     )
 
     fun of(error: LoginError): Int = when (error) {
@@ -31,5 +32,6 @@ object ErrorText {
         ServerError.NotHttps -> R.string.server_not_https
         ServerError.NotWgChores -> R.string.server_not_wgc
         ServerError.Unreachable -> R.string.server_unreachable
+        ServerError.Unexpected -> R.string.error_generic
     }
 }

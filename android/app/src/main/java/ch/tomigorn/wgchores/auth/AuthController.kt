@@ -30,6 +30,7 @@ class AuthController(
     suspend fun start() {
         val s = store.read()
         val server = s.server ?: return set(AuthState.PickServer())
+        if (s.config != null && tooOld(server, s.config)) return
         if (s.token != null) {
             set(AuthState.SignedIn(server, s.userName.orEmpty()))
             refreshConfig(server)
@@ -81,7 +82,10 @@ class AuthController(
     suspend fun beginSso(): String? {
         val server = store.read().server ?: return null
         val verifier = Pkce.newVerifier()
-        store.saveVerifier(verifier)
+        if (!store.saveVerifier(verifier)) {
+            loginError(LoginError.Code("keystore_failed"))
+            return null
+        }
         _state.update { if (it is AuthState.Login) it.copy(error = null) else it }
         return SsoCallback.startUrl(server, Pkce.challenge(verifier))
     }
@@ -112,6 +116,18 @@ class AuthController(
             _state.update { if (it is AuthState.SignedIn) it.copy(userName = user.displayName) else it }
         } catch (_: ApiException) {
         } catch (_: OfflineException) {
+        }
+    }
+
+    /** Something unexpected went wrong in an action: end any busy state and show the generic error. */
+    fun failed() {
+        _state.update {
+            when (it) {
+                is AuthState.Login -> it.copy(busy = false, error = LoginError.Code("unexpected"))
+                is AuthState.PickServer -> it.copy(busy = false, error = ServerError.Unexpected)
+                AuthState.Loading -> AuthState.PickServer(error = ServerError.Unexpected)
+                else -> it
+            }
         }
     }
 
@@ -157,7 +173,14 @@ class AuthController(
             return loginError(LoginError.Offline)
         }
         val name = result.user?.displayName.orEmpty()
-        store.saveSignIn(result.token, name)
+        if (!store.saveSignIn(result.token, name)) {
+            try {
+                ApiClient(server, bearer = { result.token }).logout()
+            } catch (_: ApiException) {
+            } catch (_: OfflineException) {
+            }
+            return loginError(LoginError.Code("keystore_failed"))
+        }
         set(AuthState.SignedIn(server, name))
     }
 

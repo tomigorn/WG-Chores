@@ -45,6 +45,7 @@
     <string name="error_password_too_short">Das Passwort braucht mindestens 12 Zeichen.</string>
     <string name="error_password_too_long">Das Passwort ist zu lang.</string>
     <string name="error_invalid_display_name">Dein Name braucht 1 bis 60 Zeichen.</string>
+    <string name="error_keystore_failed">Dieses Gerät konnte deine Anmeldung nicht sicher speichern. Bitte versuch es noch einmal.</string>
     <string name="error_offline">Keine Verbindung. Prüf dein Internet und versuch es noch einmal.</string>
     <string name="error_generic">Etwas ist schiefgelaufen. Bitte versuch es noch einmal.</string>
 
