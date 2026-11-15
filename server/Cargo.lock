@@ -2645,7 +2645,7 @@ dependencies = [
  "hmac 0.13.0",
  "openidconnect",
  "p256",
- "rand 0.8.8",
+ "rand 0.10.3",
  "ring",
  "rpassword",
  "rsa",
