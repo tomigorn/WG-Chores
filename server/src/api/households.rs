@@ -41,14 +41,14 @@ pub(crate) fn is_member(c: &Connection, hid: i64, uid: i64) -> rusqlite::Result<
 }
 
 fn check_name(raw: &str) -> Result<String, ApiError> {
-    let n = raw.trim();
+    let n = crate::model::clean_text(raw);
     if n.is_empty() || n.chars().count() > 60 {
         return Err(ApiError::bad_request(
             "invalid_name",
             "The name must be 1 to 60 characters long.",
         ));
     }
-    Ok(n.to_string())
+    Ok(n)
 }
 
 pub async fn list(State(st): State<AppState>, u: CurrentUser) -> Result<Json<Value>, ApiError> {

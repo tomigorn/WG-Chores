@@ -4,6 +4,7 @@ use crate::auth::session::ts;
 use crate::auth::{ApiJson, CurrentUser};
 use crate::domain::{Interval, days_overdue, due_level, interval_days, usual_interval};
 use crate::error::ApiError;
+use crate::model::clean_text;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -45,25 +46,25 @@ pub(crate) fn member_chore(c: &Connection, chore: i64, uid: i64) -> rusqlite::Re
 }
 
 fn check_chore_name(raw: &str) -> Result<String, ApiError> {
-    let n = raw.trim();
+    let n = clean_text(raw);
     if n.is_empty() || n.chars().count() > 80 {
         return Err(ApiError::bad_request(
             "invalid_name",
             "The name must be 1 to 80 characters long.",
         ));
     }
-    Ok(n.to_string())
+    Ok(n)
 }
 
 fn check_category(raw: &str) -> Result<String, ApiError> {
-    let n = raw.trim();
+    let n = clean_text(raw);
     if n.chars().count() > 40 {
         return Err(ApiError::bad_request(
             "invalid_category",
             "The category must be 1 to 40 characters long.",
         ));
     }
-    Ok(n.to_string())
+    Ok(n)
 }
 
 fn check_interval(raw: &Option<String>) -> Result<Option<&'static str>, ApiError> {

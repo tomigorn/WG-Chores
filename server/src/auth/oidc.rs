@@ -354,12 +354,12 @@ async fn finish(
 
     let preferred = claims
         .preferred_username()
-        .map(|u| u.as_str().trim().to_string())
+        .map(|u| crate::model::clean_text(u.as_str()))
         .filter(|u| !u.is_empty());
     let name = claims
         .name()
         .and_then(|n| n.get(None))
-        .map(|n| n.as_str().trim().to_string())
+        .map(|n| crate::model::clean_text(n.as_str()))
         .filter(|n| !n.is_empty());
     let display_name: String = name
         .or_else(|| preferred.clone())

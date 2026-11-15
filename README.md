@@ -43,7 +43,7 @@ Secret files are read as uid 65035 (the container user): `chmod 644` the file, o
 | `OPEN_REGISTRATION` | `false` | anyone may sign up; invite links work either way |
 | `MEMBER_DIRECTORY` | `false` | "Add member" lists every user of the server |
 | `NOTIFY_TIMES` | `14:00,19:00` | due notification checks, local time in `TZ` |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` or `OIDC_CLIENT_SECRET_FILE` | off | SSO; all or none, the secret must not be empty |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` or `OIDC_CLIENT_SECRET_FILE` | off | SSO; all or none, the secret must not be empty; the issuer must be https (http only on `localhost` / `127.0.0.1`) |
 | `OIDC_NAME` | `SSO` | button "Sign in with …" |
 | `OIDC_REQUIRED_GROUP` | none | group (from the `groups` claim) needed to log in |
 | `OIDC_ACCOUNT_URL` | none | link on the account page (http/https) |
@@ -219,7 +219,7 @@ cd web && npm run dev
 |---|---|
 | `serve` | run the server (default) |
 | `migrate-v1 --from v1.db --household <id\|name> --map old=user[,…] [--force]` | import ONE household from a copy of the v1 file (opened read-only, one transaction); `--map` is repeatable, matches v1 member names and history names case-insensitively, targets must be active v2 users (else nothing is written); unmapped names become former members; room → category (empty → "Other"); `DoneAt` without offset = UTC, day in `TZ`; a same-named v2 household refuses the import unless `--force` |
-| `backup <file> [--force]` | online backup of `DATA_DIR/wg-chores.db` (safe while running); refuses to overwrite without `--force` |
+| `backup <file> [--force]` | online backup of `DATA_DIR/wg-chores.db` (safe while running), written with mode 0600 (it holds password hashes); refuses to overwrite without `--force` |
 | `create-user <username> [--display-name N] [--password-file F]` | local account, same rules as registration; password asked twice without echo, or from a file; works with `LOCAL_ACCOUNTS=false` but warns |
 | `revoke-sessions <username>` | delete every session of that user (signed out everywhere at once); after removing someone from the SSO group |
 | `healthcheck` | `GET /healthz` on the local `LISTEN` port (loopback for `0.0.0.0`/`::`), exit 0 on 200, else 1; for container health checks (the image has no shell or curl) |
@@ -233,6 +233,7 @@ Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/c
 | Rate limits | login: 5 failures per account and 20 per client IP in 15 min; registration: 20 per client IP in 15 min (own bucket); IPv6 clients count per /64; 429 + `Retry-After` |
 | Sessions | 30 days idle; at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in; `wg-chores revoke-sessions <username>` ends them all at once |
 | Add member | 20 attempts per hour per acting user (429); the added user is not asked first (consent step: open owner question) |
+| Names | display, household, category and chore names lose control characters and bidi overrides (U+202A–U+202E, U+2066–U+2069) on input |
 | Password hashing | at most 4 at once, 16 waiting; more → 503 `busy` + `Retry-After: 5` |
 
 ## Operations

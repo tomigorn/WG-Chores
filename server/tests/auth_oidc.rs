@@ -541,3 +541,14 @@ async fn unreachable_provider_from_invite_keeps_invite() {
         "/login?error=sso_unavailable&invite=abc_DEF-123"
     );
 }
+
+#[tokio::test]
+async fn sso_display_name_loses_control_and_bidi_characters() {
+    let (fake, app) = setup(&[]).await;
+    let mut u = FakeUser::new("bidi");
+    u.name = Some("\u{202E}Jane\u{0007} Doe\n".into());
+    fake.set_user(u);
+    let mut c = app.client();
+    sso_login(&fake, &mut c).await;
+    assert_eq!(c.get("/api/v1/me").await.body["display_name"], "Jane Doe");
+}

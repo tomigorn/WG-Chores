@@ -337,3 +337,41 @@ async fn get_one_chore_with_household() {
     assert_eq!(b.get(&format!("/api/v1/chores/{c}")).await.status, 404);
     assert_eq!(a.get("/api/v1/chores/9999").await.status, 404);
 }
+
+#[tokio::test]
+async fn names_lose_control_and_bidi_characters() {
+    let app = TestApp::new();
+    let mut a = app.client();
+    let r = a
+        .post(
+            "/api/v1/auth/register",
+            json!({"username": "anna", "password": PW, "display_name": "\u{2066}Jane\u{202A} Doe\u{0001}"}), // leak-check: ok
+        )
+        .await;
+    assert_eq!(r.body["display_name"], "Jane Doe");
+    let r = a
+        .patch("/api/v1/me", json!({"display_name": "Jane\u{2069}\t Doe"}))
+        .await;
+    assert_eq!(r.body["display_name"], "Jane Doe");
+    let r = a
+        .post("/api/v1/households", json!({"name": "\u{202D}Home\u{007F}"}))
+        .await;
+    assert_eq!(r.body["name"], "Home");
+    let h = r.body["id"].as_i64().unwrap();
+    let c = new_chore(
+        &mut a,
+        h,
+        json!({"name": "\u{202E}Bins\u{0007}\n", "category": "Kü\u{2067}che"}),
+    )
+    .await;
+    let chore = a.get(&format!("/api/v1/chores/{c}")).await;
+    assert_eq!(chore.body["name"], "Bins");
+    assert_eq!(chore.body["category"], "Küche");
+    let r = a
+        .post(
+            &format!("/api/v1/households/{h}/chores"),
+            json!({"name": "\u{202E}\u{0001}"}),
+        )
+        .await;
+    assert_eq!(r.status, 400);
+}

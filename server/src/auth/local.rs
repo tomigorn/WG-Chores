@@ -162,14 +162,14 @@ pub fn check_password(pw: &str) -> Result<(), ApiError> {
 }
 
 pub fn check_display_name(raw: &str) -> Result<String, ApiError> {
-    let n = raw.trim();
+    let n = crate::model::clean_text(raw);
     if n.is_empty() || n.chars().count() > 60 {
         return Err(ApiError::bad_request(
             "invalid_display_name",
             "The display name must be 1 to 60 characters long.",
         ));
     }
-    Ok(n.to_string())
+    Ok(n)
 }
 
 /// A reserved attempt: the failure rows are inserted up front so concurrent requests cannot overshoot the limits.
