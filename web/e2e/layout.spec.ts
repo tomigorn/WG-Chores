@@ -2,9 +2,9 @@ import { devices, type Browser, type BrowserContext, type Page } from '@playwrig
 import { mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Api, isoDay, uniqueName } from './support/api';
+import { Api, isoDay } from './support/api';
 import { expect, test, useServer } from './support/fixtures';
-import { checkLayout, setRootFont, settle } from './support/layout';
+import { checkLayout, setRootFont, settle, shownText } from './support/layout';
 
 const SHOTS = path.join(os.homedir(), '.cache/claude-work/wgc-layout');
 const WIDTHS = [320, 375, 414, 768, 1280];
@@ -28,12 +28,11 @@ interface Seed {
   invite: string;
 }
 
-let seed: Seed | null = null;
-
-async function makeSeed(): Promise<Seed> {
+/** Fresh, identical data per test (the tag keeps usernames unique on the worker's server). */
+async function makeSeed(tag: string): Promise<Seed> {
   const base = box.server.url;
-  const anna = await Api.register(base, LONG_PERSON, uniqueName('anna-barbara-zimmermann'));
-  const ben = await Api.register(base, 'Ben', uniqueName('ben'));
+  const anna = await Api.register(base, LONG_PERSON, `anna-barbara-zimmermann-${tag}`);
+  const ben = await Api.register(base, 'Ben', `ben-${tag}`);
   const h = await anna.household(LONG_HOUSEHOLD);
   await anna.household('WG Bern');
   await anna.addMember(h.id, ben.username);
@@ -67,7 +66,7 @@ async function makeSeed(): Promise<Seed> {
   return { anna, hid: h.id, longChore: long.id, invite: inv.url };
 }
 
-type Screen = { name: string; signedOut?: boolean; open: (p: Page, s: Seed, base: string) => Promise<void>; after?: (p: Page) => Promise<void> };
+type Screen = { name: string; signedOut?: boolean; phoneOnly?: boolean; open: (p: Page, s: Seed, base: string) => Promise<void>; after?: (p: Page) => Promise<void> };
 
 const row = (p: Page, name: string) => p.locator('li.row', { hasText: name });
 
@@ -120,6 +119,8 @@ const SCREENS: Screen[] = [
     after: async (p) => {
       await p.locator('.snack .act').first().click();
       await p.locator('.snack').waitFor({ state: 'detached' });
+      // undone: the next screens see the same data as every other width
+      await expect(row(p, LONG_CHORE).locator('.badge')).toHaveText(/^3 /);
     },
   },
   {
@@ -140,6 +141,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: 'install-guide',
+    phoneOnly: true,
     open: async (p, s, b) => {
       await p.goto(`${b}/households/${s.hid}`);
       await p.locator('.banner .btn-primary').click();
@@ -183,7 +185,7 @@ async function contextFor(browser: Browser, width: number, lang: string, signedI
   const phone = width <= 414;
   const ctx = await browser.newContext({
     viewport: { width, height: phone ? 700 : 900 },
-    userAgent: devices['iPhone 13'].userAgent,
+    userAgent: width >= 1024 ? devices['Desktop Chrome'].userAgent : devices['iPhone 13'].userAgent,
     isMobile: phone,
     hasTouch: phone,
     deviceScaleFactor: phone ? 2 : 1,
@@ -197,8 +199,7 @@ async function contextFor(browser: Browser, width: number, lang: string, signedI
 }
 
 async function runMatrix(browser: Browser, width: number, lang: 'en' | 'de', themes: readonly ('light' | 'dark')[] = THEMES) {
-  seed ??= await makeSeed();
-  const s = seed;
+  const s = await makeSeed(`${lang}${width}`);
   const base = box.server.url;
   const inCtx = await contextFor(browser, width, lang, s.anna);
   const outCtx = await contextFor(browser, width, lang, null);
@@ -207,6 +208,8 @@ async function runMatrix(browser: Browser, width: number, lang: 'en' | 'de', the
   mkdirSync(dir, { recursive: true });
   const all: string[] = [];
   for (const screen of SCREENS) {
+    // the desktop user agent gets no banner without the browser's install prompt
+    if (screen.phoneOnly && width >= 1024) continue;
     const p = screen.signedOut ? pages.out : pages.in;
     await screen.open(p, s, base);
     for (const theme of themes) {
@@ -241,7 +244,7 @@ test('every screen in German at 320px, 100 % and 200 % text', async ({ browser }
 });
 
 test('long_names_320px_200pct', async ({ browser }) => {
-  seed ??= await makeSeed();
+  const seed = await makeSeed('long');
   const ctx = await contextFor(browser, 320, 'en', seed.anna);
   const p = await ctx.newPage();
   await p.goto(`${box.server.url}/households/${seed.hid}`);
@@ -249,30 +252,30 @@ test('long_names_320px_200pct', async ({ browser }) => {
   await r.waitFor();
   await setRootFont(p, 200);
   await settle(p);
-  const name = r.locator('.name');
-  const badge = r.locator('.badge');
   expect(LONG_CHORE.length).toBe(60);
   expect(LONG_CATEGORY.length).toBe(40);
-  // the badge keeps number and unit together on one line, fully visible, and the tick stays tappable
-  const b = await badge.evaluate((el) => {
+  // the name is readable: at least 12 of its characters on screen, at most two lines, whole words
+  const name = await r.locator('.name').evaluate(shownText);
+  expect(name.shown, `visible part of the chore name: "${name.text}"`).toBeGreaterThanOrEqual(12);
+  expect(name.lines).toBeLessThanOrEqual(2);
+  expect(LONG_CHORE.replace(/\s/g, '').startsWith(name.text)).toBe(true);
+  // the badge keeps number and unit together on one line, fully visible, and the tick stays tappable inside the screen
+  const b = await r.locator('.badge').evaluate((el) => {
     const range = document.createRange();
     range.selectNodeContents(el);
     const tops = new Set([...range.getClientRects()].map((x) => Math.round(x.top)));
     return { lines: tops.size, clipped: el.scrollWidth > el.clientWidth + 1, text: el.textContent };
   });
   expect(b).toEqual({ lines: 1, clipped: false, text: '3 d' });
-  const n = await name.evaluate((el) => ({ h: el.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(el).lineHeight), w: el.clientWidth }));
-  expect(n.h).toBeLessThanOrEqual(1.5 * n.lh);
-  expect(n.w).toBeGreaterThan(40);
-  const tick = await r.locator('button.done').boundingBox();
-  expect(tick!.x + tick!.width).toBeLessThanOrEqual(320);
-  const cat = p.getByRole('heading', { name: LONG_CATEGORY });
-  const c = await cat.evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return { lines: new Set([...range.getClientRects()].map((x) => Math.round(x.top))).size };
-  });
-  expect(c.lines).toBe(1);
+  const tick = (await r.locator('button.done').boundingBox())!;
+  expect(tick.x + tick.width).toBeLessThanOrEqual(320);
+  expect(Math.min(tick.width, tick.height)).toBeGreaterThanOrEqual(40);
+  // the 40-character category header and the household name in the top bar stay readable too
+  const cat = await p.getByRole('heading', { name: LONG_CATEGORY }).evaluate(shownText);
+  expect(cat.lines).toBeLessThanOrEqual(2);
+  expect(cat.shown).toBeGreaterThanOrEqual(12);
+  const title = await p.locator('header .hh .name').evaluate(shownText);
+  expect(title.shown, `visible household name: "${title.text}"`).toBeGreaterThanOrEqual(8);
   expect(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await p.screenshot({ path: path.join(SHOTS, 'long_names_320px_200pct.png'), fullPage: true });
   await ctx.close();

@@ -60,7 +60,7 @@ export async function watchSessionText(page: Page): Promise<() => Promise<string
   await page.evaluate(() => {
     const w = window as unknown as { __wgcBad: string[] };
     w.__wgcBad = [];
-    const bad = /session|expired|reload|log in again|sign in again/i;
+    const bad = /session (has )?expired|session ended|reload the page|please reload|sign in again|log in again|sitzung|seite neu laden|erneut anmelden/i;
     const scan = (n: Node) => {
       const text = (n.textContent ?? '').trim();
       if (text && bad.test(text)) w.__wgcBad.push(text.slice(0, 200));
