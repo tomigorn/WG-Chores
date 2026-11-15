@@ -2,7 +2,8 @@
  "openapi": "3.0.3",
  "info": {
   "title": "WG Chores API",
-  "version": "1"
+  "version": "1",
+  "description": "Sessions: 30 days idle, at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in. The admin command `wg-chores revoke-sessions <username>` deletes all sessions of a user; their next request gets 401 `unauthenticated`."
  },
  "servers": [
   {
@@ -29,6 +30,26 @@
      },
      "default": {
       "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Too many attempts; `Retry-After` header",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`busy`: too many password checks waiting; `Retry-After: 5`",
       "content": {
        "application/json": {
         "schema": {
@@ -127,6 +148,26 @@
      },
      "default": {
       "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Too many attempts; `Retry-After` header",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`busy`: too many password checks waiting; `Retry-After: 5`",
       "content": {
        "application/json": {
         "schema": {
@@ -381,6 +422,16 @@
      "completions"
     ],
     "responses": {
+     "200": {
+      "description": "Replay: this id was already created in this chore; the stored completion is returned unchanged",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Completion"
+        }
+       }
+      }
+     },
      "201": {
       "description": "Created",
       "content": {
@@ -416,7 +467,8 @@
           "type": "string"
          },
          "note": {
-          "type": "string"
+          "type": "string",
+          "nullable": true
          }
         },
         "required": [
@@ -442,7 +494,8 @@
      {
       "cookie": []
      }
-    ]
+    ],
+    "description": "Other members get a \"done\" push 10 s later, unless the completion was deleted (undone) in the meantime."
    }
   },
   "/api/v1/chores/{id}/restore": {
@@ -530,7 +583,8 @@
           "type": "string"
          },
          "note": {
-          "type": "string"
+          "type": "string",
+          "nullable": true
          }
         },
         "required": [],
@@ -1325,6 +1379,16 @@
         }
        }
       }
+     },
+     "429": {
+      "description": "Too many add attempts (20 per hour per acting user); `Retry-After` header",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
      }
     },
     "requestBody": {
@@ -1574,6 +1638,26 @@
         }
        }
       }
+     },
+     "429": {
+      "description": "Too many attempts; `Retry-After` header",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`busy`: too many password checks waiting; `Retry-After: 5`",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
      }
     },
     "requestBody": {
@@ -1622,6 +1706,26 @@
      },
      "default": {
       "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Too many attempts; `Retry-After` header",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "`busy`: too many password checks waiting; `Retry-After: 5`",
       "content": {
        "application/json": {
         "schema": {
