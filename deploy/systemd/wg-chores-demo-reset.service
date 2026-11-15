@@ -1,0 +1,6 @@
+[Unit]
+Description=WG Chores demo: wipe data and load the sample household
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec wg-chores-demo /wg-chores demo-reset

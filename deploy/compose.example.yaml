@@ -1,0 +1,44 @@
+# WG Chores for self-hosters: docker compose -f compose.example.yaml up -d
+# Put it behind a reverse proxy with https and set PUBLIC_URL to that address.
+services:
+  wg-chores:
+    image: ghcr.io/tomigorn/wg-chores:latest
+    container_name: wg-chores
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PUBLIC_URL: https://chores.example.com   # required: the https address users open
+      TZ: UTC                                   # dates and notification times, e.g. Europe/Berlin
+      LOCAL_ACCOUNTS: "true"                    # username + password login
+      OPEN_REGISTRATION: "false"                # true = anyone can sign up; false = invite links or create-user only
+      MEMBER_DIRECTORY: "false"                 # true = "Add member" lists every user of this server
+      NOTIFY_TIMES: "14:00,19:00"               # due notifications, local time
+      TRUSTED_PROXIES: ""                       # your reverse proxy's IP/CIDR, so rate limits see real client IPs
+      # SSO (OIDC), all three or none; the secret as a file is safer:
+      # OIDC_ISSUER: https://sso.example.com/application/o/wg-chores/
+      # OIDC_CLIENT_ID: wg-chores
+      # OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret # leak-check: ok
+      # OIDC_NAME: My SSO                       # button "Sign in with …"
+      # OIDC_REQUIRED_GROUP: WG                 # only members of this group may log in
+      # OIDC_ACCOUNT_URL: https://sso.example.com/if/user/
+    volumes:
+      - wg-chores-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "/wg-chores", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+volumes:
+  wg-chores-data:

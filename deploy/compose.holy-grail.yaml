@@ -1,0 +1,54 @@
+# fastpi: wg-chores.holy-grail.ch (Cloudflare Tunnel -> Traefik -> this container), SSO only.
+# docker compose -f compose.holy-grail.yaml up -d   (needs .env and secrets/oidc_client_secret)
+name: wg-chores-v2
+services:
+  wg-chores-v2:
+    image: wg-chores-v2:local
+    container_name: wg-chores-v2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8085:8080"
+    networks:
+      - traefik_wg_chores
+    environment:
+      PUBLIC_URL: https://wg-chores.holy-grail.ch
+      TZ: Europe/Zurich
+      LOCAL_ACCOUNTS: "false"
+      MEMBER_DIRECTORY: "true"
+      OIDC_NAME: Holy Grail
+      OIDC_REQUIRED_GROUP: WG
+      OIDC_ISSUER: ${OIDC_ISSUER:?set in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set in .env}
+      OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret # leak-check: ok
+      OIDC_ACCOUNT_URL: https://sso.holy-grail.ch/if/user/#/settings
+      TRUSTED_PROXIES: 10.24.24.3   # Traefik's pinned address on traefik_wg_chores
+    secrets:
+      - oidc_client_secret
+    volumes:
+      - wg-chores-v2-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "/wg-chores", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+secrets:
+  oidc_client_secret:
+    file: ./secrets/oidc_client_secret
+
+networks:
+  traefik_wg_chores:
+    external: true
+
+volumes:
+  wg-chores-v2-data:

@@ -1,0 +1,12 @@
+*
+!server/Cargo.toml
+!server/Cargo.lock
+!server/build.rs
+!server/openapi.json
+!server/src
+!server/tests
+!server/completions
+!web
+web/node_modules
+web/dist
+!docs/test-vectors
