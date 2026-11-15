@@ -5,7 +5,7 @@ pub mod webpush;
 use crate::app::AppState;
 use openidconnect::reqwest;
 use rusqlite::{OptionalExtension, params};
-use serde_json::{Value, json};
+use serde_json::json;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -146,12 +146,41 @@ async fn set_failures(st: &AppState, id: i64, ok: bool) {
     }
 }
 
-pub fn payload(title: String, body: String, household: i64, tag: String) -> Value {
-    json!({"title": title, "body": body, "url": format!("/households/{household}"), "tag": tag})
+pub const MAX_PAYLOAD_BYTES: usize = 3500;
+
+/// Serialized push message, cut so the JSON stays within `MAX_PAYLOAD_BYTES` (one encrypted record).
+pub fn payload(title: String, body: String, household: i64, tag: String) -> String {
+    let url = format!("/households/{household}");
+    let fixed = json!({"title": "", "body": "", "url": url, "tag": tag})
+        .to_string()
+        .len();
+    let budget = MAX_PAYLOAD_BYTES.saturating_sub(fixed);
+    let title = cut_escaped(&title, budget / 3);
+    let body = cut_escaped(&body, budget - texts::json_len(&title));
+    json!({"title": title, "body": body, "url": url, "tag": tag}).to_string()
+}
+
+fn cut_escaped(s: &str, max: usize) -> String {
+    if texts::json_len(s) <= max {
+        return s.to_string();
+    }
+    let mut out = String::new();
+    let mut used = "…".len();
+    for ch in s.chars() {
+        let mut b = [0u8; 4];
+        let len = texts::json_len(ch.encode_utf8(&mut b));
+        if used + len > max {
+            break;
+        }
+        used += len;
+        out.push(ch);
+    }
+    out.push('…');
+    out
 }
 
 /// Sends one push; a subscription the push service reports gone (404/410) is deleted.
-pub async fn deliver(st: &AppState, sub: &Sub, payload: &Value) -> Outcome {
+pub async fn deliver(st: &AppState, sub: &Sub, payload: &str) -> Outcome {
     let host = url::Url::parse(&sub.endpoint)
         .ok()
         .and_then(|u| u.host_str().map(str::to_string))
@@ -169,7 +198,11 @@ pub async fn deliver(st: &AppState, sub: &Sub, payload: &Value) -> Outcome {
         webpush::b64_decode(&sub.p256dh),
         webpush::b64_decode(&sub.auth),
     ) {
-        (Some(k), Some(a)) => webpush::encrypt(&k, &a, payload.to_string().as_bytes()),
+        _ if payload.len() > webpush::MAX_PLAINTEXT => {
+            eprintln!("push to {host} skipped: message too large");
+            return Outcome::Failed;
+        }
+        (Some(k), Some(a)) => webpush::encrypt(&k, &a, payload.as_bytes()),
         _ => None,
     };
     let Some(body) = body else {
@@ -275,6 +308,21 @@ async fn send_done(st: &AppState, completion: String) -> crate::db::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn payload_json_stays_within_limit() {
+        let nasty = "\"\u{1}\u{7f}\\<".repeat(2000);
+        let p = payload(nasty.clone(), nasty.clone(), 7, "due-7".into());
+        assert!(p.len() <= MAX_PAYLOAD_BYTES, "{}", p.len());
+        let v: Value = serde_json::from_str(&p).unwrap();
+        assert_eq!(v["url"], "/households/7");
+        assert_eq!(v["tag"], "due-7");
+        assert!(v["body"].as_str().unwrap().ends_with('…'));
+        let small = payload("T".into(), "B \"q\"".into(), 1, "x".into());
+        let v: Value = serde_json::from_str(&small).unwrap();
+        assert_eq!((v["title"].as_str(), v["body"].as_str()), (Some("T"), Some("B \"q\"")));
+    }
 
     #[tokio::test]
     async fn panicking_task_is_logged_not_fatal() {

@@ -1,6 +1,11 @@
 pub const MAX_BODY_BYTES: usize = 3000;
 const MORE: &str = ", …";
 
+/// Length once escaped inside a JSON string.
+pub fn json_len(s: &str) -> usize {
+    serde_json::to_string(s).map_or(s.len() * 6, |j| j.len() - 2)
+}
+
 fn german(lang: &str) -> bool {
     lang == "de"
 }
@@ -10,7 +15,7 @@ pub fn done(_lang: &str, who: &str, chore: &str) -> (String, String) {
     (who.to_string(), format!("✓ {chore}"))
 }
 
-/// Title and body for the due chores of one household, `names` already sorted; the body stays within `MAX_BODY_BYTES`.
+/// Title and body for the due chores of one household, `names` already sorted; the JSON-escaped body stays within `MAX_BODY_BYTES`.
 pub fn due(lang: &str, household: &str, names: &[String]) -> (String, String) {
     match names {
         [one] if german(lang) => (format!("{one} ist fällig"), household.to_string()),
@@ -22,15 +27,18 @@ pub fn due(lang: &str, household: &str, names: &[String]) -> (String, String) {
                 format!("{} chores are due", names.len())
             };
             let mut body = String::new();
+            let mut used = 0;
             for (i, n) in names.iter().enumerate() {
                 let sep = if i == 0 { "" } else { ", " };
                 let reserve = if i + 1 < names.len() { MORE.len() } else { 0 };
-                if body.len() + sep.len() + n.len() + reserve > MAX_BODY_BYTES {
+                let len = json_len(n);
+                if used + sep.len() + len + reserve > MAX_BODY_BYTES {
                     body.push_str(if body.is_empty() { "…" } else { MORE });
                     break;
                 }
                 body.push_str(sep);
                 body.push_str(n);
+                used += sep.len() + len;
             }
             (title, body)
         }
@@ -84,5 +92,17 @@ mod tests {
         assert!(b.ends_with(", …"), "{b}");
         let exact: Vec<String> = (0..2).map(|_| "x".repeat(1499)).collect();
         assert_eq!(due("en", "Home", &exact).1.len(), 3000);
+    }
+
+    #[test]
+    fn due_list_cut_by_escaped_json_length() {
+        let nasty: Vec<String> = (0..40)
+            .map(|i| format!("{i}{}", "\"\u{1}\\".repeat(26)))
+            .collect();
+        let (_, b) = due("en", "Home", &nasty);
+        let escaped = serde_json::to_string(&b).unwrap().len() - 2;
+        assert!(escaped <= MAX_BODY_BYTES, "{escaped}");
+        assert!(b.starts_with(&nasty[0]));
+        assert!(b.ends_with(", …"), "{b}");
     }
 }

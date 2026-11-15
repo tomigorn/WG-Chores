@@ -12,6 +12,8 @@ use std::path::Path;
 use url::{Host, Url};
 
 const RECORD_SIZE: u32 = 4096;
+/// Largest plaintext whose single-record body (86 header + 1 delimiter + 16 tag bytes) fits 4096 bytes.
+pub const MAX_PLAINTEXT: usize = RECORD_SIZE as usize - 86 - 1 - 16;
 /// Push services of the major browsers; a host must equal one or end with "." + one.
 pub const PUSH_HOSTS: &[&str] = &[
     "fcm.googleapis.com",
@@ -181,7 +183,10 @@ fn seal(
     auth: &[u8],
     salt: &[u8; 16],
     plaintext: &[u8],
-) -> Vec<u8> {
+) -> Option<Vec<u8>> {
+    if plaintext.len() > MAX_PLAINTEXT {
+        return None;
+    }
     let (cek, nonce) = derive(ecdh, as_public, ua_public, auth, salt);
     let key =
         aead::LessSafeKey::new(aead::UnboundKey::new(&aead::AES_128_GCM, &cek).expect("aes key"));
@@ -199,7 +204,7 @@ fn seal(
     out.push(as_public.len() as u8);
     out.extend_from_slice(as_public);
     out.extend_from_slice(&buf);
-    out
+    Some(out)
 }
 
 /// RFC 8291 aes128gcm body for one subscription, with a fresh sender key and salt.
@@ -211,14 +216,14 @@ pub fn encrypt(ua_public: &[u8], auth: &[u8], plaintext: &[u8]) -> Option<Vec<u8
     rng.fill(&mut salt).ok()?;
     let peer = agreement::UnparsedPublicKey::new(&agreement::ECDH_P256, ua_public);
     let ecdh = agreement::agree_ephemeral(eph, &peer, |s| s.to_vec()).ok()?;
-    Some(seal(
+    seal(
         &ecdh,
         as_public.as_ref(),
         ua_public,
         auth,
         &salt,
         plaintext,
-    ))
+    )
 }
 
 /// Receiver side of RFC 8291, for tests: `ecdh` is ECDH(ua_private, sender key in the header).
@@ -280,7 +285,8 @@ mod tests {
             &b(AUTH),
             &salt,
             plain,
-        );
+        )
+        .unwrap();
         assert_eq!(body, b(BODY));
         assert_eq!(
             decrypt(&b(ECDH), &b(UA_PUBLIC), &b(AUTH), &body).unwrap(),
@@ -289,6 +295,14 @@ mod tests {
         let mut tampered = body.clone();
         *tampered.last_mut().unwrap() ^= 1;
         assert!(decrypt(&b(ECDH), &b(UA_PUBLIC), &b(AUTH), &tampered).is_none());
+    }
+
+    #[test]
+    fn plaintext_beyond_one_record_is_refused() {
+        let ua = b(UA_PUBLIC);
+        let fits = encrypt(&ua, &b(AUTH), &[b'a'; MAX_PLAINTEXT]).unwrap();
+        assert_eq!(fits.len(), RECORD_SIZE as usize);
+        assert!(encrypt(&ua, &b(AUTH), &[b'a'; MAX_PLAINTEXT + 1]).is_none());
     }
 
     #[test]
