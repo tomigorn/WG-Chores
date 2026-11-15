@@ -12,7 +12,7 @@ Account → **Delete account** → enter your current password (SSO accounts: ty
 | push subscriptions | |
 | your open invite links (cancelled) | |
 
-To have your display name removed from past completions too, ask the operator.
+Kept items stay until the household is deleted (its last member leaves or deletes their account). To have your display name removed from past completions sooner, ask the operator.
 
 ## Via the operator
 Can't sign in any more, or want everything removed? Contact whoever runs the server you use.
