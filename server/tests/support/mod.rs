@@ -65,6 +65,7 @@ impl TestApp {
             csrf: true,
             origin: Some(ORIGIN.into()),
             bearer: None,
+            accept_language: None,
         }
     }
 
@@ -119,12 +120,14 @@ pub struct Client {
     pub csrf: bool,
     pub origin: Option<String>,
     pub bearer: Option<String>,
+    pub accept_language: Option<String>,
 }
 
 pub struct Resp {
     pub status: u16,
     pub headers: axum::http::HeaderMap,
     pub body: Value,
+    pub text: String,
 }
 
 impl Resp {
@@ -139,6 +142,28 @@ impl Resp {
 
 impl Client {
     pub async fn send(&mut self, method: Method, path: &str, body: Option<Value>) -> Resp {
+        self.send_raw(
+            method,
+            path,
+            body.map(|b| ("application/json", b.to_string())),
+        )
+        .await
+    }
+
+    /// An HTML form POST, as a browser sends it.
+    pub async fn form(&mut self, path: &str, fields: &[(&str, &str)]) -> Resp {
+        let body = url::form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(fields)
+            .finish();
+        self.send_raw(
+            Method::POST,
+            path,
+            Some(("application/x-www-form-urlencoded", body)),
+        )
+        .await
+    }
+
+    async fn send_raw(&mut self, method: Method, path: &str, body: Option<(&str, String)>) -> Resp {
         let mut req = Request::builder().method(method.clone()).uri(path);
         if !self.jar.is_empty() {
             let c: Vec<String> = self.jar.iter().map(|(k, v)| format!("{k}={v}")).collect();
@@ -158,10 +183,13 @@ impl Client {
         if let Some(x) = &self.xff {
             req = req.header("x-forwarded-for", x);
         }
+        if let Some(l) = &self.accept_language {
+            req = req.header(header::ACCEPT_LANGUAGE, l);
+        }
         let body = match body {
-            Some(b) => {
-                req = req.header(header::CONTENT_TYPE, "application/json");
-                Body::from(b.to_string())
+            Some((ct, b)) => {
+                req = req.header(header::CONTENT_TYPE, ct);
+                Body::from(b)
             }
             None => Body::empty(),
         };
@@ -174,6 +202,7 @@ impl Client {
             status: parts.status.as_u16(),
             headers: parts.headers,
             body: serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+            text: String::from_utf8_lossy(&bytes).into_owned(),
         };
         for sc in resp.set_cookies() {
             let first = sc.split(';').next().unwrap();

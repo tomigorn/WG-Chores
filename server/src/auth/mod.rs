@@ -1,4 +1,5 @@
 pub mod app;
+pub mod confirm;
 pub mod csrf;
 pub mod hasher;
 pub mod local;

@@ -279,16 +279,19 @@ async fn sso_setup() -> (FakeOidc, TestApp) {
 }
 
 fn location(r: &Resp) -> String {
-    assert_eq!(
-        r.status, 302,
+    assert!(
+        matches!(r.status, 302 | 303),
         "expected redirect, got {} {:?}",
-        r.status, r.body
+        r.status,
+        r.text
     );
     r.headers["location"].to_str().unwrap().to_string()
 }
 
-/// Runs the browser part of the app SSO flow and returns the final redirect target.
-async fn app_sso(fake: &FakeOidc, c: &mut Client, query: &str) -> String {
+const CONFIRM: &str = "/auth/app/confirm";
+
+/// The browser part of the app SSO flow up to the confirm page.
+async fn app_sso_page(fake: &FakeOidc, c: &mut Client, query: &str) -> Resp {
     let auth = location(&c.get(&format!("/auth/oidc/start?{query}")).await);
     let cb = fake.authorize(&auth).await;
     let cb = cb.strip_prefix(ORIGIN).unwrap().to_string();
@@ -297,7 +300,134 @@ async fn app_sso(fake: &FakeOidc, c: &mut Client, query: &str) -> String {
         r.set_cookies().iter().all(|s| !s.starts_with(SESSION)),
         "app flow must not sign the browser in"
     );
-    location(&r)
+    assert_eq!(r.status, 200, "{}", r.text);
+    r
+}
+
+fn form_token(page: &Resp) -> String {
+    let at = page
+        .text
+        .find("name=\"token\" value=\"")
+        .expect("token field")
+        + 20;
+    page.text[at..].split('"').next().unwrap().to_string()
+}
+
+async fn codes(app: &TestApp) -> i64 {
+    app.db(|c| c.query_row("SELECT count(*) FROM app_codes", [], |r| r.get(0)))
+        .await
+}
+
+/// Runs the browser part of the app SSO flow, confirms it, and returns the final redirect target.
+async fn app_sso(fake: &FakeOidc, c: &mut Client, query: &str) -> String {
+    let page = app_sso_page(fake, c, query).await;
+    let proof = form_token(&page);
+    location(
+        &c.form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+            .await,
+    )
+}
+
+#[tokio::test]
+async fn app_sso_asks_before_handing_a_code_to_the_app() {
+    let (fake, app) = sso_setup().await;
+    let mut c = app.client();
+    c.accept_language = Some("de-CH,de;q=0.9,en;q=0.8".into());
+    let q = format!("client=android&challenge={}", challenge(VERIFIER));
+    let page = app_sso_page(&fake, &mut c, &q).await;
+    assert_eq!(codes(&app).await, 0, "no code before the user confirms");
+    assert!(
+        page.headers["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html")
+    );
+    assert_eq!(page.headers["cache-control"], "no-store");
+    let csp = page.headers["content-security-policy"].to_str().unwrap();
+    assert!(csp.contains("form-action 'self' wgchores:"), "{csp}");
+    assert!(!csp.contains("unsafe"), "{csp}");
+    assert!(
+        page.text.contains("In der WG Chores App anmelden?"),
+        "{}",
+        page.text
+    );
+    assert!(!page.text.contains("<script>") && !page.text.contains("style="));
+    let proof = form_token(&page);
+
+    assert_eq!(c.form(CONFIRM, &[("action", "confirm")]).await.status, 403);
+    let bad = format!("{}x", &proof[..proof.len() - 1]);
+    assert_eq!(
+        c.form(CONFIRM, &[("token", &bad), ("action", "confirm")])
+            .await
+            .status,
+        403
+    );
+    let mut stranger = app.client();
+    let r = stranger
+        .form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+        .await;
+    assert_eq!(r.status, 403, "the form token alone is not enough");
+    let jar = c.jar.clone();
+    let mut foreign = app.client();
+    foreign.jar = jar.clone();
+    foreign.origin = Some("https://evil.example.org".into());
+    let r = foreign
+        .form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+        .await;
+    assert_eq!(r.status, 403);
+    assert_eq!(codes(&app).await, 0);
+
+    let mut replay = app.client();
+    replay.jar = jar;
+    let target = location(
+        &c.form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+            .await,
+    );
+    assert!(code_of(&target).len() > 20);
+    assert_eq!(codes(&app).await, 1);
+    let r = replay
+        .form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+        .await;
+    assert_eq!(r.status, 400, "a confirmation works once");
+    assert_eq!(codes(&app).await, 1);
+}
+
+#[tokio::test]
+async fn app_sso_cancel_issues_nothing() {
+    let (fake, app) = sso_setup().await;
+    let mut c = app.client();
+    let q = format!("client=android&challenge={}", challenge(VERIFIER));
+    let page = app_sso_page(&fake, &mut c, &q).await;
+    assert!(page.text.contains("Sign in to the WG Chores app?"));
+    assert!(page.text.contains("Jane Doe"), "{}", page.text);
+    let proof = form_token(&page);
+    let jar = c.jar.clone();
+    let r = c
+        .form(CONFIRM, &[("token", &proof), ("action", "cancel")])
+        .await;
+    assert_eq!(r.status, 200);
+    assert!(r.text.contains("You can close this tab."));
+    let mut again = app.client();
+    again.jar = jar;
+    let r = again
+        .form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+        .await;
+    assert_eq!(r.status, 400);
+    assert_eq!(codes(&app).await, 0);
+}
+
+#[tokio::test]
+async fn app_sso_confirm_expires_with_the_sign_in() {
+    let (fake, app) = sso_setup().await;
+    let mut c = app.client();
+    let q = format!("client=android&challenge={}", challenge(VERIFIER));
+    let proof = form_token(&app_sso_page(&fake, &mut c, &q).await);
+    app.clock.advance(Duration::minutes(11));
+    let r = c
+        .form(CONFIRM, &[("token", &proof), ("action", "confirm")])
+        .await;
+    assert_eq!(r.status, 400);
+    assert_eq!(codes(&app).await, 0);
 }
 
 fn code_of(target: &str) -> String {

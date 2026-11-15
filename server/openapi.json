@@ -2181,11 +2181,14 @@
   },
   "/auth/oidc/callback": {
    "get": {
-    "summary": "SSO provider callback; sets the session cookie and redirects",
+    "summary": "SSO provider callback; web: sets the session cookie and redirects; app (`client=android`): shows the confirm page",
     "tags": [
      "auth"
     ],
     "responses": {
+     "200": {
+      "description": "App sign-in: HTML page asking the user to confirm (en/de by Accept-Language), sets the `__Host-wgc_app_confirm` cookie, valid 10 min"
+     },
      "302": {
       "description": "Redirect"
      },
@@ -2504,6 +2507,55 @@
         }
        }
       }
+     }
+    }
+   }
+  },
+  "/auth/app/confirm": {
+   "post": {
+    "summary": "Confirm or cancel an app SSO sign-in from the confirm page",
+    "tags": [
+     "auth"
+    ],
+    "description": "Form fields `token` (from the page) and `action` (`confirm` or `cancel`); needs the confirm cookie and a same-origin `Origin`; works once.",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/x-www-form-urlencoded": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "token": {
+          "type": "string"
+         },
+         "action": {
+          "type": "string",
+          "enum": [
+           "confirm",
+           "cancel"
+          ]
+         }
+        },
+        "required": [
+         "token",
+         "action"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "303": {
+      "description": "Confirmed: redirect to `wgchores://auth?code=…` (plus `&invite=…`)"
+     },
+     "200": {
+      "description": "Cancelled: HTML page \"You can close this tab.\""
+     },
+     "400": {
+      "description": "HTML page: sign-in expired, cancelled or already used"
+     },
+     "403": {
+      "description": "HTML page: missing cookie, wrong token or foreign origin"
      }
     }
    }

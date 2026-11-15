@@ -290,12 +290,29 @@ pub async fn callback(
     };
     let clear = state_cookie("", 0);
     let done = match finish(&st, cfg, p, &headers, &q).await {
+        Ok((
+            id,
+            Pending {
+                app: Some(challenge),
+                invite,
+                ..
+            },
+        )) => {
+            return match super::confirm::ask(&st, &headers, id, challenge, invite, clear.clone())
+                .await
+            {
+                Ok(res) => res,
+                Err(e) => {
+                    eprintln!("oidc app login: storing the confirmation failed: {e}");
+                    to_login(Fail::Failed, None, true, &[clear])
+                }
+            };
+        }
         Ok((id, pending)) => signed_in(&st, &headers, id, pending).await,
         Err(f) => Err(f),
     };
     match done {
-        Ok((target, Some(sid))) => redirect(&target, &[clear, session::set_cookie(&sid)]),
-        Ok((target, None)) => redirect(&target, &[clear]),
+        Ok((target, sid)) => redirect(&target, &[clear, session::set_cookie(&sid)]),
         Err(f) => {
             let pending =
                 super::cookie(&headers, STATE_COOKIE).and_then(|raw| open(&st.secret, &raw));
@@ -306,26 +323,13 @@ pub async fn callback(
     }
 }
 
-/// The app gets a one-time code on its redirect URI; the browser gets the session cookie (returned as Some).
+/// Web sign-in: the target and the new session for the browser's cookie.
 async fn signed_in(
     st: &AppState,
     headers: &HeaderMap,
     id: i64,
     pending: Pending,
-) -> Result<(String, Option<String>), Fail> {
-    if let Some(challenge) = pending.app {
-        let code = super::app::issue_code(st, id, challenge)
-            .await
-            .map_err(|e| {
-                eprintln!("oidc app login: storing the code failed: {e}");
-                Fail::Failed
-            })?;
-        let mut target = format!("{}?code={code}", super::app::REDIRECT);
-        if let Some(t) = pending.invite {
-            target.push_str(&format!("&invite={t}"));
-        }
-        return Ok((target, None));
-    }
+) -> Result<(String, String), Fail> {
     drop_incoming_session(st, headers).await.map_err(|e| {
         eprintln!("oidc login: dropping the old session failed: {}", e.code);
         Fail::Failed
@@ -340,7 +344,7 @@ async fn signed_in(
         Some(t) => format!("/invite/{t}"),
         None => "/".into(),
     };
-    Ok((target, Some(sid)))
+    Ok((target, sid))
 }
 
 async fn finish(
