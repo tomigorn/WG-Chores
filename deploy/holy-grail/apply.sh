@@ -21,16 +21,19 @@ Inserted, once:
   Docker/_global/checklist.md              two rows after Tech-Radar
   Docker/Authentik/README.md               provisioning line after AudioBookRequest
 Env: WGC_PROJECTS (default /home/pi/Projects).
+Tab completion: source deploy/holy-grail/completions/apply.sh.bash   (fish: apply.sh.fish)
 Guide: docs/guides/go-live-holy-grail.md
 EOF
 }
 
+usage_error() { echo "$1" >&2; echo "try: deploy/holy-grail/apply.sh --help" >&2; exit 2; }
+(( $# <= 1 )) || usage_error "one option at most, got: $*"
 mode=dry
 case "${1:-}" in
   ""|--dry-run) mode=dry ;;
   --apply) mode=apply ;;
   -h|--help) usage; exit 0 ;;
-  *) echo "unknown option: $1" >&2; echo "try: deploy/holy-grail/apply.sh --help" >&2; exit 2 ;;
+  *) usage_error "unknown option: $1" ;;
 esac
 [[ -d $DEST/Docker ]] || { echo "no HomeLab-FastPi at $DEST (set WGC_PROJECTS)" >&2; exit 2; }
 
