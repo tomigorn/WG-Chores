@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk@sha256:0a3f329821dcadf54b2a3033a15e2e9f007069a9db43d7f51897e6b80e726b07
+FROM eclipse-temurin:25-jdk@sha256:b8705e936964c228dfce359e63dbf08f6c69cb380ed1d576b1f6b1064f15567d
 
 ARG CMDLINE_TOOLS_VERSION=15859902
 ARG CMDLINE_TOOLS_SHA256=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
@@ -15,7 +15,7 @@ ENV PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platfo
 
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      unzip git procps tzdata \
+      curl ca-certificates unzip git procps tzdata \
       libpulse0 libgl1 libegl1 libnss3 libdbus-1-3 libxkbcommon0 libxkbfile1 \
       libx11-6 libxext6 libxfixes3 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxrandr2 libxtst6 libxrender1 \
  && rm -rf /var/lib/apt/lists/* \

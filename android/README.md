@@ -111,7 +111,7 @@ APK: `apksigner` (v2/v3 signatures); AAB: `jarsigner` (what Play expects for the
 ## Image
 | Part | Version |
 |---|---|
-| Base | `eclipse-temurin:21-jdk` pinned by digest (Ubuntu 26.04), `tzdata` |
+| Base | `eclipse-temurin:25-jdk` pinned by digest (Ubuntu 26.04), `tzdata`; signing on fastpi stays on the pinned `21-jdk` (Signing, above) |
 | cmdline-tools | 15859902 (sha256 checked) |
 | SDK | platform-tools, `platforms;android-36`, `platforms;android-37.0`, `build-tools;36.0.0`, emulator, `system-images;android-36;google_apis;x86_64` |
 | Size | 9.9 GB disk space on beefy (2.9 GB compressed image size) |
