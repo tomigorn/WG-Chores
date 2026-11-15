@@ -10,7 +10,7 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 | `android/` | Kotlin + Compose app (`app/`, catalog `gradle/libs.versions.toml`); `build-env/` beefy build image (`Dockerfile`, `run-in-container.sh`, `smoke/` self-test project), `scripts/beefy-build.sh` (+ `completions/`, `test-beefy-build.sh`): builds on beefy from fastpi, see `android/README.md` |
 | `deploy/` | `compose.example.yaml` (self-hosters); `holy-grail/` fastpi kit: `Projects/` mirrors HomeLab-FastPi paths (compose `Docker/WG-Chores-v2` + `Docker/WG-Chores-Demo` incl. demo-reset `systemd/`, Traefik route, Authentik provisioning, post-update checks), `snippets/` inserted into existing files, `apply.sh` (dry-run diff / apply, never commits there), `completions/` |
 | `.github/` | `workflows/ci.yml` (tests on pull requests, called by release), `workflows/release.yml` (multi-arch image `tomigorn/wg-chores` to Docker Hub); `renovate.json` at the root |
-| `docs/guides/` | owner guides (`docker-hub-release.md`, `go-live-holy-grail.md`) |
+| `docs/guides/` | owner guides (`docker-hub-release.md`, `go-live-holy-grail.md`, `play-store-first-release.md`, `android-signing-key.md`); Play Store texts and form answers in `android/store/` |
 | `Dockerfile` | stages `web` (npm ci/test/build) → `build` (cargo test + static musl release) → `test` target → `scratch` (uid 65035:65037, `/data`, `/tmp` 1777, health check `wg-chores healthcheck`); bases pinned by digest |
 
 ## Build and test

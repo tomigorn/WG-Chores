@@ -7,6 +7,15 @@ Shared household chore tracker: who did what, how long ago. One small Rust serve
 | [docs/privacy.md](docs/privacy.md) | what is stored, where |
 | [docs/account-deletion.md](docs/account-deletion.md) | how to delete an account |
 
+## Android app
+Source, build and signing: [android/README.md](android/README.md). Play Store:
+
+| Doc | What |
+|---|---|
+| [docs/guides/play-store-first-release.md](docs/guides/play-store-first-release.md) | first release, step by step: create app, listing, app content, tests, production, updates |
+| [docs/guides/android-signing-key.md](docs/guides/android-signing-key.md) | upload key: create, back up, reset, fingerprints for `ANDROID_CERT_SHA256` |
+| `android/store/` | listing texts (en, de), data safety and content rating answers, reviewer access template |
+
 ## Self-hosting
 Image: `tomigorn/wg-chores:latest` on Docker Hub (amd64 + arm64) once published; until then build it yourself. One container, data in the `/data` volume, port 8080 on 127.0.0.1, needs an https reverse proxy in front; HSTS is the proxy's job.
 
