@@ -79,6 +79,19 @@ export function createPush(d: PushDeps) {
       return (await subscribeAndPost(lang)) ? 'subscribed' : 'unsupported';
     },
     disable: drop,
+    /** Sign-out: drops this device's subscription (server side best effort, the logout call covers it too); never throws. */
+    async signOut(server = true): Promise<string | null> {
+      try {
+        const sub = await (await d.registration())?.pushManager.getSubscription();
+        if (!sub) return null;
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe().catch(() => {});
+        if (server) await d.api.unsubscribe(endpoint).catch(() => {});
+        return endpoint;
+      } catch {
+        return null;
+      }
+    },
     /** On app start: keeps this device's subscription in step with the account, never prompts. */
     async refresh(wanted: boolean, lang: Lang): Promise<void> {
       try {

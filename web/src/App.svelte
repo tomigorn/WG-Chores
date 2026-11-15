@@ -14,8 +14,8 @@
   import Settings from './screens/Settings.svelte';
   import { watchDropped } from './lib/snack';
   import { clearUserCache, startSync, stopSync, sync } from './lib/sync';
-  import { api, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
-  import { bootFailure, cachedSession, forgetSession, rememberSession } from './lib/boot';
+  import { api, ApiError, setUnauthenticatedHandler, type Me, type ServerConfig } from './lib/api';
+  import { bootFailure, cachedSession, clearLogoutPending, forgetSession, logoutPending, rememberSession, setLogoutPending } from './lib/boot';
   import { push } from './lib/push';
   import { watchUpdates, type ContainerLike } from './lib/update';
   import UpdateBar from './components/UpdateBar.svelte';
@@ -45,17 +45,34 @@
     navigate('/login', { replace: true });
   }
 
+  // the old session must end on the server before /me could open it again
+  async function finishLogout(p: { endpoint: string | null; config: ServerConfig }) {
+    try {
+      config = await api.config();
+      await api.logout(p.endpoint);
+      clearLogoutPending();
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 401)) {
+        config ??= p.config;
+        me = null;
+        if (route.name !== 'login' && route.name !== 'invite') navigate('/login', { replace: true });
+        return false;
+      }
+      clearLogoutPending();
+    }
+    return true;
+  }
+
   async function boot() {
     failed = null;
+    const pending = logoutPending();
+    if (pending && !(await finishLogout(pending))) return;
     try {
       config = await api.config();
       me = await api.me();
       stale = false;
       rememberSession(config, me);
-      if (!pushChecked) {
-        pushChecked = true;
-        void push.refresh(me.notify_done || me.notify_due, currentLanguage());
-      }
+      checkPush(me);
       // SSO returns to /, so the page wanted before sign-in is picked up here too
       const next = takeNext();
       if (route.name === 'login' || (route.name === 'home' && next !== '/')) navigate(next, { replace: true });
@@ -75,8 +92,18 @@
     }
   }
 
+  function checkPush(m: Me) {
+    if (pushChecked) return;
+    pushChecked = true;
+    void push.refresh(m.notify_done || m.notify_due, currentLanguage());
+  }
+
   async function signedIn(mode: 'login' | 'register' = 'login'): Promise<Me | null> {
     me = await api.me().catch(() => null);
+    if (me) {
+      clearLogoutPending();
+      checkPush(me);
+    }
     const invite = route.name === 'login' ? inviteParam(url) : null;
     if (me && invite && mode === 'login') navigate(`/invite/${invite}`, { replace: true });
     else if (me && route.name !== 'invite') navigate(takeNext(), { replace: true });
@@ -96,13 +123,18 @@
 
   async function signOut(serverSide = true) {
     unsynced = 0;
+    const endpoint = await push.signOut(serverSide);
+    if (serverSide && config) setLogoutPending(endpoint, config);
     if (me) await sync().discard();
     forgetSession();
     stopSync();
+    pushChecked = false;
     try {
-      if (serverSide) await api.logout();
-    } catch {
-      /* the cookie stays only when offline; the server ends it after 30 idle days */
+      if (serverSide) await api.logout(endpoint);
+      clearLogoutPending();
+    } catch (e) {
+      // offline: finished at the next start or when the network is back
+      if (e instanceof ApiError && e.status === 401) clearLogoutPending();
     } finally {
       me = null;
       navigate('/login', { replace: true });
@@ -122,7 +154,7 @@
       url = u;
     });
     const offLang = onLanguage((l) => (lang = l));
-    const online = () => (failed || stale) && boot();
+    const online = () => (failed || stale || logoutPending()) && boot();
     if (import.meta.env.PROD && 'serviceWorker' in navigator) {
       watchUpdates(navigator.serviceWorker as unknown as ContainerLike, {
         onUpdate: (apply) => (applyUpdate = apply),

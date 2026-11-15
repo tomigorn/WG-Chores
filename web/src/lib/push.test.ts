@@ -122,4 +122,23 @@ describe('push', () => {
     expect(pushStatus({ ua: ipad, standalone: false, supported: false, permission: 'default', touchPoints: 5 })).toBe('needs-install');
     expect(pushStatus({ ua: ipad, standalone: false, supported: true, permission: 'default', touchPoints: 0 })).toBe('ready');
   });
+
+  it('sign_out_drops_this_device_and_returns_its_endpoint_even_offline', async () => {
+    const sub = fakeSub();
+    const { d } = deps('granted', sub);
+    d.api.unsubscribe.mockRejectedValue(new Error('offline'));
+    expect(await createPush(d).signOut()).toBe('https://fcm.googleapis.com/fcm/send/abc');
+    expect(sub.unsubscribe).toHaveBeenCalled();
+    expect(d.api.unsubscribe).toHaveBeenCalledWith('https://fcm.googleapis.com/fcm/send/abc');
+
+    const deleted = deps('granted', fakeSub());
+    expect(await createPush(deleted.d).signOut(false)).toBe('https://fcm.googleapis.com/fcm/send/abc');
+    expect(deleted.d.api.unsubscribe).not.toHaveBeenCalled();
+
+    const none = deps('granted');
+    expect(await createPush(none.d).signOut()).toBeNull();
+    const broken = deps('granted');
+    broken.d.registration.mockRejectedValue(new Error('no worker'));
+    expect(await createPush(broken.d).signOut()).toBeNull();
+  });
 });

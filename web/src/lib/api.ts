@@ -241,7 +241,7 @@ export const api = {
   config: () => request<ServerConfig>('GET', '/api/v1/config'),
   login: (username: string, password: string) => request<User>('POST', '/api/v1/auth/login', { username, password }),
   register: (r: RegisterRequest) => request<User>('POST', '/api/v1/auth/register', r),
-  logout: () => request<void>('POST', '/api/v1/auth/logout'),
+  logout: (pushEndpoint?: string | null) => request<void>('POST', '/api/v1/auth/logout', pushEndpoint ? { push_endpoint: pushEndpoint } : undefined),
 
   me: () => request<Me>('GET', '/api/v1/me'),
   patchMe: (p: MePatch) => request<Me>('PATCH', '/api/v1/me', p),

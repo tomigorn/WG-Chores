@@ -185,6 +185,8 @@ describe('api request shapes', () => {
     expect(await call(() => api.patchMe({ notify_due: false }))).toMatchObject({ method: 'PATCH', url: '/api/v1/me', body: { notify_due: false } });
     expect(await call(() => api.deleteMe({ current_password: 'old password 123' }), 204)).toMatchObject({ method: 'DELETE', url: '/api/v1/me', body: { current_password: 'old password 123' } }); // leak-check: ok
     expect(await call(() => api.deleteMe({ confirm_username: 'Jane Doe' }), 204)).toMatchObject({ body: { confirm_username: 'Jane Doe' } });
+    expect(await call(() => api.logout('https://push.example.com/x'), 204)).toMatchObject({ method: 'POST', url: '/api/v1/auth/logout', body: { push_endpoint: 'https://push.example.com/x' } });
+    expect(await call(() => api.logout(), 204)).toMatchObject({ body: undefined });
     expect(await call(() => api.setLastHousehold(4), 204)).toMatchObject({ method: 'PUT', url: '/api/v1/me/last-household', body: { id: 4 } });
   });
 

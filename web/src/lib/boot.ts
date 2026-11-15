@@ -35,3 +35,31 @@ export function forgetSession(): void {
     /* storage unavailable */
   }
 }
+
+const LOGOUT = 'wgc.logout-pending';
+
+/** Sign-out whose server call has not gone through yet; finished before anything else at the next start. */
+export function setLogoutPending(endpoint: string | null, config: ServerConfig): void {
+  try {
+    localStorage.setItem(LOGOUT, JSON.stringify({ endpoint, config }));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function logoutPending(): { endpoint: string | null; config: ServerConfig } | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(LOGOUT) ?? 'null') as { endpoint?: string | null; config?: ServerConfig } | null;
+    return v?.config ? { endpoint: v.endpoint ?? null, config: v.config } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLogoutPending(): void {
+  try {
+    localStorage.removeItem(LOGOUT);
+  } catch {
+    /* storage unavailable */
+  }
+}
