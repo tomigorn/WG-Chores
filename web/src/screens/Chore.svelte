@@ -267,18 +267,18 @@
   {:else if phase === 'gone'}
     <div class="state">
       <Icon name="circle-alert" size={28} />
-      <p>{t('chore.not_found')}</p>
+      <p data-copy>{t('chore.not_found')}</p>
       <a class="btn" href="/">{t('invite.go_home')}</a>
     </div>
   {:else if phase === 'failed'}
     <div class="state">
       <Icon name={offline ? 'wifi-off' : 'circle-alert'} size={28} />
-      <p>{t(offline ? 'error.offline' : 'error.generic')}</p>
+      <p data-copy>{t(offline ? 'error.offline' : 'error.generic')}</p>
       <button class="btn" type="button" onclick={load}>{t('common.retry')}</button>
     </div>
   {:else if chore && last}
     <p class="meta" data-nowrap>{choreMeta(chore, lang)}</p>
-    {#if offline}<p class="note">{t('list.offline_note')}</p>{/if}
+    {#if offline}<p data-copy class="note">{t('list.offline_note')}</p>{/if}
     {#if chore.archived}
       <div class="archived">
         <span>{t('chore.archived_note')}</span>
@@ -305,9 +305,9 @@
     </section>
     {#if usual}<p class="usual">{usual}</p>{/if}
 
-    <h2 class="sec">{t('chore.history')}</h2>
+    <h2 data-copy class="sec">{t('chore.history')}</h2>
     {#if entries.length === 0}
-      <p class="empty">{t('chore.no_history')}</p>
+      <p data-copy class="empty">{t('chore.no_history')}</p>
     {:else}
       <ul class="history card">
         {#each entries as e (e.id)}
@@ -326,7 +326,7 @@
       {#if next}
         <button class="more" type="button" bind:this={sentinel} onclick={more} disabled={loadingMore}>{t('chore.load_more')}</button>
       {/if}
-      <p class="hint">{t('chore.tap_hint')}</p>
+      <p data-copy class="hint">{t('chore.tap_hint')}</p>
     {/if}
   {/if}
 </main>

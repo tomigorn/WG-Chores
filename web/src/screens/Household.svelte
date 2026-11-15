@@ -228,7 +228,7 @@
   {#if !loaded && failed}
     <div class="state">
       <Icon name={offline ? 'wifi-off' : 'circle-alert'} size={28} />
-      <p>{t(offline ? 'error.offline' : 'error.generic')}</p>
+      <p data-copy>{t(offline ? 'error.offline' : 'error.generic')}</p>
       <button class="btn" type="button" onclick={load}>{t('common.retry')}</button>
     </div>
   {:else if !loaded}
@@ -238,12 +238,12 @@
   {:else if chores.length === 0}
     <div class="state">
       <Icon name="list-checks" size={32} />
-      <h1 class="state-title">{t('list.empty_title')}</h1>
-      <p>{t('list.empty_text')}</p>
+      <h1 data-copy class="state-title">{t('list.empty_title')}</h1>
+      <p data-copy>{t('list.empty_text')}</p>
       <a class="btn btn-primary" href="/households/{hid}/new-chore"><Icon name="plus" size={18} />{t('list.add_chore')}</a>
     </div>
   {:else}
-    {#if offline}<p class="note">{t('list.offline_note')}</p>{/if}
+    {#if offline}<p data-copy class="note">{t('list.offline_note')}</p>{/if}
     {#each groups as g (g.category ?? '')}
       <section class="group">
         <h2 class="cat" data-nowrap>{g.category ?? t('list.other_category')}</h2>
@@ -265,7 +265,7 @@
 {/if}
 
 <Sheet open={switcherOpen} onclose={() => (switcherOpen = false)} label={t('menu.switch')}>
-  <h2 class="sheet-title">{t('menu.your_households')}</h2>
+  <h2 data-copy class="sheet-title">{t('menu.your_households')}</h2>
   <ul class="hh-list">
     {#each households as h (h.id)}
       <li>

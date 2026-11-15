@@ -118,7 +118,7 @@
 
 <main class="screen">
   {#if phase === 'loading'}
-    <p class="muted" aria-busy="true">{t('common.loading')}</p>
+    <p data-copy class="muted" aria-busy="true">{t('common.loading')}</p>
   {:else if phase === 'failed'}
     <div class="alert" role="alert"><Icon name="circle-alert" size={18} /><span>{failure}</span></div>
     <button class="btn" type="button" onclick={load}>{t('common.retry')}</button>
@@ -137,7 +137,7 @@
         <datalist id="chore-categories">
           {#each categories as c (c.name)}<option value={c.name}></option>{/each}
         </datalist>
-        <span class="hint">{t('edit.category_hint')}</span>
+        <span class="hint" data-copy>{t('edit.category_hint')}</span>
         {#if canRenameAll}
           <label class="check">
             <input id="rename-all" type="checkbox" bind:checked={renameAll} />
@@ -152,12 +152,12 @@
             <button type="button" class="chip" aria-pressed={interval === c} onclick={() => toggle(c)} data-nowrap>{intervalWord(c, lang)}</button>
           {/each}
         </div>
-        <span class="hint">{t('edit.none_hint')}</span>
+        <span class="hint" data-copy>{t('edit.none_hint')}</span>
       </div>
       {#if editing}
         <div class="danger-zone">
           <button class="btn btn-danger" type="button" onclick={() => (confirmArchive = true)}><Icon name="archive" size={18} />{t('edit.archive')}</button>
-          <span class="hint">{t('edit.archive_hint')}</span>
+          <span class="hint" data-copy>{t('edit.archive_hint')}</span>
         </div>
       {/if}
     </form>

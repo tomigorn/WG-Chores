@@ -33,7 +33,7 @@
   <aside class="banner card" class:inset aria-label={t('install.guide_title')}>
     <span class="lead"><Icon name={mode === 'desktop' ? 'download' : mode === 'ios-other' ? 'compass' : 'smartphone'} size={20} /></span>
     <div class="body">
-      <p>{text}</p>
+      <p data-copy>{text}</p>
       {#if mode !== 'ios-other'}
         <div class="actions">
           {#if mode === 'ios-safari'}
@@ -51,11 +51,11 @@
 
 <Sheet open={guide} onclose={() => (guide = false)} label={t('install.guide_title')}>
   <div class="guide">
-    <h2>{t('install.guide_title')}</h2>
+    <h2 data-copy>{t('install.guide_title')}</h2>
     <ol>
-      <li><span class="step"><Icon name="share" size={22} /></span><span>{t('install.step_share')}</span></li>
-      <li><span class="step"><Icon name="square-plus" size={22} /></span><span>{t('install.step_add')}</span></li>
-      <li><span class="step"><Icon name="check" size={22} /></span><span>{t('install.step_confirm')}</span></li>
+      <li><span class="step"><Icon name="share" size={22} /></span><span data-copy>{t('install.step_share')}</span></li>
+      <li><span class="step"><Icon name="square-plus" size={22} /></span><span data-copy>{t('install.step_add')}</span></li>
+      <li><span class="step"><Icon name="check" size={22} /></span><span data-copy>{t('install.step_confirm')}</span></li>
     </ol>
     <button class="btn btn-primary btn-block" type="button" onclick={() => (guide = false)}>{t('install.done')}</button>
   </div>
@@ -116,6 +116,28 @@
 
   .close:hover {
     background: var(--bg);
+  }
+
+  /* narrow (small screen or large text): icon and close on top, the text gets the full width below */
+  @container (max-width: 21em) {
+    .banner {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      row-gap: var(--s2);
+    }
+
+    .close {
+      grid-column: 3;
+      grid-row: 1;
+      margin: calc(-1 * var(--s1)) 0;
+    }
+
+    .body {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      padding: 0;
+    }
   }
 
   .guide {

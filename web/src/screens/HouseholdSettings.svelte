@@ -203,22 +203,22 @@
 
 <main class="screen">
   {#if phase === 'loading'}
-    <p class="muted" aria-busy="true">{t('common.loading')}</p>
+    <p data-copy class="muted" aria-busy="true">{t('common.loading')}</p>
   {:else if phase === 'gone'}
     <div class="state">
       <Icon name="circle-alert" size={28} />
-      <p>{t('error.not_found')}</p>
+      <p data-copy>{t('error.not_found')}</p>
       <a class="btn" href="/households">{t('nav.households')}</a>
     </div>
   {:else if phase === 'failed'}
     <div class="state">
       <Icon name={offline ? 'wifi-off' : 'circle-alert'} size={28} />
-      <p>{t(offline ? 'error.offline' : 'error.generic')}</p>
+      <p data-copy>{t(offline ? 'error.offline' : 'error.generic')}</p>
       <button class="btn" type="button" onclick={load}>{t('common.retry')}</button>
     </div>
   {:else if household}
     <form class="rename section" onsubmit={rename}>
-      <label class="section-title" for="hh-name">{t('hh.name')}</label>
+      <label class="section-title" data-copy for="hh-name">{t('hh.name')}</label>
       <div class="inline">
         <input id="hh-name" class="input" maxlength="60" required autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" bind:value={name} />
         <button class="btn" type="submit" disabled={busy || !name.trim() || name.trim() === household.name}>{t('hh.save')}</button>
@@ -226,7 +226,7 @@
     </form>
 
     <section class="section">
-      <h2 class="section-title">{t('hh.members')}</h2>
+      <h2 data-copy class="section-title">{t('hh.members')}</h2>
       <ul class="rows card members">
         {#each members as m (m.id)}
           <li class="member">
@@ -283,16 +283,16 @@
               {/each}
             </ul>
           {:else if searched === who.trim()}
-            <p class="muted small">{t('hh.no_hits')}</p>
+            <p data-copy class="muted small">{t('hh.no_hits')}</p>
           {/if}
         {/if}
       </div>
     </section>
 
     <section class="section">
-      <h2 class="section-title">{t('hh.invites')}</h2>
+      <h2 data-copy class="section-title">{t('hh.invites')}</h2>
       <div class="card card-pad">
-        <p class="muted small">{t('hh.invite_hint')}</p>
+        <p data-copy class="muted small">{t('hh.invite_hint')}</p>
         {#if newInvite}
           <div class="new-link">
             <input class="input" readonly value={newInvite.url} aria-label={t('hh.invites')} onfocus={(e) => e.currentTarget.select()} />
@@ -318,12 +318,12 @@
           {/each}
         </ul>
       {:else}
-        <p class="muted small pad">{t('hh.no_invites')}</p>
+        <p data-copy class="muted small pad">{t('hh.no_invites')}</p>
       {/if}
     </section>
 
     <section class="section">
-      <h2 class="section-title">{t('hh.archived')}</h2>
+      <h2 data-copy class="section-title">{t('hh.archived')}</h2>
       {#if archived.length}
         <ul class="rows card">
           {#each archived as c (c.id)}
@@ -334,7 +334,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="muted small pad">{t('hh.no_archived')}</p>
+        <p data-copy class="muted small pad">{t('hh.no_archived')}</p>
       {/if}
     </section>
 

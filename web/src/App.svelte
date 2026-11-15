@@ -174,7 +174,7 @@
   {#if failed}
     <main class="center">
       <Icon name={failed === 'error.offline' ? 'wifi-off' : 'circle-alert'} size={28} />
-      <p>{t(failed)}</p>
+      <p data-copy>{t(failed)}</p>
       <button class="btn" type="button" onclick={boot}>{t('common.retry')}</button>
     </main>
   {:else if showLogin && config}
@@ -206,8 +206,8 @@
   {#if applyUpdate}<UpdateBar onreload={applyUpdate} />{/if}
   <Sheet open={unsynced > 0} onclose={() => (unsynced = 0)} label={t('logout.title')}>
     <div class="confirm">
-      <h2>{t('logout.title')}</h2>
-      <p>{t(unsynced === 1 ? 'logout.unsynced_one' : 'logout.unsynced_other', { n: unsynced })}</p>
+      <h2 data-copy>{t('logout.title')}</h2>
+      <p data-copy>{t(unsynced === 1 ? 'logout.unsynced_one' : 'logout.unsynced_other', { n: unsynced })}</p>
       <button class="btn btn-primary btn-block" type="button" onclick={() => signOut()}>{t('logout.anyway')}</button>
       <button class="btn btn-block" type="button" onclick={() => (unsynced = 0)}>{t('logout.cancel')}</button>
     </div>

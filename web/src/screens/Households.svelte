@@ -70,19 +70,19 @@
 <main class="screen">
   <InstallBanner />
   {#if phase === 'loading'}
-    <p class="muted" aria-busy="true">{t('common.loading')}</p>
+    <p data-copy class="muted" aria-busy="true">{t('common.loading')}</p>
   {:else if phase === 'failed'}
     <div class="state">
       <Icon name={offline ? 'wifi-off' : 'circle-alert'} size={28} />
-      <p>{t(offline ? 'error.offline' : 'error.generic')}</p>
+      <p data-copy>{t(offline ? 'error.offline' : 'error.generic')}</p>
       <button class="btn" type="button" onclick={load}>{t('common.retry')}</button>
     </div>
   {:else}
     {#if list.length === 0 && !creating}
       <div class="state">
         <Icon name="house" size={32} />
-        <h2 class="state-title">{t('households.empty_title')}</h2>
-        <p>{t('households.empty_text')}</p>
+        <h2 data-copy class="state-title">{t('households.empty_title')}</h2>
+        <p data-copy>{t('households.empty_text')}</p>
       </div>
     {/if}
     {#if list.length}

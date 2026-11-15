@@ -57,7 +57,7 @@
 
 <main class="screen">
   <section class="section">
-    <h2 class="section-title" id="theme-title">{t('settings.theme')}</h2>
+    <h2 data-copy class="section-title" id="theme-title">{t('settings.theme')}</h2>
     <div class="seg" role="radiogroup" aria-label={t('settings.theme')}>
       {#each THEMES as s (s)}
         <button type="button" role="radio" aria-checked={theme === s} onclick={() => ontheme(s)}>{t(`theme.${s}`)}</button>
@@ -66,7 +66,7 @@
   </section>
 
   <section class="section">
-    <h2 class="section-title">{t('settings.language')}</h2>
+    <h2 data-copy class="section-title">{t('settings.language')}</h2>
     <div class="seg" role="radiogroup" aria-label={t('settings.language')}>
       {#each LANGS as l (l.v)}
         <button type="button" role="radio" aria-checked={language === l.v} lang={l.v === 'system' ? undefined : l.v} onclick={() => chooseLanguage(l.v)}>{t(l.key)}</button>
@@ -75,14 +75,14 @@
   </section>
 
   <section class="section">
-    <h2 class="section-title">{t('settings.notifications')}</h2>
+    <h2 data-copy class="section-title">{t('settings.notifications')}</h2>
     <ul class="rows card">
       {#each [{ k: 'done', label: 'settings.notify_done', hint: 'settings.notify_done_hint' }, { k: 'due', label: 'settings.notify_due', hint: 'settings.notify_due_hint' }] as const as n (n.k)}
         <li>
           <label class="toggle" for="notify-{n.k}">
             <span class="text">
-              <span class="label">{t(n.label)}</span>
-              <span class="hint">{t(n.hint)}</span>
+              <span class="label" data-copy>{t(n.label)}</span>
+              <span class="hint" data-copy>{t(n.hint)}</span>
             </span>
             <input id="notify-{n.k}" type="checkbox" role="switch" checked={notify[n.k]} disabled={needsInstall} onchange={(e) => toggle(n.k, e.currentTarget.checked, e.currentTarget)} />
           </label>
@@ -90,13 +90,13 @@
       {/each}
     </ul>
     {#if blocked}
-      <p class="note"><Icon name="bell-off" size={16} /><span>{t('settings.blocked')}</span></p>
+      <p data-copy class="note"><Icon name="bell-off" size={16} /><span>{t('settings.blocked')}</span></p>
     {:else if notAllowed}
-      <p class="note"><Icon name="bell-off" size={16} /><span>{t('settings.not_allowed')}</span></p>
+      <p data-copy class="note"><Icon name="bell-off" size={16} /><span>{t('settings.not_allowed')}</span></p>
     {:else if needsInstall}
-      <p class="note"><Icon name="smartphone" size={16} /><span>{t('settings.install_first')}</span></p>
+      <p data-copy class="note"><Icon name="smartphone" size={16} /><span>{t('settings.install_first')}</span></p>
     {:else}
-      <p class="note"><Icon name="bell" size={16} /><span>{t('settings.notify_note')}</span></p>
+      <p data-copy class="note"><Icon name="bell" size={16} /><span>{t('settings.notify_note')}</span></p>
     {/if}
   </section>
 </main>

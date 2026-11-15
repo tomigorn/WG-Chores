@@ -68,7 +68,7 @@
       <h1 class="household" data-nowrap>{preview.household_name}</h1>
       {#if preview.valid}<p class="expires" data-nowrap>{expiresIn(preview.expires_at, new Date(), lang)}</p>{/if}
     {:else}
-      <h1 class="household">{t('invite.title')}</h1>
+      <h1 data-copy class="household">{t('invite.title')}</h1>
     {/if}
     {#if invalid}
       <div class="alert" role="alert"><Icon name="circle-alert" size={18} /><span>{invalid} {t('invite.invalid_hint')}</span></div>
@@ -83,7 +83,7 @@
     <button class="btn" type="button" onclick={load}>{t('common.retry')}</button>
   </main>
 {:else if !preview && !invalid}
-  <main class="center" aria-busy="true"><p>{t('common.loading')}</p></main>
+  <main class="center" aria-busy="true"><p data-copy>{t('common.loading')}</p></main>
 {:else if me || invalid}
   <main class="page">
     {@render card()}

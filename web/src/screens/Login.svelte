@@ -79,8 +79,8 @@
   {:else}
     <header class="brand">
       <span class="mark"><Icon name="list-checks" size={24} /></span>
-      <h1>{t('app.name')}</h1>
-      <p class="tagline">{t('app.tagline')}</p>
+      <h1 data-copy>{t('app.name')}</h1>
+      <p data-copy class="tagline">{t('app.tagline')}</p>
     </header>
   {/if}
 
@@ -88,7 +88,7 @@
     <h2 id="login-title">{mode === 'login' ? t('login.title') : t('login.register_title')}</h2>
 
     {#if invite && !header}
-      <p class="note">{t('login.invite_note')}</p>
+      <p data-copy class="note">{t('login.invite_note')}</p>
     {/if}
 
     {#if shown}
@@ -111,7 +111,7 @@
           <div class="field">
             <label for="display-name">{t('login.display_name')}</label>
             <input id="display-name" class="input" name="display_name" autocomplete="nickname" autocorrect="off" autocapitalize="off" spellcheck="false" maxlength="60" required bind:value={displayName} />
-            <span class="hint">{t('login.display_name_hint')}</span>
+            <span class="hint" data-copy>{t('login.display_name_hint')}</span>
           </div>
         {/if}
         <div class="field">
@@ -121,7 +121,7 @@
         <div class="field">
           <label for="password">{t('login.pw')}</label>
           <input id="password" class="input" type="password" name="password" autocomplete={PW_AUTOCOMPLETE[mode]} minlength={mode === 'register' ? 12 : undefined} required bind:value={password} />
-          {#if mode === 'register'}<span class="hint">{t('login.new_pw_hint')}</span>{/if}
+          {#if mode === 'register'}<span class="hint" data-copy>{t('login.new_pw_hint')}</span>{/if}
         </div>
         <button class="btn btn-block" class:btn-primary={!config.oidc || mode === 'register'} type="submit" disabled={busy}>
           {mode === 'login' ? t('login.submit') : t('login.register_submit')}
@@ -130,7 +130,7 @@
     {/if}
 
     {#if !config.oidc && !config.local_accounts}
-      <p class="note">{t('login.nothing_enabled')}</p>
+      <p data-copy class="note">{t('login.nothing_enabled')}</p>
     {/if}
   </section>
 

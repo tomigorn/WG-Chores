@@ -103,14 +103,14 @@
 
   {#if sso}
     <section class="section">
-      {#if config.oidc}<p class="muted small pad">{t('account.managed_by', { name: config.oidc.name })}</p>{/if}
+      {#if config.oidc}<p data-copy class="muted small pad">{t('account.managed_by', { name: config.oidc.name })}</p>{/if}
       {#if manage}
         <a class="btn" href={manage} target="_blank" rel="noopener noreferrer" data-external>{t('account.manage')}<Icon name="external-link" size={16} /></a>
       {/if}
     </section>
   {:else}
     <form class="section name-form" onsubmit={saveName}>
-      <label class="section-title" for="account-name">{t('account.name')}</label>
+      <label class="section-title" data-copy for="account-name">{t('account.name')}</label>
       <div class="card card-pad">
         {#if nameError}<div class="alert" role="alert"><Icon name="circle-alert" size={18} /><span>{nameError}</span></div>{/if}
         <input id="account-name" class="input" maxlength="60" required autocomplete="nickname" autocorrect="off" autocapitalize="off" spellcheck="false" bind:value={name} />
@@ -119,7 +119,7 @@
     </form>
 
     <form class="section pw-form" onsubmit={savePassword}>
-      <h2 class="section-title">{t('account.change_pw')}</h2>
+      <h2 data-copy class="section-title">{t('account.change_pw')}</h2>
       <div class="card card-pad">
         {#if pwError}<div class="alert" role="alert"><Icon name="circle-alert" size={18} /><span>{pwError}</span></div>{/if}
         <input class="visually-hidden" type="text" name="username" autocomplete="username" value={me.username ?? ''} readonly tabindex="-1" aria-hidden="true" />
@@ -130,7 +130,7 @@
         <div class="field">
           <label for="pw-new">{t('account.new')}</label>
           <input id="pw-new" class="input" type="password" autocomplete="new-password" minlength="12" required bind:value={pw} />
-          <span class="hint">{t('login.new_pw_hint')}</span>
+          <span class="hint" data-copy>{t('login.new_pw_hint')}</span>
         </div>
         <div class="field">
           <label for="pw-repeat">{t('account.repeat')}</label>
@@ -146,8 +146,8 @@
   </section>
 
   <section class="section danger">
-    <h2 class="section-title">{t('account.delete')}</h2>
-    <p class="muted small pad">{t('account.delete_text')}</p>
+    <h2 data-copy class="section-title">{t('account.delete')}</h2>
+    <p data-copy class="muted small pad">{t('account.delete_text')}</p>
     <button class="btn btn-danger" type="button" onclick={() => (deleting = true)}><Icon name="trash-2" size={18} />{t('account.delete')}</button>
   </section>
 </main>
