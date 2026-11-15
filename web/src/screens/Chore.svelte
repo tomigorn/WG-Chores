@@ -496,7 +496,7 @@
 
   .d {
     flex: none;
-    width: 5.5em;
+    min-width: 5.5em;
     color: var(--muted);
     font-size: var(--fs-sm);
     white-space: nowrap;
@@ -530,7 +530,7 @@
     }
 
     .d {
-      width: auto;
+      min-width: 0;
     }
   }
 
