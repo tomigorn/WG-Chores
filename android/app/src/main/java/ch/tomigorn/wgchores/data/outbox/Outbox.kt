@@ -25,6 +25,8 @@ data class OutboxItem(
     val tried: Boolean = false,
     /** Queued at, ms since epoch. */
     val at: Long = 0,
+    /** A delete from the chore page: the date of the history entry (null for an Undo). */
+    val entryOn: String? = null,
 ) {
     enum class Kind { Mark, Delete }
 }
@@ -87,7 +89,7 @@ class Outbox(
     }
 
     /** Undo: an unsent mark is removed; one the server may have (or an absent one) becomes a queued delete. */
-    suspend fun cancel(uuid: String, choreId: Long): Cancel {
+    suspend fun cancel(uuid: String, choreId: Long, entryOn: String? = null): Cancel {
         val r = mutex.withLock {
             if (uuid == inFlight) return@withLock Cancel.InFlight
             val cur = items().find { it.uuid == uuid }
@@ -98,7 +100,7 @@ class Outbox(
                 }
                 cur?.kind == OutboxItem.Kind.Delete -> Cancel.Queued
                 else -> {
-                    store.put(OutboxItem(uuid, choreId, cur?.doneOn.orEmpty(), null, OutboxItem.Kind.Delete, at = now()))
+                    store.put(OutboxItem(uuid, choreId, cur?.doneOn.orEmpty(), null, OutboxItem.Kind.Delete, at = now(), entryOn = entryOn))
                     Cancel.Queued
                 }
             }

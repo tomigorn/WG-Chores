@@ -36,7 +36,7 @@ sealed interface Notice {
     data object Connect : Notice
     data object Failed : Notice
     /** Done marks and Undos removed from the queue unsent; [name] when it is one mark. */
-    data class Dropped(val marks: Int, val name: String?, val undos: Int) : Notice
+    data class Dropped(val marks: Int, val name: String?, val undos: Int, val entries: List<String> = emptyList()) : Notice
     data class Waiting(val count: Int) : Notice
     data object Offline : Notice
     /** Any other short text: a string resource with an optional name in it. */
@@ -118,9 +118,10 @@ class ListController(
 
     private fun tellDropped(dropped: List<OutboxItem>) {
         if (dropped.isEmpty()) return
-        val (marks, undos) = dropped.partition { it.kind == OutboxItem.Kind.Mark }
+        val (marks, deletes) = dropped.partition { it.kind == OutboxItem.Kind.Mark }
+        val (entries, undos) = deletes.partition { it.entryOn != null }
         val name = marks.singleOrNull()?.let { d -> current(d.choreId)?.name }
-        snack(Snack.Text(Notice.Dropped(marks.size, name, undos.size)))
+        snack(Snack.Text(Notice.Dropped(marks.size, name, undos.size, entries.mapNotNull { it.entryOn })))
     }
 
     private fun current(id: Long): Chore? = _state.value.chores.find { it.id == id }

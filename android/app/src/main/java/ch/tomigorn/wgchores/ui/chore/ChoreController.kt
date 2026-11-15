@@ -272,7 +272,7 @@ class ChoreController(
         _state.update { it.copy(confirmDelete = null) }
         mutations++
         scope.launch {
-            val r = done.undo(e.id, choreId)
+            val r = done.deleteEntry(e.id, choreId, e.doneOn)
             refreshQueued()
             if (r == Done.Undo.Error) {
                 snack(Snack.Text(Notice.Failed))

@@ -53,5 +53,10 @@ fun noticeText(n: Notice): String = when (n) {
             else -> null
         },
         if (n.undos > 0) pluralStringResource(R.plurals.done_undo_rejected, n.undos, n.undos) else null,
+        when {
+            n.entries.size == 1 -> stringResource(R.string.entry_delete_dropped, Words.date(n.entries[0], java.time.LocalDate.now(), currentLocale()))
+            n.entries.size > 1 -> pluralStringResource(R.plurals.entry_delete_dropped_many, n.entries.size, n.entries.size)
+            else -> null
+        },
     ).joinToString(" ")
 }

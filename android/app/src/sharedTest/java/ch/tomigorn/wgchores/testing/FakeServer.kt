@@ -68,6 +68,8 @@ class FakeServer : Closeable {
     val invites = CopyOnWriteArrayList<FakeInvite>()
     val devices = CopyOnWriteArrayList<Device>()
     @Volatile var memberDirectory = true
+    @Volatile var refuseDeletes = false
+    @Volatile var refuseRename = false
     @Volatile var deleted = false
     @Volatile var notifyDone = true
     @Volatile var notifyDue = true
@@ -212,6 +214,7 @@ class FakeServer : Closeable {
             return when ("$m ${g.groupValues[2]}") {
                 "GET categories" -> list(Category.serializer(), categoriesOf(hid))
                 "PATCH categories" -> {
+                    if (refuseRename) return error(500, "http_500")
                     val b = body(r)
                     val from = b["from"]!!.jsonPrimitive.content
                     val to = b["to"]!!.jsonPrimitive.content
@@ -337,6 +340,7 @@ class FakeServer : Closeable {
             val old = completions[id] ?: return error(404, "not_found")
             return when (r.method) {
                 "DELETE" -> {
+                    if (refuseDeletes) return error(403, "forbidden")
                     completions.remove(id)
                     MockResponse(204, headersOf(), "")
                 }

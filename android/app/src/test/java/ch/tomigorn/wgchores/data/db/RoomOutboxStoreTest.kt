@@ -62,4 +62,10 @@ class RoomOutboxStoreTest {
         assertEquals(listOf("a"), sent)
         assertTrue(anna.all().isEmpty())
     }
+
+    @Test fun anEntryDeleteKeepsTheEntrysDate() = runBlocking {
+        anna.put(OutboxItem("e", 1, "", null, OutboxItem.Kind.Delete, at = 10, entryOn = "2026-10-19"))
+        anna.put(OutboxItem("u", 1, "", null, OutboxItem.Kind.Delete, at = 11))
+        assertEquals(listOf("2026-10-19", null), anna.all().map { it.entryOn })
+    }
 }

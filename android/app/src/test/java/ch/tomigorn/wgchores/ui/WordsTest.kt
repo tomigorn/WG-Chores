@@ -60,4 +60,15 @@ class WordsTest {
         assertEquals("läuft in 6 Tagen ab", de.getQuantityString(R.plurals.expiry_days, 6, 6))
         assertEquals("läuft in 1 Stunde ab", de.getQuantityString(R.plurals.expiry_hours, 1, 1))
     }
+
+    @Test fun refusedEntryDeletes() {
+        assertEquals("Couldn't delete the entry from 19 Oct; it stays.", ctx("en").getString(R.string.entry_delete_dropped, "19 Oct"))
+        assertEquals("Couldn't delete 2 entries; they stay.", ctx("en").resources.getQuantityString(R.plurals.entry_delete_dropped_many, 2, 2))
+        assertEquals("Der Eintrag vom 19. Okt. konnte nicht gelöscht werden und bleibt.", ctx("de").getString(R.string.entry_delete_dropped, "19. Okt."))
+    }
+
+    @Test fun usualGapKeepsNumberAndUnitTogether() {
+        assertEquals("Usually done every\u00a0~9\u00a0days", ctx("en").resources.getQuantityString(R.plurals.chore_usual, 9, 9))
+        assertEquals("Meist alle\u00a0~9\u00a0Tage erledigt", ctx("de").resources.getQuantityString(R.plurals.chore_usual, 9, 9))
+    }
 }

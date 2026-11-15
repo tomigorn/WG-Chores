@@ -56,7 +56,6 @@
 
     <string name="common_loading">Lädt…</string>
     <string name="common_retry">Noch einmal</string>
-    <string name="common_signed_in_as">Angemeldet als %1$s</string>
     <string name="nav_logout">Abmelden</string>
     <string name="nav_households">Meine Haushalte</string>
     <string name="nav_settings">Einstellungen</string>
@@ -64,7 +63,6 @@
 
     <string name="menu_open">Menü</string>
     <string name="menu_new_household">Neuer Haushalt</string>
-    <string name="menu_switch">Haushalt wechseln</string>
     <string name="menu_your_households">Deine Haushalte</string>
     <string name="menu_hh_switch_label">%1$s, Haushalt wechseln</string>
 
@@ -103,19 +101,16 @@
     <string name="done_rejected_many">%1$d Erledigt-Markierungen konnten nicht gespeichert werden und wurden aus der Warteschlange entfernt.</string>
     <string name="done_rejected_unknown">Ein Erledigt-Eintrag konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.</string>
 
-    <string name="sheet_title">%1$s – erledigt am</string>
     <string name="sheet_done_on">– erledigt am</string>
     <string name="sheet_today">Heute</string>
     <string name="sheet_yesterday">Gestern</string>
     <string name="sheet_two_days">Vorgestern</string>
     <string name="sheet_pick">Datum wählen</string>
-    <string name="sheet_date">Datum</string>
     <string name="sheet_note">Notiz (optional)</string>
     <string name="sheet_note_placeholder">z. B. neuen Reiniger benutzt</string>
     <string name="sheet_save">Speichern</string>
     <string name="sheet_cancel">Abbrechen</string>
 
-    <string name="sync_short">warten auf Sync</string>
     <plurals name="sync_waiting">
         <item quantity="one">1 wartet auf Sync</item>
         <item quantity="other">%1$d warten auf Sync</item>
@@ -174,7 +169,7 @@
     <string name="chore_never">Noch nie erledigt</string>
     <plurals name="chore_usual">
         <item quantity="one">Meist etwa täglich erledigt</item>
-        <item quantity="other">Meist alle ~%1$d Tage erledigt</item>
+        <item quantity="other">Meist alle&#160;~%1$d&#160;Tage erledigt</item>
     </plurals>
     <string name="chore_history">Verlauf</string>
     <string name="chore_edit">Bearbeiten</string>
@@ -227,7 +222,6 @@
     <string name="hh_add_search">Nach Name oder Benutzername suchen</string>
     <string name="hh_add_button">Hinzufügen</string>
     <string name="hh_added">%1$s hinzugefügt</string>
-    <string name="hh_search_short">Mindestens 2 Buchstaben eintippen</string>
     <string name="hh_no_hits">Niemand gefunden</string>
     <string name="hh_remove">Entfernen</string>
     <string name="hh_remove_label">%1$s entfernen</string>
@@ -237,7 +231,6 @@
     <string name="hh_invites">Einladungslinks</string>
     <string name="hh_invite_create">Einladungslink erstellen</string>
     <string name="hh_invite_hint">Ein Link gilt einmal, 7 Tage lang.</string>
-    <string name="hh_invite_new">Neuer Link, %1$s</string>
     <string name="hh_copy">Kopieren</string>
     <string name="hh_copied">Link kopiert</string>
     <string name="hh_share">Teilen</string>
@@ -258,7 +251,6 @@
     <string name="hh_leave_confirm">Verlassen</string>
     <string name="hh_delete_confirm">Haushalt löschen</string>
     <string name="hh_keep">Abbrechen</string>
-    <string name="invite_title">Du bist eingeladen</string>
     <string name="invite_preview">%1$s hat dich eingeladen in</string>
     <string name="invite_join">%1$s beitreten</string>
     <string name="invite_joined">Willkommen in %1$s</string>
@@ -306,7 +298,6 @@
     <string name="settings_notify_done_hint">Wenn ein Mitbewohner eine Aufgabe erledigt</string>
     <string name="settings_notify_due">Fällige Aufgaben</string>
     <string name="settings_notify_due_hint">Einmal, wenn eine Aufgabe fällig wird</string>
-    <string name="legal_label">Rechtliches</string>
     <string name="legal_privacy">Datenschutz (English)</string>
     <string name="legal_deletion">Konto löschen (English)</string>
     <string name="join_title">Mit einem Einladungslink beitreten</string>
@@ -324,4 +315,11 @@
     <string name="devices_sign_out_label">%1$s abmelden</string>
     <string name="devices_signed_out">%1$s abgemeldet</string>
     <string name="settings_notify_app">Die App schaut zweimal am Tag auf deinem Server nach.</string>
+    <string name="entry_delete_dropped">Der Eintrag vom %1$s konnte nicht gelöscht werden und bleibt.</string>
+    <plurals name="entry_delete_dropped_many">
+        <item quantity="one">1 Eintrag konnte nicht gelöscht werden und bleibt.</item>
+        <item quantity="other">%1$d Einträge konnten nicht gelöscht werden und bleiben.</item>
+    </plurals>
+    <string name="edit_rename_failed">Die Aufgabe ist gespeichert, die anderen behalten ihre Kategorie: %1$s</string>
+    <string name="settings_load_failed">Die Einstellungen für Benachrichtigungen konnten nicht geladen werden.</string>
 </resources>

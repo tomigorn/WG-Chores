@@ -57,7 +57,6 @@
 
     <string name="common_loading">Loading…</string>
     <string name="common_retry">Try again</string>
-    <string name="common_signed_in_as">Signed in as %1$s</string>
     <string name="nav_logout">Sign out</string>
     <string name="nav_households">My households</string>
     <string name="nav_settings">Settings</string>
@@ -65,7 +64,6 @@
 
     <string name="menu_open">Menu</string>
     <string name="menu_new_household">New household</string>
-    <string name="menu_switch">Switch household</string>
     <string name="menu_your_households">Your households</string>
     <string name="menu_hh_switch_label">%1$s, switch household</string>
 
@@ -104,19 +102,16 @@
     <string name="done_rejected_many">%1$d done marks could not be saved and were removed from the queue.</string>
     <string name="done_rejected_unknown">A done mark could not be saved and was removed from the queue.</string>
 
-    <string name="sheet_title">%1$s – done on</string>
     <string name="sheet_done_on">– done on</string>
     <string name="sheet_today">Today</string>
     <string name="sheet_yesterday">Yesterday</string>
     <string name="sheet_two_days">2 days ago</string>
     <string name="sheet_pick">Pick date</string>
-    <string name="sheet_date">Date</string>
     <string name="sheet_note">Note (optional)</string>
     <string name="sheet_note_placeholder">e.g. used the new cleaner</string>
     <string name="sheet_save">Save</string>
     <string name="sheet_cancel">Cancel</string>
 
-    <string name="sync_short">waiting to sync</string>
     <plurals name="sync_waiting">
         <item quantity="one">1 waiting to sync</item>
         <item quantity="other">%1$d waiting to sync</item>
@@ -175,7 +170,7 @@
     <string name="chore_never">Never done</string>
     <plurals name="chore_usual">
         <item quantity="one">Usually done about daily</item>
-        <item quantity="other">Usually done every ~%1$d days</item>
+        <item quantity="other">Usually done every&#160;~%1$d&#160;days</item>
     </plurals>
     <string name="chore_history">History</string>
     <string name="chore_edit">Edit</string>
@@ -228,7 +223,6 @@
     <string name="hh_add_search">Search by name or username</string>
     <string name="hh_add_button">Add</string>
     <string name="hh_added">%1$s added</string>
-    <string name="hh_search_short">Type at least 2 letters</string>
     <string name="hh_no_hits">Nobody found</string>
     <string name="hh_remove">Remove</string>
     <string name="hh_remove_label">Remove %1$s</string>
@@ -238,7 +232,6 @@
     <string name="hh_invites">Invite links</string>
     <string name="hh_invite_create">Create invite link</string>
     <string name="hh_invite_hint">A link works once, for 7 days.</string>
-    <string name="hh_invite_new">New link, %1$s</string>
     <string name="hh_copy">Copy</string>
     <string name="hh_copied">Link copied</string>
     <string name="hh_share">Share</string>
@@ -259,7 +252,6 @@
     <string name="hh_leave_confirm">Leave</string>
     <string name="hh_delete_confirm">Delete household</string>
     <string name="hh_keep">Cancel</string>
-    <string name="invite_title">You are invited</string>
     <string name="invite_preview">%1$s invited you to</string>
     <string name="invite_join">Join %1$s</string>
     <string name="invite_joined">Welcome to %1$s</string>
@@ -307,7 +299,6 @@
     <string name="settings_notify_done_hint">When a housemate marks a chore done</string>
     <string name="settings_notify_due">Chores due</string>
     <string name="settings_notify_due_hint">Once when a chore becomes due</string>
-    <string name="legal_label">Legal</string>
     <string name="legal_privacy">Privacy policy</string>
     <string name="legal_deletion">Account deletion</string>
     <string name="join_title">Join with an invite link</string>
@@ -325,4 +316,11 @@
     <string name="devices_sign_out_label">Sign out %1$s</string>
     <string name="devices_signed_out">%1$s signed out</string>
     <string name="settings_notify_app">The app checks your server for these twice a day.</string>
+    <string name="entry_delete_dropped">Couldn\'t delete the entry from %1$s; it stays.</string>
+    <plurals name="entry_delete_dropped_many">
+        <item quantity="one">Couldn\'t delete 1 entry; it stays.</item>
+        <item quantity="other">Couldn\'t delete %1$d entries; they stay.</item>
+    </plurals>
+    <string name="edit_rename_failed">The chore is saved, but the other chores keep their category: %1$s</string>
+    <string name="settings_load_failed">The notification settings could not be loaded.</string>
 </resources>

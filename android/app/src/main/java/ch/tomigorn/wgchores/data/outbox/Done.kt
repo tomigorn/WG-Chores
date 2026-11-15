@@ -28,11 +28,16 @@ class Done(private val outbox: Outbox, private val api: CompletionApi, private v
         return Mark(id, queued = outbox.items().any { it.uuid == id }, rejected = false)
     }
 
-    suspend fun undo(id: String, choreId: Long): Undo {
-        var r = outbox.cancel(id, choreId)
+    suspend fun undo(id: String, choreId: Long): Undo = remove(id, choreId, null)
+
+    /** Deleting a history entry on the chore page; offline it waits in the outbox like an Undo. */
+    suspend fun deleteEntry(id: String, choreId: Long, doneOn: String): Undo = remove(id, choreId, doneOn)
+
+    private suspend fun remove(id: String, choreId: Long, entryOn: String?): Undo {
+        var r = outbox.cancel(id, choreId, entryOn)
         if (r == Outbox.Cancel.InFlight) {
             outbox.idle()
-            r = outbox.cancel(id, choreId)
+            r = outbox.cancel(id, choreId, entryOn)
         }
         if (r == Outbox.Cancel.Removed) return Undo.Ok
         outbox.idle()

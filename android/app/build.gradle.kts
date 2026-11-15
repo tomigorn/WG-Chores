@@ -49,6 +49,8 @@ android {
         // shared with the server and the web app; beefy-build.sh ships docs/test-vectors/ along with android/
         getByName("test").resources.srcDir(rootDir.resolve("../docs/test-vectors"))
         getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
+        // Room schema history for the migration test (Robolectric reads the app's assets); debug builds only
+        getByName("debug").assets.srcDir("$projectDir/schemas")
     }
 
     testOptions {
@@ -113,6 +115,7 @@ dependencies {
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.room.testing)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

@@ -287,4 +287,17 @@ class ListControllerTest {
         val other = loaded()
         assertNull(other.state.value.snack)
     }
+
+    @Test fun anEntryDeletedOfflineAndRefusedLaterSaysWhichEntry() {
+        val c = loaded()
+        val date = fake.completions.getValue("seed-2").doneOn
+        fake.down = true
+        assertEquals(Done.Undo.Queued, runBlocking { account.done.deleteEntry("seed-2", 2, date) })
+        assertEquals(listOf(date), runBlocking { outbox.items() }.map { it.entryOn })
+        fake.down = false
+        fake.refuseDeletes = true
+        runBlocking { outbox.flush() }
+        waitUntil("entry notice") { (c.state.value.snack as? Snack.Text)?.text == Notice.Dropped(0, null, 0, listOf(date)) }
+        assertTrue(fake.completions.containsKey("seed-2"))
+    }
 }

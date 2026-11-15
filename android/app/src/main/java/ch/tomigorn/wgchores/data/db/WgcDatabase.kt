@@ -1,6 +1,7 @@
 package ch.tomigorn.wgchores.data.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
@@ -34,6 +35,8 @@ data class PendingDelete(
     val account: String,
     @ColumnInfo(name = "chore_id") val choreId: Long,
     @ColumnInfo(name = "created_at") val createdAt: Long,
+    /** Set for a history entry deleted on the chore page: its date, for the notice if the server refuses. */
+    @ColumnInfo(name = "entry_on") val entryOn: String? = null,
 )
 
 /** Last answers kept for offline viewing (chore lists, the signed-in user). */
@@ -70,7 +73,7 @@ interface OutboxDao {
             putMark(PendingMark(i.uuid, account, i.choreId, i.doneOn, i.note, i.tried, i.at))
         } else {
             deleteMark(account, i.uuid)
-            putDelete(PendingDelete(i.uuid, account, i.choreId, i.at))
+            putDelete(PendingDelete(i.uuid, account, i.choreId, i.at, i.entryOn))
         }
     }
 
@@ -98,7 +101,12 @@ interface CacheDao {
     suspend fun clearPrefix(prefix: String)
 }
 
-@Database(entities = [PendingMark::class, PendingDelete::class, CacheEntry::class], version = 1, exportSchema = true)
+@Database(
+    entities = [PendingMark::class, PendingDelete::class, CacheEntry::class],
+    version = 2,
+    exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class WgcDatabase : RoomDatabase() {
     abstract fun outbox(): OutboxDao
     abstract fun cache(): CacheDao
@@ -111,7 +119,7 @@ abstract class WgcDatabase : RoomDatabase() {
 class RoomOutboxStore(private val dao: OutboxDao, private val account: String) : OutboxStore {
     override suspend fun all(): List<OutboxItem> {
         val marks = dao.marks(account).map { OutboxItem(it.uuid, it.choreId, it.doneOn, it.note, OutboxItem.Kind.Mark, it.tried, it.createdAt) }
-        val deletes = dao.deletes(account).map { OutboxItem(it.uuid, it.choreId, "", null, OutboxItem.Kind.Delete, true, it.createdAt) }
+        val deletes = dao.deletes(account).map { OutboxItem(it.uuid, it.choreId, "", null, OutboxItem.Kind.Delete, true, it.createdAt, it.entryOn) }
         return (marks + deletes).sortedWith(compareBy({ it.at }, { it.uuid }))
     }
 
