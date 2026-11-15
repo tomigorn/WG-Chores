@@ -126,7 +126,7 @@ Never delete tags on Docker Hub: they are the way back.
 ## fastpi follows the image (at go-live, not yet applied)
 | Step | Detail |
 |---|---|
-| Compose | `deploy/compose.holy-grail.yaml`: `image: wg-chores-v2:local` becomes `image: tomigorn/wg-chores:latest` (pull, no local build) |
+| Compose | `deploy/holy-grail/Projects/Docker/WG-Chores-v2/docker-compose.yaml` (and `WG-Chores-Demo`): `image: tomigorn/wg-chores:latest` (pull, no local build); go-live: [go-live-holy-grail.md](go-live-holy-grail.md) |
 | Nightly update | 03:10 `auto_update.py` (HomeLab-FastPi `Docker/_global/`), one row in `auto-update.conf`; a new digest of `latest` is applied after a 24 h cool-down through `update-project.sh pull`: snapshot of compose/.env and the old image, backup, pull, recreate, wait, check every container is running and healthy, functional check, customization check, on failure the old image and the backup come back |
 | Tier | the app migrates its database at start: by `auto-update.conf`'s own rule a `notify` row (Telegram with the command), or `auto` with backup `vol:wg-chores-v2_wg-chores-v2-data` and check `docker exec wg-chores-v2 /wg-chores healthcheck`; your choice at go-live |
 | Major versions | never applied by the nightly update: the image label `org.opencontainers.image.version` is the `server/Cargo.toml` version |

@@ -11,7 +11,7 @@ Do steps 2 to 7 in one sitting: from step 2 on the customization checks (every 2
 
 ## 0. Prerequisites
 - Image on Docker Hub: [docker-hub-release.md](docker-hub-release.md) steps 1 to 6 (`tomigorn/wg-chores:latest` with linux/arm64).
-- Not published yet: `docker tag wg-chores-v2:local tomigorn/wg-chores:latest` (local image; Cup and the nightly update see it only after the first real pull).
+- Not published yet: `docker tag wg-chores-v2:local tomigorn/wg-chores:latest` (local image; Cup and the nightly update see it only after the first real pull). Once Docker Hub has it: `docker rmi tomigorn/wg-chores:latest && docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 pull && docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d && docker compose --project-directory ~/Projects/Docker/WG-Chores-Demo up -d` (removes the temporary tag, pulls the real image).
 - Cup needs no config: its fastpi agent lists every image on the host that has a registry digest, so `tomigorn/wg-chores` shows up once pulled.
 
 ## 1. Cloudflare (owner)
@@ -26,6 +26,7 @@ For each of `wg-chores` and `wg-chores-demo`:
 ## 2. Copy the kit into HomeLab-FastPi
 ```
 cd ~/Documents/development/WG-Chores
+source deploy/holy-grail/completions/apply.sh.bash   # tab completion (fish: source …/apply.sh.fish)
 deploy/holy-grail/apply.sh --dry-run     # shows the diff, writes nothing
 deploy/holy-grail/apply.sh --apply       # writes the files, secrets/ folders and .env; no commit
 docker logs --since 1m traefik 2>&1 | grep -i error   # empty = route loaded
@@ -41,6 +42,8 @@ docker compose exec -T -e WG_CHORES_OIDC_FILE=WG-Chores-v2/secrets/oidc_client_s
 ```
 `<rafi-username>`: his Holy Grail username (not written in this public repo). Expected: `set WG-Chores-v2/secrets/oidc_client_secret`, `CHANGE group WG created`, `CHANGE tomigorn added to WG`, `MISSING user <rafi-username>` (until step 8), `OK provisioned`. The secret only goes through the pipe into the file, never to the screen.
 
+Rerun (e.g. step 8): updates group, members, provider and binding; the client secret and its file stay as they are (`OK client credential unchanged`). New secret: add `-e WG_CHORES_OIDC_ROTATE=1`, then `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d --force-recreate`.
+
 ## 4. Secrets
 | File (in `~/Projects/Docker/`) | Owner, mode | How |
 |---|---|---|
@@ -50,7 +53,7 @@ docker compose exec -T -e WG_CHORES_OIDC_FILE=WG-Chores-v2/secrets/oidc_client_s
 openssl rand -base64 18 | tr -d '\n' | sudo install -o 65035 -g 65037 -m 0400 /dev/stdin ~/Projects/Docker/WG-Chores-Demo/secrets/demo_password
 sudo stat -c '%u:%g %a %n' ~/Projects/Docker/WG-Chores-*/secrets/*      # both 65035:65037 400
 ```
-Save the demo password in KeePassXC (Play reviewers need it): `sudo cat ~/Projects/Docker/WG-Chores-Demo/secrets/demo_password`.
+Save the demo password in KeePassXC (Play reviewers need it): `sudo cat ~/Projects/Docker/WG-Chores-Demo/secrets/demo_password`, then clear the terminal scrollback: `clear && printf '\e[3J'`.
 
 ## 5. Start the containers
 ```
@@ -62,7 +65,7 @@ docker ps --filter name=wg-chores- --format '{{.Names}} {{.Status}}'        # bo
 ## 6. Demo data and nightly reset
 ```
 docker exec wg-chores-demo /wg-chores demo-reset
-sudo cp ~/Documents/development/WG-Chores/deploy/systemd/wg-chores-demo-reset.* /etc/systemd/system/
+sudo cp ~/Projects/Docker/WG-Chores-Demo/systemd/wg-chores-demo-reset.* /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now wg-chores-demo-reset.timer
 systemctl list-timers wg-chores-demo-reset.timer      # next run 03:17
 ```

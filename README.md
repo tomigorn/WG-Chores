@@ -22,8 +22,7 @@ Then open `PUBLIC_URL`, sign in, create a household and share an invite link (Ho
 | File | Use |
 |---|---|
 | `deploy/compose.example.yaml` | self-hosters: local accounts, hardened (read-only, no capabilities, 128 MB RAM limit), health check |
-| `deploy/compose.holy-grail.yaml` | the author's server (SSO only, behind Traefik); needs `deploy/.env` (from `.env.example`) and `deploy/secrets/oidc_client_secret` |
-| `deploy/compose.demo.yaml` + `deploy/systemd/` | public demo behind Traefik (`traefik_wg_chores`, `TRUSTED_PROXIES`): `DEMO_MODE`; once after the first start `docker exec wg-chores-demo /wg-chores demo-reset`; nightly reset by a systemd system timer: `sudo cp deploy/systemd/wg-chores-demo-reset.* /etc/systemd/system/ && sudo systemctl enable --now wg-chores-demo-reset.timer` |
+| `deploy/holy-grail/` | the author's server (SSO only) and the public demo on fastpi, as files for HomeLab-FastPi plus `apply.sh`: [docs/guides/go-live-holy-grail.md](docs/guides/go-live-holy-grail.md) |
 
 Build the image (static binary on `scratch`, image about 6 MB disk space):
 ```
