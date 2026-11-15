@@ -1,6 +1,6 @@
 # WG Chores
 
-Shared household chore tracker: who did what, how long ago. One small Rust server (SQLite, web app built in) plus an installable web app (PWA, also on iPhone); Android app later. The previous .NET Blazor version is at tag `v1-dotnet-blazor-server`.
+Shared household chore tracker: who did what, how long ago. One small Rust server (SQLite, web app built in) plus an installable web app (PWA, also on iPhone); native Android app in `android/`. The previous .NET Blazor version is at tag `v1-dotnet-blazor-server`.
 
 | Doc | What |
 |---|---|

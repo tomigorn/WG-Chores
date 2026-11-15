@@ -19,6 +19,30 @@ Completion:
 - fish: `ln -s $PWD/android/scripts/completions/beefy-build.fish ~/.config/fish/completions/beefy-build.sh.fish`
 - bash: `source android/scripts/completions/beefy-build.bash` (e.g. in `~/.bashrc`)
 
+## App
+| Part | What |
+|---|---|
+| Stack | Kotlin, Compose Material 3, Navigation Compose, OkHttp + kotlinx.serialization, DataStore, androidx.browser; versions in `gradle/libs.versions.toml` |
+| IDs | `ch.tomigorn.wgchores`, minSdk 26, targetSdk 36, compileSdk 37 |
+| Version | `versionName` = `server/Cargo.toml` version (`beefy-build.sh` passes `-Pwgc.version`), `versionCode` = major·10000 + minor·100 + patch |
+| Server | https only (debug builds also `http://localhost`, `127.0.0.1`, `10.0.2.2` for tests); probe `GET /api/v1/config` (5 s), must answer `name: "WG Chores"`; "Change server" wipes the session |
+| Update | app older than `min_app_version` → "Please update the app" with the Play link |
+| Sign-in | local form and/or SSO; SSO via Auth Tab (`wgchores` scheme, PKCE), Custom Tab + the `.SsoCallback` intent filter (disabled until needed) only on browsers without Auth Tab |
+| Token | bearer per device, in DataStore, AES-GCM with a key in the Android Keystore; no backup or device transfer (`data_extraction_rules.xml`) |
+| Requests | 15 s timeout; no answer or a gateway error → offline; `401 unauthenticated` → login, server kept |
+| Texts | `values/strings.xml` (en) + `values-de/`, wording from `web/src/lib/i18n`; per-app language from the generated locale config |
+| Look | colours from `web/src/app.css` (`ui/theme/Theme.kt`), no dynamic colour, system font; icons: Lucide (ISC, `web/THIRD_PARTY.md`) |
+
+## Tests
+| Command | Does |
+|---|---|
+| `android/scripts/beefy-build.sh testDebugUnitTest` | JVM tests (Robolectric) incl. screenshot check |
+| `android/scripts/beefy-build.sh recordRoborazziDebug` | record screenshots; copy them from `latest/app/build/outputs/screenshots/` to `app/src/test/screenshots/` |
+| `android/scripts/beefy-build.sh verifyRoborazziDebug` | compare with the goldens in `app/src/test/screenshots/`; diffs in `latest/app/build/outputs/roborazzi/` |
+| `android/scripts/beefy-build.sh --emulator connectedDebugAndroidTest` | sign-in flow on the emulator against a fake server (`app/src/sharedTest/`) |
+
+Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark.
+
 ## How it works
 1. One run at a time: lock on fastpi (`~/.cache/claude-work/wgc-android/.lock`) and on beefy (`~/build/wg-chores/.lock`).
 2. beefy asleep → wake via the Beefy-Waker (`POST :9001/wake`, header `X-Wake: 1`), never plain `ssh beefy`.
