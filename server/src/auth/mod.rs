@@ -52,7 +52,7 @@ impl FromRequestParts<AppState> for CurrentUser {
     }
 }
 
-/// Client address: the socket peer, or the rightmost X-Forwarded-For entry that is not a trusted proxy when the peer is one.
+/// Client address: the socket peer, or the rightmost X-Forwarded-For entry that is not a trusted proxy when the peer is one; an unparseable entry ends the walk at the last trusted hop.
 #[derive(Clone, Copy, Debug)]
 pub struct ClientIp(pub Option<IpAddr>);
 
@@ -71,16 +71,26 @@ impl FromRequestParts<AppState> for ClientIp {
         if !trusted(peer) {
             return Ok(ClientIp(Some(peer)));
         }
-        let hops: Vec<IpAddr> = parts
+        let entries: Vec<Option<IpAddr>> = parts
             .headers
             .get_all("x-forwarded-for")
             .iter()
-            .filter_map(|v| v.to_str().ok())
-            .flat_map(|v| v.split(','))
-            .filter_map(|s| s.trim().parse::<IpAddr>().ok().map(|i| i.to_canonical()))
+            .flat_map(|v| match v.to_str() {
+                Ok(s) => s.split(',').map(|e| e.trim().parse::<IpAddr>().ok()).collect(),
+                Err(_) => vec![None],
+            })
             .collect();
-        let client = hops.into_iter().rev().find(|ip| !trusted(*ip));
-        Ok(ClientIp(Some(client.unwrap_or(peer))))
+        let mut last_trusted = peer;
+        for entry in entries.into_iter().rev() {
+            let Some(ip) = entry.map(|i| i.to_canonical()) else {
+                break;
+            };
+            if !trusted(ip) {
+                return Ok(ClientIp(Some(ip)));
+            }
+            last_trusted = ip;
+        }
+        Ok(ClientIp(Some(last_trusted)))
     }
 }
 

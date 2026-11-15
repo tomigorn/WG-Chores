@@ -224,5 +224,11 @@ cd web && npm run dev
 
 Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/completions/`) and `wg-chores.bash` (source it).
 
+## Security
+| Topic | Detail |
+|---|---|
+| Rate limits | login: 5 failures per account and 20 per client IP in 15 min; registration: 20 per client IP in 15 min (own bucket); IPv6 clients count per /64; 429 + `Retry-After` |
+| Password hashing | at most 4 at once, 16 waiting; more → 503 `busy` + `Retry-After: 5` |
+
 ## Operations
 - Edit data through the app or API, not with a plain `sqlite3` client: the `categories` table has a unique index on `ulower(name)`, a function only the server registers, so writes to it fail elsewhere.

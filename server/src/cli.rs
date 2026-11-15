@@ -392,7 +392,7 @@ pub async fn create_user(
     let hash = hasher
         .hash(password)
         .await
-        .ok_or("cannot hash the password")?;
+        .map_err(|_| "cannot hash the password")?;
     let (u, d, now) = (username.to_string(), display_name.to_string(), ts(now));
     let inserted = db
         .run(move |c| {

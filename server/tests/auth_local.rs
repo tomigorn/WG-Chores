@@ -750,3 +750,65 @@ async fn csrf_header_required_on_patch_and_delete() {
     c.csrf = true;
     assert_eq!(c.get("/api/v1/me").await.body["display_name"], "anna");
 }
+
+#[tokio::test]
+async fn ipv6_clients_share_one_bucket_per_64() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    for i in 0..20 {
+        c.peer = format!("[2001:db8:1:2::{:x}]:5000", i + 1).parse().unwrap();
+        let r = c.login(&format!("ghost{i}"), "wrong password here").await;
+        assert_eq!(r.status, 401, "attempt {i}");
+    }
+    c.peer = "[2001:db8:1:2:ffff:ffff:ffff:ffff]:5000".parse().unwrap();
+    assert_eq!(c.login("anna", PW).await.status, 429);
+    c.peer = "[2001:db8:1:3::1]:5000".parse().unwrap();
+    assert_eq!(c.login("anna", PW).await.status, 200);
+}
+
+#[tokio::test]
+async fn ipv6_registrations_share_one_bucket_per_64() {
+    let app = TestApp::new();
+    let mut c = app.client();
+    for i in 0..20 {
+        c.peer = format!("[2001:db8::{:x}]:5000", i + 1).parse().unwrap();
+        let r = c
+            .post("/api/v1/auth/register", reg(&format!("user{i:02}"), PW))
+            .await;
+        assert_eq!(r.status, 201, "attempt {i}");
+    }
+    c.peer = "[2001:db8::abcd:1]:5000".parse().unwrap();
+    let r = c.post("/api/v1/auth/register", reg("user99", PW)).await;
+    assert_eq!(r.status, 429);
+}
+
+#[tokio::test]
+async fn registrations_do_not_fill_the_login_bucket() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    for i in 0..20 {
+        let r = c
+            .post("/api/v1/auth/register", reg(&format!("user{i:02}"), PW))
+            .await;
+        assert_eq!(r.status, 201, "attempt {i}");
+    }
+    assert_eq!(c.login("anna", PW).await.status, 200);
+}
+
+#[tokio::test]
+async fn forwarded_for_walk_stops_at_unparseable_entry() {
+    let app = TestApp::with_env(&[("TRUSTED_PROXIES", "10.0.0.0/8")]);
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    c.peer = "10.1.2.3:1".parse().unwrap();
+    for i in 0..20 {
+        c.xff = Some(format!("203.0.113.{i}, 198.51.100.1:443"));
+        c.login(&format!("ghost{i}"), "wrong password here").await;
+    }
+    c.xff = Some("198.51.100.77, unknown".into());
+    assert_eq!(c.login("anna", PW).await.status, 429);
+    c.xff = Some("203.0.113.6".into());
+    assert_eq!(c.login("anna", PW).await.status, 200);
+}

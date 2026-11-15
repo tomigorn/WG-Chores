@@ -2,12 +2,34 @@
 use argon2::{Algorithm, Params, Version};
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use std::sync::Arc;
-use tokio::sync::Semaphore;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio::sync::{Semaphore, SemaphorePermit};
+
+const MAX_HASH_WAITERS: usize = 16;
 
 pub struct Hasher {
     argon: Argon2<'static>,
     dummy: String,
     slots: Semaphore,
+    waiting: AtomicUsize,
+}
+
+struct Waiter<'a>(&'a AtomicUsize);
+
+impl Drop for Waiter<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+pub fn busy() -> ApiError {
+    let mut e = ApiError::new(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "busy",
+        "The server is busy. Try again in a few seconds.",
+    );
+    e.retry_after = Some(5);
+    e
 }
 
 impl Hasher {
@@ -31,12 +53,25 @@ impl Hasher {
             argon,
             dummy,
             slots: Semaphore::new(4),
+            waiting: AtomicUsize::new(0),
         })
     }
 
-    pub async fn hash(self: &Arc<Self>, pw: String) -> Option<String> {
+    async fn permit(&self) -> Result<SemaphorePermit<'_>, ApiError> {
+        if let Ok(p) = self.slots.try_acquire() {
+            return Ok(p);
+        }
+        if self.waiting.fetch_add(1, Ordering::SeqCst) >= MAX_HASH_WAITERS {
+            self.waiting.fetch_sub(1, Ordering::SeqCst);
+            return Err(busy());
+        }
+        let _w = Waiter(&self.waiting);
+        self.slots.acquire().await.map_err(|_| ApiError::internal())
+    }
+
+    pub async fn hash(self: &Arc<Self>, pw: String) -> Result<String, ApiError> {
         let me = self.clone();
-        let _permit = self.slots.acquire().await.ok()?;
+        let _permit = self.permit().await?;
         tokio::task::spawn_blocking(move || {
             me.argon
                 .hash_password(pw.as_bytes())
@@ -46,22 +81,21 @@ impl Hasher {
         .await
         .ok()
         .flatten()
+        .ok_or_else(ApiError::internal)
     }
 
     /// `hash` None verifies against a dummy hash so unknown users cost the same time.
-    pub async fn verify(self: &Arc<Self>, pw: String, hash: Option<String>) -> bool {
+    pub async fn verify(self: &Arc<Self>, pw: String, hash: Option<String>) -> Result<bool, ApiError> {
         let me = self.clone();
         let known = hash.is_some();
-        let Ok(_permit) = self.slots.acquire().await else {
-            return false;
-        };
+        let _permit = self.permit().await?;
         let ok = tokio::task::spawn_blocking(move || {
             let h = hash.as_deref().unwrap_or(&me.dummy);
             me.argon.verify_password(pw.as_bytes(), h).is_ok()
         })
         .await
         .unwrap_or(false);
-        ok && known
+        Ok(ok && known)
     }
 }
 
@@ -81,6 +115,7 @@ use chrono::Duration;
 use serde::Deserialize;
 
 const WINDOW: Duration = Duration::minutes(15);
+const LONGEST_WINDOW: Duration = Duration::hours(1);
 const MAX_PER_USER: i64 = 5;
 const MAX_PER_IP: i64 = 20;
 const MAX_PASSWORD_BYTES: usize = 1024;
@@ -90,8 +125,13 @@ pub fn user_key(username: &str) -> String {
     format!("user:{lower}")
 }
 
+/// IPv6 clients are keyed by their /64, since one client owns at least that many addresses.
 pub fn ip_key(ip: ClientIp) -> String {
     match ip.0 {
+        Some(std::net::IpAddr::V6(v6)) => {
+            let net = std::net::Ipv6Addr::from(u128::from(v6) & !((1u128 << 64) - 1));
+            format!("ip:{net}/64")
+        }
         Some(ip) => format!("ip:{ip}"),
         None => "ip:unknown".into(),
     }
@@ -140,31 +180,67 @@ pub struct Attempt {
 
 /// Atomically checks the limits and reserves a failure row for the ip and the optional account key.
 pub async fn reserve(st: &AppState, user: Option<&str>, ip: ClientIp) -> Result<Attempt, ApiError> {
-    let now = st.clock.now();
     let user_key = user.map(user_key);
     let mut keys = vec![(ip_key(ip), MAX_PER_IP)];
     keys.extend(user_key.clone().map(|k| (k, MAX_PER_USER)));
+    reserve_keys(st, keys, user_key).await
+}
+
+/// Registrations count in their own per-ip bucket, so they never lock logins.
+pub async fn reserve_registration(st: &AppState, ip: ClientIp) -> Result<(), ApiError> {
+    reserve_keys(st, vec![(format!("reg:{}", ip_key(ip)), MAX_PER_IP)], None).await?;
+    Ok(())
+}
+
+/// Counts one attempt against `key`, refusing with 429 once `max` are within `window`.
+pub async fn reserve_counter(
+    st: &AppState,
+    key: String,
+    max: i64,
+    window: Duration,
+) -> Result<(), ApiError> {
+    reserve_window(st, vec![(key, max)], None, window).await?;
+    Ok(())
+}
+
+async fn reserve_keys(
+    st: &AppState,
+    keys: Vec<(String, i64)>,
+    user_key: Option<String>,
+) -> Result<Attempt, ApiError> {
+    reserve_window(st, keys, user_key, WINDOW).await
+}
+
+async fn reserve_window(
+    st: &AppState,
+    keys: Vec<(String, i64)>,
+    user_key: Option<String>,
+    window: Duration,
+) -> Result<Attempt, ApiError> {
+    let now = st.clock.now();
     let out = st
         .db
         .run(move |c| {
             let tx = c.transaction()?;
-            let cutoff = ts(now - WINDOW);
-            tx.execute("DELETE FROM login_failures WHERE at < ?1", [&cutoff])?;
+            let oldest = ts(now - window.max(LONGEST_WINDOW));
+            tx.execute("DELETE FROM login_failures WHERE at < ?1", [&oldest])?;
+            let cutoff = ts(now - window);
             let mut wait: Option<i64> = None;
             for (key, max) in &keys {
                 let n: i64 = tx.query_row(
-                    "SELECT count(*) FROM login_failures WHERE key = ?1",
-                    [key],
+                    "SELECT count(*) FROM login_failures WHERE key = ?1 AND at >= ?2",
+                    rusqlite::params![key, cutoff],
                     |r| r.get(0),
                 )?;
                 if n >= *max {
                     let at: String = tx.query_row(
-                        "SELECT at FROM login_failures WHERE key = ?1 ORDER BY at, rowid LIMIT 1 OFFSET ?2",
-                        rusqlite::params![key, n - max],
+                        "SELECT at FROM login_failures WHERE key = ?1 AND at >= ?2 ORDER BY at, rowid LIMIT 1 OFFSET ?3",
+                        rusqlite::params![key, cutoff, n - max],
                         |r| r.get(0),
                     )?;
-                    let secs =
-                        parse_ts(&at).map_or(900, |t| (t + WINDOW - now).num_seconds().max(1));
+                    let secs = parse_ts(&at).map_or(window.num_seconds(), |t| {
+                        (t + window - now).num_seconds().max(1)
+                    });
                     wait = Some(wait.map_or(secs, |w| w.max(secs)));
                 }
             }
@@ -271,7 +347,7 @@ pub async fn register(
             "Registration is closed on this server.",
         ));
     }
-    reserve(&st, None, ip).await?;
+    reserve_registration(&st, ip).await?;
     if let Some(h) = &invite_hash {
         crate::api::invites::ensure_open(&st, h.clone()).await?;
     }
@@ -297,7 +373,7 @@ pub async fn register(
     if taken {
         return Err(username_taken());
     }
-    let hash = st.hasher.hash(b.pw).await.ok_or_else(ApiError::internal)?;
+    let hash = st.hasher.hash(b.pw).await?;
     let now = ts(st.clock.now());
     let (u, d) = (username.clone(), display_name.clone());
     let inserted = st
@@ -398,7 +474,7 @@ pub async fn login(
         .await?;
     let too_long = b.pw.len() > MAX_PASSWORD_BYTES;
     let hash = found.as_ref().and_then(|f| f.1.clone());
-    let ok = !too_long && st.hasher.verify(b.pw, hash).await;
+    let ok = !too_long && st.hasher.verify(b.pw, hash).await?;
     let Some((id, _, display_name, username)) = found.filter(|_| ok) else {
         return Err(ApiError::new(
             StatusCode::UNAUTHORIZED,
@@ -426,4 +502,46 @@ pub async fn login(
 pub async fn logout(State(st): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     drop_incoming_session(&st, &headers).await?;
     Ok(clear_session_response(StatusCode::NO_CONTENT))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn hasher_answers_busy_when_more_than_16_wait() {
+        let params = argon2::Params::new(8, 1, 1, None).unwrap();
+        let h = Hasher::with(Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            params,
+        ));
+        let held = h.slots.acquire_many(4).await.unwrap();
+        let mut waiting = Vec::new();
+        for _ in 0..16 {
+            let h = h.clone();
+            waiting.push(tokio::spawn(async move {
+                h.verify("password".into(), None).await
+            }));
+        }
+        while h.waiting.load(std::sync::atomic::Ordering::SeqCst) < 16 {
+            tokio::task::yield_now().await;
+        }
+        let e = h.hash("another password".into()).await.unwrap_err();
+        assert_eq!((e.status.as_u16(), e.code, e.retry_after), (503, "busy", Some(5)));
+        let e = h.verify("password".into(), None).await.unwrap_err();
+        assert_eq!(e.code, "busy");
+        drop(held);
+        for w in waiting {
+            assert!(!w.await.unwrap().unwrap());
+        }
+        assert!(h.hash("ok now".into()).await.is_ok());
+    }
+
+    #[test]
+    fn ipv6_key_is_the_64() {
+        let ip = |s: &str| ClientIp(Some(s.parse().unwrap()));
+        assert_eq!(ip_key(ip("2001:db8:1:2:3:4:5:6")), "ip:2001:db8:1:2::/64");
+        assert_eq!(ip_key(ip("192.0.2.1")), "ip:192.0.2.1");
+    }
 }

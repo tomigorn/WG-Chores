@@ -114,6 +114,7 @@ async fn demo_reset_is_repeatable() {
         Hasher::insecure_for_tests()
             .verify("demo-password-123".into(), Some(hash))
             .await
+            .unwrap()
     );
 
     let rows: Vec<(Option<String>, Option<String>)> = db
@@ -275,6 +276,7 @@ async fn create_user_enforces_register_rules() {
         Hasher::insecure_for_tests()
             .verify("correct horse battery".into(), Some(hash))
             .await
+            .unwrap()
     );
 }
 

@@ -81,7 +81,7 @@ pub async fn reset(
     let hash = hasher
         .hash(password)
         .await
-        .ok_or("cannot hash the password")?;
+        .map_err(|_| "cannot hash the password")?;
     let now_s = ts(now);
     db.run(move |c| {
         let tx = c.transaction()?;

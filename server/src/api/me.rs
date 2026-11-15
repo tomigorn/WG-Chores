@@ -129,7 +129,7 @@ pub async fn patch(
         check_password(&new)?;
         let name = row.username.clone().unwrap_or_default();
         let attempt = local::reserve(&st, Some(&name), ip).await?;
-        let ok = current.len() <= 1024 && st.hasher.verify(current, row.hash.clone()).await;
+        let ok = current.len() <= 1024 && st.hasher.verify(current, row.hash.clone()).await?;
         if !ok {
             return Err(ApiError::forbidden(
                 "wrong_password",
@@ -137,7 +137,7 @@ pub async fn patch(
             ));
         }
         attempt.succeed(&st.db).await?;
-        new_hash = Some(st.hasher.hash(new).await.ok_or_else(ApiError::internal)?);
+        new_hash = Some(st.hasher.hash(new).await?);
     }
     let (id, keep, dn, nh) = (u.id, u.session_hash.clone(), display_name.clone(), new_hash);
     let (due, done) = (b.notify_due, b.notify_done);
