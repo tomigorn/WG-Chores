@@ -225,7 +225,8 @@ export const api = {
 
   me: () => request<Me>('GET', '/api/v1/me'),
   patchMe: (p: MePatch) => request<Me>('PATCH', '/api/v1/me', p),
-  deleteMe: (confirmUsername: string) => request<void>('DELETE', '/api/v1/me', { confirm_username: confirmUsername }),
+  /** Local accounts confirm with `current_password`, SSO accounts with their display name. */
+  deleteMe: (c: { current_password: string } | { confirm_username: string }) => request<void>('DELETE', '/api/v1/me', c), // leak-check: ok
   setLastHousehold: (householdId: number) => request<void>('PUT', '/api/v1/me/last-household', { id: householdId }),
 
   households: () => request<Household[]>('GET', H),

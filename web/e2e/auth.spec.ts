@@ -42,6 +42,24 @@ test.describe('local accounts with SSO', () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
+  test('local account deletion asks for the password', async ({ page, context }) => {
+    const a = await Api.register(box.server.url);
+    await a.household('Solo WG');
+    await a.signInContext(context);
+    await page.goto(box.server.url + '/account');
+    await page.getByRole('button', { name: 'Delete account' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toContainText('Households where you are the only member are deleted too.');
+    await sheet.getByLabel('Enter your password to confirm').fill('not the right password');
+    await sheet.getByRole('button', { name: 'Delete my account' }).click();
+    await expect(sheet.getByRole('alert')).toHaveText('The current password is wrong.');
+    await sheet.getByLabel('Enter your password to confirm').fill(PASSWORD);
+    await sheet.getByRole('button', { name: 'Delete my account' }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    const again = await new Api(box.server.url).req('POST', '/api/v1/auth/login', { username: a.username, password: PASSWORD }); // leak-check: ok
+    expect(again.status).toBe(401);
+  });
+
   test('a deep link returns to the wanted page after sign-in', async ({ page }) => {
     const a = await Api.register(box.server.url);
     const h = await a.household('Deep link WG');

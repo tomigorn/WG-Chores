@@ -31,7 +31,6 @@
 
   const sso = $derived(me.kind === 'sso');
   const manage = $derived(me.account_url ?? config.oidc?.account_url ?? null);
-  const confirmTarget = $derived(sso ? me.display_name : (me.username ?? ''));
   const canDelete = $derived(canConfirmDelete(me, typed));
 
   async function saveName(e: SubmitEvent) {
@@ -73,7 +72,7 @@
     busy = true;
     deleteError = null;
     try {
-      await api.deleteMe(typed.trim());
+      await api.deleteMe(sso ? { confirm_username: typed.trim() } : { current_password: typed });
       deleting = false;
       ondeleted();
     } catch (err) {
@@ -165,8 +164,13 @@
   onclose={closeDelete}
 >
   <div class="field">
-    <label for="delete-confirm">{t(sso ? 'account.delete_type_sso' : 'account.delete_type_local', { name: confirmTarget })}</label>
-    <input id="delete-confirm" class="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" bind:value={typed} />
+    {#if sso}
+      <label for="delete-confirm">{t('account.delete_type_sso', { name: me.display_name })}</label>
+      <input id="delete-confirm" class="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" bind:value={typed} />
+    {:else}
+      <label for="delete-confirm">{t('account.delete_password')}</label>
+      <input id="delete-confirm" class="input" type="password" autocomplete="current-password" bind:value={typed} />
+    {/if}
   </div>
   {#if deleteError}<div class="alert" role="alert"><Icon name="circle-alert" size={18} /><span>{deleteError}</span></div>{/if}
 </ConfirmSheet>

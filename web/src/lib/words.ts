@@ -57,10 +57,8 @@ export function droppedMessage(dropped: readonly { choreId: number }[], names: R
 }
 
 export function canConfirmDelete(me: { kind: AccountKind; username: string | null; display_name: string }, typed: string): boolean {
-  const given = typed.trim();
-  if (!given) return false;
-  if (me.kind === 'sso') return given === me.display_name;
-  return !!me.username && me.username.toLowerCase() === given.toLowerCase();
+  if (me.kind === 'sso') return typed.trim() === me.display_name;
+  return typed.length > 0;
 }
 
 export function passwordProblem(pw: string, repeat: string): 'short' | 'mismatch' | null {

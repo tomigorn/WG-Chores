@@ -70,8 +70,8 @@ describe('words', () => {
   });
 
   it('delete_confirmation_matches_account', () => {
-    expect(canConfirmDelete({ kind: 'local', username: 'anna', display_name: 'Anna' }, ' ANNA ')).toBe(true);
-    expect(canConfirmDelete({ kind: 'local', username: 'anna', display_name: 'Anna' }, 'Anna B')).toBe(false);
+    expect(canConfirmDelete({ kind: 'local', username: 'anna', display_name: 'Anna' }, 'any password')).toBe(true);
+    expect(canConfirmDelete({ kind: 'local', username: 'anna', display_name: 'Anna' }, ' ')).toBe(true);
     expect(canConfirmDelete({ kind: 'sso', username: 'anna', display_name: 'Jane Doe' }, 'Jane Doe ')).toBe(true);
     expect(canConfirmDelete({ kind: 'sso', username: 'anna', display_name: 'Jane Doe' }, 'jane doe')).toBe(false);
     expect(canConfirmDelete({ kind: 'local', username: null, display_name: 'Anna' }, '')).toBe(false);

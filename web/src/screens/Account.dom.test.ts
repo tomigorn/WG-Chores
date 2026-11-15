@@ -27,20 +27,27 @@ afterEach(() => {
 });
 
 describe('Account', () => {
-  it('delete_account_requires_typed_username', async () => {
-    const del = vi.spyOn(api, 'deleteMe').mockResolvedValue(undefined);
+  it('local_user_deletes_account_with_current_password', async () => {
+    const del = vi.spyOn(api, 'deleteMe').mockRejectedValueOnce(new ApiError(403, 'wrong_password', '')).mockResolvedValue(undefined);
     const p = open(me);
     button('Delete account')!.click();
     flushSync();
-    expect(text()).toContain('Type your username anna to confirm');
+    expect(text()).toContain('Enter your password to confirm');
+    expect(text()).toContain('Households where you are the only member are deleted too.');
+    const input = document.querySelector<HTMLInputElement>('#delete-confirm')!;
+    expect(input.type).toBe('password');
+    expect(input.autocomplete).toBe('current-password');
     const submit = document.querySelector<HTMLButtonElement>('dialog[open] button[type=submit]')!;
     expect(submit.disabled).toBe(true);
-    type('#delete-confirm', 'Anna B');
-    expect(submit.disabled).toBe(true);
-    type('#delete-confirm', 'anna');
+    type('#delete-confirm', 'wrong password 1');
     expect(submit.disabled).toBe(false);
     submit.click();
-    await vi.waitFor(() => expect(del).toHaveBeenCalledWith('anna'));
+    await vi.waitFor(() => expect(text()).toContain('The current password is wrong.'));
+    expect(del).toHaveBeenCalledWith({ current_password: 'wrong password 1' }); // leak-check: ok
+    expect(p.ondeleted).not.toHaveBeenCalled();
+    type('#delete-confirm', ' old password 123 ');
+    submit.click();
+    await vi.waitFor(() => expect(del).toHaveBeenLastCalledWith({ current_password: ' old password 123 ' })); // leak-check: ok
     await vi.waitFor(() => expect(p.ondeleted).toHaveBeenCalled());
   });
 
@@ -60,7 +67,8 @@ describe('Account', () => {
     expect(text()).toContain('Type your name Jane Doe to confirm');
     type('#delete-confirm', 'Jane Doe');
     document.querySelector<HTMLFormElement>('dialog[open] form')!.requestSubmit();
-    await vi.waitFor(() => expect(del).toHaveBeenCalledWith('Jane Doe'));
+    expect(document.querySelector<HTMLInputElement>('#delete-confirm')!.type).toBe('text');
+    await vi.waitFor(() => expect(del).toHaveBeenCalledWith({ confirm_username: 'Jane Doe' }));
   });
 
   it('local_user_changes_name', async () => {
