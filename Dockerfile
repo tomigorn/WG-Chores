@@ -6,6 +6,7 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY docs/test-vectors /src/docs/test-vectors
+COPY docs/privacy.md docs/account-deletion.md /src/docs/
 COPY web/ ./
 RUN npm test && npm run build
 

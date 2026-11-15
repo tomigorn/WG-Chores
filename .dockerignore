@@ -10,3 +10,5 @@
 web/node_modules
 web/dist
 !docs/test-vectors
+!docs/privacy.md
+!docs/account-deletion.md
