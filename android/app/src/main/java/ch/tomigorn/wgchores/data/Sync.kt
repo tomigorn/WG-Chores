@@ -28,6 +28,9 @@ class Account(val server: String, val me: By, val tz: String, val api: ApiClient
 }
 
 @Serializable
+data class CachedChore(val chore: Chore, val items: List<ch.tomigorn.wgchores.domain.Completion>)
+
+@Serializable
 data class CachedList(val household: Household, val chores: List<Chore>)
 
 /** Accounts, their outboxes and the offline cache; flushes from app start, network changes and the background check. */
@@ -74,10 +77,20 @@ class Sync(
     suspend fun loadList(a: Account, hid: Long): CachedList? =
         db.cache().get(listKey(a, hid))?.let { runCatching { json.decodeFromString(CachedList.serializer(), it.json) }.getOrNull() }
 
+    private fun choreKey(a: Account, id: Long) = "chore:${a.key}:$id"
+
+    suspend fun saveChore(a: Account, c: CachedChore) {
+        db.cache().put(CacheEntry(choreKey(a, c.chore.id), json.encodeToString(CachedChore.serializer(), c), now()))
+    }
+
+    suspend fun loadChore(a: Account, id: Long): CachedChore? =
+        db.cache().get(choreKey(a, id))?.let { runCatching { json.decodeFromString(CachedChore.serializer(), it.json) }.getOrNull() }
+
     /** Sign-out: the account's waiting marks and cached lists go. */
     suspend fun forget(a: Account) {
         a.outbox.clear()
         db.cache().clearPrefix("list:${a.key}:")
+        db.cache().clearPrefix("chore:${a.key}:")
         synchronized(accounts) { accounts.remove(a.key) }
     }
 }

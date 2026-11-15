@@ -2,8 +2,17 @@ package ch.tomigorn.wgchores.api
 
 import ch.tomigorn.wgchores.data.ServerConfig
 import ch.tomigorn.wgchores.data.outbox.CompletionApi
+import ch.tomigorn.wgchores.domain.Category
 import ch.tomigorn.wgchores.domain.Chore
+import ch.tomigorn.wgchores.domain.CompletionPage
+import ch.tomigorn.wgchores.domain.Device
 import ch.tomigorn.wgchores.domain.Household
+import ch.tomigorn.wgchores.domain.Invite
+import ch.tomigorn.wgchores.domain.InviteAccepted
+import ch.tomigorn.wgchores.domain.InvitePreview
+import ch.tomigorn.wgchores.domain.Member
+import ch.tomigorn.wgchores.domain.NewInvite
+import java.net.URLEncoder
 import kotlinx.serialization.builtins.ListSerializer
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -32,6 +41,8 @@ data class User(
     @SerialName("picture_url") val pictureUrl: String? = null,
     @SerialName("account_url") val accountUrl: String? = null,
     @SerialName("last_household_id") val lastHouseholdId: Long? = null,
+    @SerialName("notify_due") val notifyDue: Boolean = false,
+    @SerialName("notify_done") val notifyDone: Boolean = false,
 )
 
 @Serializable
@@ -89,6 +100,95 @@ class ApiClient(
     suspend fun setLastHousehold(id: Long) {
         send("PUT", "/api/v1/me/last-household", buildJsonObject { put("id", id) })
     }
+
+    suspend fun chore(id: Long): Chore = get("/api/v1/chores/$id", Chore.serializer())
+
+    suspend fun archivedChores(householdId: Long): List<Chore> =
+        get("/api/v1/households/$householdId/chores?archived=true", ListSerializer(Chore.serializer()))
+
+    suspend fun history(choreId: Long, before: String? = null, limit: Int = 20): CompletionPage =
+        get("/api/v1/chores/$choreId/completions?limit=$limit" + (before?.let { "&before=" + enc(it) } ?: ""), CompletionPage.serializer())
+
+    suspend fun createChore(householdId: Long, name: String, category: String?, interval: String?): Chore =
+        request("POST", "/api/v1/households/$householdId/chores", Chore.serializer(), buildJsonObject {
+            put("name", name)
+            put("category", category)
+            put("interval", interval)
+        })
+
+    suspend fun patchChore(id: Long, name: String, category: String?, interval: String?): Chore =
+        request("PATCH", "/api/v1/chores/$id", Chore.serializer(), buildJsonObject {
+            put("name", name)
+            put("category", category)
+            put("interval", interval)
+        })
+
+    suspend fun archiveChore(id: Long): Chore = request("POST", "/api/v1/chores/$id/archive", Chore.serializer(), null)
+
+    suspend fun restoreChore(id: Long): Chore = request("POST", "/api/v1/chores/$id/restore", Chore.serializer(), null)
+
+    suspend fun categories(householdId: Long): List<Category> =
+        get("/api/v1/households/$householdId/categories", ListSerializer(Category.serializer()))
+
+    suspend fun renameCategory(householdId: Long, from: String, to: String): List<Category> =
+        request("PATCH", "/api/v1/households/$householdId/categories", ListSerializer(Category.serializer()), buildJsonObject {
+            put("from", from)
+            put("to", to)
+        })
+
+    suspend fun renameHousehold(id: Long, name: String): Household =
+        request("PATCH", "/api/v1/households/$id", Household.serializer(), buildJsonObject { put("name", name) })
+
+    suspend fun leaveHousehold(id: Long, confirmDelete: Boolean) {
+        send("POST", "/api/v1/households/$id/leave", buildJsonObject { if (confirmDelete) put("confirm_delete", true) })
+    }
+
+    suspend fun members(householdId: Long): List<Member> = get("/api/v1/households/$householdId/members", ListSerializer(Member.serializer()))
+
+    suspend fun addMember(householdId: Long, username: String? = null, userId: Long? = null): Member =
+        request("POST", "/api/v1/households/$householdId/members", Member.serializer(), buildJsonObject {
+            if (userId != null) put("user_id", userId) else put("username", username)
+        })
+
+    suspend fun removeMember(householdId: Long, userId: Long) {
+        send("DELETE", "/api/v1/households/$householdId/members/$userId", buildJsonObject {})
+    }
+
+    suspend fun searchUsers(q: String): List<Member> = get("/api/v1/users?q=" + enc(q), ListSerializer(Member.serializer()))
+
+    suspend fun invites(householdId: Long): List<Invite> = get("/api/v1/households/$householdId/invites", ListSerializer(Invite.serializer()))
+
+    suspend fun createInvite(householdId: Long): NewInvite = request("POST", "/api/v1/households/$householdId/invites", NewInvite.serializer(), null)
+
+    suspend fun cancelInvite(householdId: Long, inviteId: Long) {
+        call<Unit>(Request.Builder().url("$baseUrl/api/v1/households/$householdId/invites/$inviteId").delete(), null, signedIn = true)
+    }
+
+    suspend fun invitePreview(token: String): InvitePreview = get("/api/v1/invites/" + enc(token), InvitePreview.serializer()) // leak-check: ok
+
+    suspend fun acceptInvite(token: String): InviteAccepted = request("POST", "/api/v1/invites/" + enc(token) + "/accept", InviteAccepted.serializer(), null) // leak-check: ok
+
+    suspend fun patchMe(body: JsonObject): User = request("PATCH", "/api/v1/me", User.serializer(), body)
+
+    /** Local accounts confirm with their password, SSO accounts with their display name. */
+    suspend fun deleteMe(currentPassword: String? = null, confirmUsername: String? = null) {
+        send("DELETE", "/api/v1/me", buildJsonObject {
+            if (currentPassword != null) put("current_password", currentPassword)
+            if (confirmUsername != null) put("confirm_username", confirmUsername)
+        })
+    }
+
+    suspend fun devices(): List<Device> = get("/api/v1/me/devices", ListSerializer(Device.serializer()))
+
+    suspend fun deleteDevice(id: String) {
+        call<Unit>(Request.Builder().url("$baseUrl/api/v1/me/devices/" + enc(id)).delete(), null, signedIn = true)
+    }
+
+    private fun enc(s: String): String = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
+
+    private suspend fun <T> request(method: String, path: String, serializer: KSerializer<T>, body: JsonObject?): T =
+        call(Request.Builder().url(baseUrl + path).method(method, (body ?: JsonObject(emptyMap())).toString().toRequestBody(JSON_TYPE)), serializer, signedIn = true)
+            ?: throw ApiException(204, "invalid_response")
 
     override suspend fun complete(choreId: Long, uuid: String, doneOn: String, note: String?) {
         send("POST", "/api/v1/chores/$choreId/completions", buildJsonObject {

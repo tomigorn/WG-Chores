@@ -169,6 +169,12 @@ class AuthController(
         set(AuthState.PickServer())
     }
 
+    /** The account is gone on the server: forget the server and the session, back to the server picker. */
+    suspend fun accountDeleted() {
+        store.clearAll()
+        set(AuthState.PickServer())
+    }
+
     private suspend fun toLogin(server: String) {
         store.clearSignIn()
         set(AuthState.Login(server, store.read().config))

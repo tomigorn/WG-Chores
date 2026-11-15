@@ -20,7 +20,25 @@ object ErrorText {
         "password_too_long" to R.string.error_password_too_long,
         "invalid_display_name" to R.string.error_invalid_display_name,
         "keystore_failed" to R.string.error_keystore_failed,
+        "wrong_password" to R.string.error_wrong_password,
+        "user_not_found" to R.string.error_user_not_found,
+        "already_member" to R.string.error_already_member,
+        "too_many_invites" to R.string.error_too_many_invites,
+        "confirmation_mismatch" to R.string.error_confirmation_mismatch,
+        "invalid_name" to R.string.error_invalid_name,
+        "not_found" to R.string.error_not_found,
+        "invite_used" to R.string.error_invite_used,
+        "invite_expired" to R.string.error_invite_expired,
+        "invite_cancelled" to R.string.error_invite_cancelled,
+        "invite_not_found" to R.string.error_invite_not_found,
     )
+
+    /** A failed request as text; saves pass "Connect to the internet to save this" as [offline]. */
+    fun of(e: Throwable, offline: Int = R.string.error_offline): Int = when (e) {
+        is ch.tomigorn.wgchores.api.OfflineException -> offline
+        is ch.tomigorn.wgchores.api.ApiException -> codes[e.code] ?: R.string.error_generic
+        else -> R.string.error_generic
+    }
 
     fun of(error: LoginError): Int = when (error) {
         LoginError.Offline -> R.string.error_offline

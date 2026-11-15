@@ -169,6 +169,18 @@ class AuthControllerTest {
         runBlocking { assertNull(store.read().server) }
     }
 
+    @Test fun deletedAccountWipesEverythingWithoutCallingTheServer() {
+        signedInViaForm()
+        runBlocking {
+            val before = fake.requests.size
+            auth.accountDeleted()
+            assertEquals(PickServer(), auth.state.value)
+            assertNull(store.read().server)
+            assertNull(store.read().token)
+            assertEquals(before, fake.requests.size)
+        }
+    }
+
     @Test fun ssoRoundTripSignsIn() = runBlocking {
         auth.start()
         auth.connect(fake.url)
