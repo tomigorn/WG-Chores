@@ -14,7 +14,7 @@
     "e2e:build": "npm run build && touch ../server/build.rs && cd ../server && cargo build --features test-util --bins"
   },
   "devDependencies": {
-    "@playwright/test": "1.60.0",
+    "@playwright/test": "1.65.0",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tsconfig/svelte": "5.0.9",
     "@types/node": "24.19.2",
