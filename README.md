@@ -1,29 +1,106 @@
 # WG Chores
 
-Shared household chore tracker: who did what, how long ago. Rust server, web app (PWA), Android app.
+Shared household chore tracker: who did what, how long ago. One small Rust server (SQLite, web app built in) plus an installable web app (PWA, also on iPhone); Android app later. The previous .NET Blazor version is at tag `v1-dotnet-blazor-server`.
 
-**Status: v2 in development.** The previous .NET Blazor version is at tag `v1-dotnet-blazor-server`.
-
-## Run (skeleton)
-```
-cd server
-PUBLIC_URL=http://localhost:8080 cargo run
-curl localhost:8080/healthz
-```
-Config is by environment variables, see `server/src/config.rs`.
-
-| Variable | Default |
+| Doc | What |
 |---|---|
-| `PUBLIC_URL` | required (https, or http on localhost) |
-| `LISTEN` | `0.0.0.0:8080` |
-| `DATA_DIR` | `/data` (holds `wg-chores.db`, `secret.key` and `vapid.key` (PKCS#8 DER), all created if missing; keep the keys private, back up `vapid.key`: a new one means every browser has to enable notifications again) |
-| `TZ` | `UTC` |
-| `LOCAL_ACCOUNTS`, `OPEN_REGISTRATION`, `MEMBER_DIRECTORY` | `true`, `false`, `false` (`true`/`false`/`1`/`0`) |
-| `NOTIFY_TIMES` | `14:00,19:00` (due checks, local time in `TZ`) |
-| `PUSH_ALLOWED_HOSTS` | empty; comma-separated extra push service host suffixes (built in: `fcm.googleapis.com`, `push.services.mozilla.com`, `updates.push.services.mozilla.com`, `push.apple.com`, `notify.windows.com`) |
-| `TRUSTED_PROXIES` | empty; comma-separated IPs/CIDRs of reverse proxies whose `X-Forwarded-For` is believed (rate limits use the real client IP) |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` or `_FILE` | all or none; secret must not be empty |
-| `OIDC_NAME`, `OIDC_REQUIRED_GROUP`, `OIDC_ACCOUNT_URL` (http/https) | optional |
+| [docs/privacy.md](docs/privacy.md) | what is stored, where |
+| [docs/account-deletion.md](docs/account-deletion.md) | how to delete an account |
+
+## Self-hosting
+Image: `ghcr.io/tomigorn/wg-chores` (amd64 + arm64, publishing comes with the first release; until then build it yourself, see below). One container, data in the `/data` volume, port 8080, needs an https reverse proxy in front.
+
+```
+curl -O https://raw.githubusercontent.com/tomigorn/WG-Chores/main/deploy/compose.example.yaml
+# edit PUBLIC_URL (and TZ), then:
+docker compose -f compose.example.yaml up -d
+docker exec -it wg-chores /wg-chores create-user anna --display-name Anna
+```
+Then open `PUBLIC_URL`, sign in, create a household and share an invite link (Household → Settings → Invite).
+
+| File | Use |
+|---|---|
+| `deploy/compose.example.yaml` | self-hosters: local accounts, hardened (read-only, no capabilities, 128 MB RAM limit), health check |
+| `deploy/compose.holy-grail.yaml` | the author's server (SSO only, behind Traefik); needs `deploy/.env` (from `.env.example`) and `deploy/secrets/oidc_client_secret` |
+| `deploy/compose.demo.yaml` + `deploy/systemd/` | public demo: `DEMO_MODE`, nightly `demo-reset` by a systemd user timer |
+
+Build the image (static binary on `scratch`, image about 6 MB disk space):
+```
+docker build -t wg-chores:local .                                  # runs web + server tests first
+docker build --target test .                                       # tests only
+docker build --build-arg CARGO_BUILD_JOBS=2 -t wg-chores:local .   # small machines
+```
+Base images are pinned by digest in the `Dockerfile` (`image:tag@sha256:…`); to update, take the tag's current digest from `docker buildx imagetools inspect <image:tag>`.
+
+Secret files are read as uid 65035 (the container user): `chmod 644` the file, or `sudo chown 65035:65037` it and `chmod 400`.
+
+### Configuration (environment)
+| Variable | Default | Meaning |
+|---|---|---|
+| `PUBLIC_URL` | required | external address; https, or http on localhost |
+| `TZ` | `UTC` | household dates and notification times |
+| `LOCAL_ACCOUNTS` | `true` | username + password login |
+| `OPEN_REGISTRATION` | `false` | anyone may sign up; invite links work either way |
+| `MEMBER_DIRECTORY` | `false` | "Add member" lists every user of the server |
+| `NOTIFY_TIMES` | `14:00,19:00` | due notification checks, local time in `TZ` |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` or `OIDC_CLIENT_SECRET_FILE` | off | SSO; all or none, the secret must not be empty |
+| `OIDC_NAME` | `SSO` | button "Sign in with …" |
+| `OIDC_REQUIRED_GROUP` | none | group (from the `groups` claim) needed to log in |
+| `OIDC_ACCOUNT_URL` | none | link on the account page (http/https) |
+| `DATA_DIR` | `/data` | `wg-chores.db`, `secret.key`, `vapid.key` (created if missing; keep private, back up `vapid.key`: a new one means every device enables notifications again) |
+| `LISTEN` | `0.0.0.0:8080` | bind address |
+| `TRUSTED_PROXIES` | empty | comma-separated IPs/CIDRs of reverse proxies whose `X-Forwarded-For` is believed (rate limits use the real client IP) |
+| `PUSH_ALLOWED_HOSTS` | empty | extra push service host suffixes (built in: `fcm.googleapis.com`, `push.services.mozilla.com`, `updates.push.services.mozilla.com`, `push.apple.com`, `notify.windows.com`) |
+| `DEMO_MODE` | `false` | `true` allows `demo-reset` (deletes all data) |
+| `DEMO_PASSWORD_FILE` | none | file with the demo `reviewer` password (12+ characters) |
+| `WGC_ALLOW_PLACEHOLDER` | unset | build time only: `1` allows a release build without `web/dist` |
+
+Booleans: `true`/`false`/`1`/`0`. Empty = default.
+
+### SSO setup
+| Step | Value |
+|---|---|
+| Client | confidential, authorization code + PKCE |
+| Redirect URI | `<PUBLIC_URL>/auth/oidc/callback` |
+| Scopes | `openid profile email groups` |
+| ID token | signed RS256 |
+| Server env | `OIDC_ISSUER` (the provider's issuer URL), `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET_FILE` |
+
+Authentik: OAuth2/OpenID provider with a **signing key** (else it signs HS256, which is refused), a scope mapping for `groups` with "Include claims in id_token" on, redirect URI as above (strict); issuer = `https://<authentik>/application/o/<app-slug>/`. Optional group binding plus `OIDC_REQUIRED_GROUP`.
+
+### Backup and restore
+```
+docker exec wg-chores /wg-chores backup /data/backup.db          # safe while running
+docker cp wg-chores:/data/backup.db ./wg-chores-$(date +%F).db
+docker cp wg-chores:/data/vapid.key ./vapid.key                  # once; keeps push working after a restore
+```
+Restore (container stopped):
+```
+docker compose -f compose.example.yaml stop
+docker run --rm -v wg-chores_wg-chores-data:/data -v "$PWD":/b alpine \
+  sh -c 'cp /b/wg-chores-2026-01-01.db /data/wg-chores.db && rm -f /data/wg-chores.db-wal /data/wg-chores.db-shm && chown 65035:65037 /data/wg-chores.db'
+docker compose -f compose.example.yaml start
+```
+(The volume name is `<project>_wg-chores-data`, see `docker volume ls`.)
+
+### Migration from v1
+Imports one household from a **copy** of the v1 SQLite file:
+```
+docker cp v1-copy.db wg-chores:/data/v1.db
+docker exec -it wg-chores /wg-chores create-user anna                       # each v2 user first (or let them sign in once via SSO)
+docker exec wg-chores /wg-chores migrate-v1 --from /data/v1.db --household 'Flat Alpha' --map anna=anna,ben=ben
+docker exec wg-chores rm /data/v1.db
+```
+Unmapped v1 names become former members; details under Admin commands.
+
+## Development
+| Command | What |
+|---|---|
+| `cd server && cargo test` | Rust unit + API tests (no Node needed) |
+| `cd server && cargo clippy --all-targets -- -D warnings` | lint |
+| `cd web && npm ci && npm test && npm run check` | web unit tests, types |
+| `cd web && npm run e2e:build && npm run e2e` | browser suite (Playwright); `WGC_BIN=<path>` runs it against another `wg-chores` binary, e.g. one copied out of the image |
+| `cd server && PUBLIC_URL=http://localhost:8080 DATA_DIR=./data OPEN_REGISTRATION=true cargo run` | local server |
 
 ## Invite links
 | What | Value |
