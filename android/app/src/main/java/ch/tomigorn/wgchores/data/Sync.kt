@@ -6,6 +6,7 @@ import ch.tomigorn.wgchores.data.db.RoomOutboxStore
 import ch.tomigorn.wgchores.data.db.WgcDatabase
 import ch.tomigorn.wgchores.data.outbox.Done
 import ch.tomigorn.wgchores.data.outbox.Outbox
+import ch.tomigorn.wgchores.data.outbox.OutboxItem
 import ch.tomigorn.wgchores.domain.By
 import ch.tomigorn.wgchores.domain.Chore
 import ch.tomigorn.wgchores.domain.Household
@@ -17,6 +18,9 @@ import kotlinx.serialization.json.Json
 /** One signed-in user on one server, with its own outbox. */
 class Account(val server: String, val me: By, val tz: String, val api: ApiClient, val outbox: Outbox, val done: Done) {
     val key: String get() = keyOf(server, me.id)
+
+    /** Items dropped from the outbox while no list was on screen; the next shown list says so. */
+    val unseenDrops: MutableList<OutboxItem> = java.util.Collections.synchronizedList(mutableListOf())
 
     companion object {
         fun keyOf(server: String, userId: Long) = "$server#$userId"

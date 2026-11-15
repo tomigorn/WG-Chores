@@ -35,10 +35,10 @@ sealed interface Snack {
 sealed interface Notice {
     data object Connect : Notice
     data object Failed : Notice
-    data class Dropped(val count: Int, val name: String?) : Notice
+    /** Done marks and Undos removed from the queue unsent; [name] when it is one mark. */
+    data class Dropped(val marks: Int, val name: String?, val undos: Int) : Notice
     data class Waiting(val count: Int) : Notice
     data object Offline : Notice
-    data class UndoDropped(val count: Int) : Notice
 }
 
 data class DoneSheet(val chore: Chore, val prev: Chore, val uuid: String?, val doneOn: String, val note: String?)
@@ -74,8 +74,15 @@ class ListController(
     private val _state = MutableStateFlow(ListUi(today()))
     val state: StateFlow<ListUi> = _state
 
-    /** Only the list on screen reloads after a flush. */
+    /** Only the list on screen reloads after a flush and tells about dropped items. */
     @Volatile var active = true
+        set(v) {
+            field = v
+            if (v) {
+                val missed = synchronized(account.unseenDrops) { account.unseenDrops.toList().also { account.unseenDrops.clear() } }
+                tellDropped(missed)
+            }
+        }
 
     private var fetchSeq = 0
     private var mutations = 0
@@ -87,14 +94,11 @@ class ListController(
         scope.launch { outbox.count.collect { n -> _state.update { it.copy(pending = n) } } }
         scope.launch {
             outbox.flushed.collect { r ->
-                if (!active) return@collect
-                val (marks, undos) = r.dropped.partition { it.kind == OutboxItem.Kind.Mark }
-                if (marks.isNotEmpty()) {
-                    val name = marks.singleOrNull()?.let { d -> current(d.choreId)?.name }
-                    snack(Snack.Text(Notice.Dropped(marks.size, name)))
-                } else if (undos.isNotEmpty()) {
-                    snack(Snack.Text(Notice.UndoDropped(undos.size)))
+                if (!active) {
+                    account.unseenDrops += r.dropped
+                    return@collect
                 }
+                tellDropped(r.dropped)
                 load()
             }
         }
@@ -108,6 +112,13 @@ class ListController(
         throw e
     } catch (e: Exception) {
         null
+    }
+
+    private fun tellDropped(dropped: List<OutboxItem>) {
+        if (dropped.isEmpty()) return
+        val (marks, undos) = dropped.partition { it.kind == OutboxItem.Kind.Mark }
+        val name = marks.singleOrNull()?.let { d -> current(d.choreId)?.name }
+        snack(Snack.Text(Notice.Dropped(marks.size, name, undos.size)))
     }
 
     private fun current(id: Long): Chore? = _state.value.chores.find { it.id == id }

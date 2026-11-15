@@ -43,11 +43,14 @@ fun noticeText(n: Notice): String = when (n) {
     Notice.Connect -> stringResource(R.string.done_connect)
     Notice.Failed -> stringResource(R.string.done_failed)
     Notice.Offline -> stringResource(R.string.list_offline_note)
-    is Notice.UndoDropped -> pluralStringResource(R.plurals.done_undo_rejected, n.count, n.count)
     is Notice.Waiting -> pluralStringResource(R.plurals.sync_waiting, n.count, n.count)
-    is Notice.Dropped -> when {
-        n.count > 1 -> stringResource(R.string.done_rejected_many, n.count)
-        n.name != null -> stringResource(R.string.done_rejected, n.name)
-        else -> stringResource(R.string.done_rejected_unknown)
-    }
+    is Notice.Dropped -> listOfNotNull(
+        when {
+            n.marks > 1 -> stringResource(R.string.done_rejected_many, n.marks)
+            n.marks == 1 && n.name != null -> stringResource(R.string.done_rejected, n.name)
+            n.marks == 1 -> stringResource(R.string.done_rejected_unknown)
+            else -> null
+        },
+        if (n.undos > 0) pluralStringResource(R.plurals.done_undo_rejected, n.undos, n.undos) else null,
+    ).joinToString(" ")
 }

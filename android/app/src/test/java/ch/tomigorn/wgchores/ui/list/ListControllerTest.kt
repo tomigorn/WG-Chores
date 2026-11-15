@@ -215,7 +215,7 @@ class ListControllerTest {
         val before = c.row("Clean fridge")
         onMain { c.openSheet(4) }
         onMain { c.saveSheet(fake.today.plusDays(3).toString(), null) }
-        waitUntil("dropped notice") { (c.state.value.snack as? Snack.Text)?.text == Notice.Dropped(1, "Clean fridge") }
+        waitUntil("dropped notice") { (c.state.value.snack as? Snack.Text)?.text == Notice.Dropped(1, "Clean fridge", 0) }
         waitUntil("row back") { c.row("Clean fridge") == before }
         assertEquals(0, c.state.value.pending)
     }
@@ -242,7 +242,7 @@ class ListControllerTest {
             outbox.add(ch.tomigorn.wgchores.data.outbox.OutboxItem("old-undo", 4, "", null, ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind.Delete, at = 1))
             outbox.flush()
         }
-        waitUntil("undo notice") { (c.state.value.snack as? Snack.Text)?.text == Notice.UndoDropped(1) }
+        waitUntil("undo notice") { (c.state.value.snack as? Snack.Text)?.text == Notice.Dropped(0, null, 1) }
     }
 
     @Test fun onlyTheShownListReloadsAfterAFlush() {
@@ -258,5 +258,33 @@ class ListControllerTest {
         Thread.sleep(300)
         assertEquals(before + 1, listLoads())
         assertTrue(shown.state.value.loaded)
+    }
+
+    private fun expired(uuid: String, kind: ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind) =
+        ch.tomigorn.wgchores.data.outbox.OutboxItem(uuid, 4, if (kind == ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind.Mark) "2026-01-01" else "", null, kind, at = 1)
+
+    @Test fun droppedMarksAndUndosAreBothSaid() {
+        val c = loaded()
+        runBlocking {
+            outbox.add(expired("m", ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind.Mark))
+            outbox.add(expired("d", ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind.Delete))
+            outbox.flush()
+        }
+        waitUntil("both notices") { (c.state.value.snack as? Snack.Text)?.text == Notice.Dropped(1, "Clean fridge", 1) }
+    }
+
+    @Test fun dropsWhileNoListIsShownAreSaidWhenOneIs() {
+        val c = loaded()
+        c.active = false
+        runBlocking {
+            outbox.add(expired("m", ch.tomigorn.wgchores.data.outbox.OutboxItem.Kind.Mark))
+            outbox.flush()
+        }
+        Thread.sleep(200)
+        assertNull(c.state.value.snack)
+        onMain { c.active = true }
+        waitUntil("notice after resume") { (c.state.value.snack as? Snack.Text)?.text == Notice.Dropped(1, "Clean fridge", 0) }
+        val other = loaded()
+        assertNull(other.state.value.snack)
     }
 }
