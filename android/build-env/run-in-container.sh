@@ -52,7 +52,15 @@ echo "$(( $(date +%s) - start ))" > "$out/gradle-seconds"
 
 if [ -n "$emu_pid" ]; then
     mkdir -p "$out/screenshots"
-    adb exec-out screencap -p > "$out/screenshots/device-final.png" 2>/dev/null || true
+    apk=$(find . -path '*/build/outputs/apk/debug/*.apk' ! -name '*androidTest*' | head -1)
+    aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | tail -1)
+    if [ -n "$apk" ] && pkg=$("$aapt2" dump packagename "$apk" 2>/dev/null) && adb install -r "$apk" >/dev/null 2>&1; then
+        adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+        sleep 5
+        adb exec-out screencap -p > "$out/screenshots/$pkg.png" 2>/dev/null
+    else
+        adb exec-out screencap -p > "$out/screenshots/device.png" 2>/dev/null
+    fi
 fi
 
 find . -path '*/build/outputs' -o -path '*/build/reports' -o -path '*/build/test-results' | grep -v '/intermediates/' |
