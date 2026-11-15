@@ -8,7 +8,7 @@ Shared household chore tracker: who did what, how long ago. One small Rust serve
 | [docs/account-deletion.md](docs/account-deletion.md) | how to delete an account |
 
 ## Self-hosting
-Image: `ghcr.io/tomigorn/wg-chores` (amd64 + arm64, publishing comes with the first release; until then build it yourself). One container, data in the `/data` volume, port 8080 on 127.0.0.1, needs an https reverse proxy in front; HSTS is the proxy's job.
+Image: `tomigorn/wg-chores:latest` on Docker Hub (amd64 + arm64) once published; until then build it yourself. One container, data in the `/data` volume, port 8080 on 127.0.0.1, needs an https reverse proxy in front; HSTS is the proxy's job.
 
 ```
 git clone https://github.com/tomigorn/WG-Chores.git && cd WG-Chores
@@ -93,6 +93,9 @@ docker exec wg-chores /wg-chores migrate-v1 --from /data/v1.db --household 'Flat
 docker exec wg-chores rm /data/v1.db
 ```
 Unmapped v1 names become former members; details under Admin commands.
+
+## Releases
+GitHub Actions: `ci.yml` (tests on pull requests), `release.yml` (tests, then the multi-arch image `tomigorn/wg-chores` on every push to `main`, on `v*` tags and weekly); Renovate (`renovate.json`) keeps dependencies and base image digests current. Setup and rollback: [docs/guides/docker-hub-release.md](docs/guides/docker-hub-release.md).
 
 ## Development
 | Command | What |
