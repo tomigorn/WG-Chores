@@ -56,13 +56,13 @@ Completion:
 | `android/scripts/beefy-build.sh --emulator releaseDeviceCheck` | R8 check on the emulator (JVM test `device/ReleaseDeviceCheck.kt` drives adb, screen set to 1080×1920): the release APK (debug key, inside the container) refuses `http://`; the `minified` build (release code and R8 rules, debug key, local http; never upload it) signs in to the fake server with demo data, marks a chore done, opens sheet, chore page, settings, runs the background check (job forced via `cmd jobscheduler`: poll + due notification) and takes the 5 store screenshots (1080×1920; list shots end at a whole row) to `latest/app/build/outputs/device-check/screenshots/` (copy them to `store/screenshots/`). Only this task runs `ch.tomigorn.wgchores.device.*` |
 
 ## Dependency locks
-`app/gradle.lockfile` pins every library of all app configurations (release, test, androidTest; Trivy scans it). Gradle fails a build whose resolved versions differ from it. Renovate (`gradle` manager) updates it with each library bump.
+`app/gradle.lockfile` pins every library of all app configurations (release, test, androidTest; Trivy scans it). Gradle fails a build whose resolved versions differ from it. Dependabot (`gradle`) updates it with each library bump; when it misses a transitive change, CI fails and the PR stays open: run `--write-locks` below, commit the lockfile onto the PR branch, merge by hand.
 
 | Command | Does |
 |---|---|
 | `android/scripts/beefy-build.sh --write-locks` | after a change in `gradle/libs.versions.toml` or `app/build.gradle.kts`: resolves everything on beefy (`:app:dependencies assembleRelease testDebugUnitTest assembleDebugAndroidTest --write-locks`) and copies the new `app/gradle.lockfile` into `android/app/`; commit it with the change |
 
-CI: job `android` in `.github/workflows/ci.yml` runs `testDebugUnitTest verifyRoborazziDebug assembleRelease` on every pull request (Renovate's included; a stale lockfile fails it); the image release (`release.yml`) skips it.
+CI: job `android` in `.github/workflows/ci.yml` runs `testDebugUnitTest verifyRoborazziDebug assembleRelease` on every pull request (Dependabot's included; a stale lockfile fails it and blocks the auto-merge); the image release (`release.yml`) skips it.
 
 Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs minor and patch below 100 (the build fails otherwise).
 

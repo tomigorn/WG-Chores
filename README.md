@@ -126,6 +126,6 @@ Unmapped v1 names become former members; details under Admin commands.
 Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/completions/`) and `wg-chores.bash` (source it).
 
 ## Releases
-GitHub Actions: `ci.yml` (tests on pull requests), `release.yml` (tests, then the multi-arch image `tomigorn/wg-chores`: `latest` + `sha-…` on every push to `main` and weekly, `vX.Y.Z` on version tags); Renovate (`renovate.json`) keeps dependencies and base image digests current. Setup and rollback: [docs/guides/docker-hub-release.md](https://github.com/tomigorn/WG-Chores/blob/main/docs/guides/docker-hub-release.md).
+GitHub Actions: `ci.yml` (tests on pull requests), `release.yml` (tests, then the multi-arch image `tomigorn/wg-chores`: `latest` + `sha-…` on every push to `main` and weekly, `vX.Y.Z` on version tags); Dependabot (`.github/dependabot.yml`) keeps dependencies and base image digests current; minor, patch and digest updates merge automatically after CI. Setup and rollback: [docs/guides/docker-hub-release.md](https://github.com/tomigorn/WG-Chores/blob/main/docs/guides/docker-hub-release.md).
 Author's server (fastpi, Holy Grail SSO + public demo): kit in `deploy/holy-grail/`, steps in [docs/guides/go-live-holy-grail.md](https://github.com/tomigorn/WG-Chores/blob/main/docs/guides/go-live-holy-grail.md).
 Development, API and internals: [docs/reference.md](https://github.com/tomigorn/WG-Chores/blob/main/docs/reference.md).

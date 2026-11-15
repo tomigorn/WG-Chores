@@ -6,6 +6,7 @@ The image `tomigorn/wg-chores` (amd64 + arm64) is built and pushed by GitHub Act
 |---|---|---|
 | `.github/workflows/ci.yml` | pull requests, by hand, called by Release (so every push to `main` and every tag is tested once) | server fmt + clippy + tests, web tests + types + build, browser suite (Chromium) |
 | `.github/workflows/release.yml` | push to `main`, tag `v*`, Monday 03:23 UTC, by hand | CI first; then per architecture on its own runner: image tests, push without a tag, start exactly that image and run `wg-chores healthcheck`; only then the tags |
+| `.github/workflows/dependabot-auto-merge.yml` | Dependabot pull requests | minor/patch/digest: auto-merge once checks are green, then starts Release; major: label `major` |
 
 | Tag | When |
 |---|---|
@@ -70,20 +71,38 @@ git push origin main
 docker buildx imagetools inspect tomigorn/wg-chores:latest
 ```
 
-## 7. Renovate (dependency updates)
-1. Open https://github.com/apps/renovate and click **Install** (or **Configure**).
-2. Pick the account `tomigorn`.
-3. Choose **Only select repositories**, select `WG-Chores`, click **Install**.
-4. Renovate reads `renovate.json` and opens an issue **Dependency Dashboard**.
+## 7. Dependabot (dependency updates)
+Config: `.github/dependabot.yml`; merging: `.github/workflows/dependabot-auto-merge.yml`. Settings at https://github.com/tomigorn/WG-Chores/settings:
+
+1. Renovate installed earlier? https://github.com/settings/installations → **Renovate** → **Configure** → under "Repository access" remove `WG-Chores` (or **Uninstall**) → **Save**.
+2. **General** → section "Pull Requests" → tick **Allow auto-merge** (saves at once).
+3. **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**:
+   - **Ruleset Name**: `main`
+   - **Enforcement status**: **Active**
+   - **Bypass list** → **Add bypass** → tick **Repository admin** → **Add selected** (stays "Always allow": your own pushes and tags keep working)
+   - **Target branches** → **Add target** → **Include default branch**
+   - Leave **Restrict deletions** and **Block force pushes** ticked; leave **Require a pull request before merging** off
+   - Tick **Require status checks to pass**; leave **Require branches to be up to date before merging** off; **Add checks**, type each name, pick the one from **GitHub Actions**:
+     - `Server (fmt, clippy, test)`
+     - `README fits Docker Hub`
+     - `Web (test, check, build)`
+     - `Browser suite (Chromium)`
+     - `Android (JVM tests, screenshots, release build)`
+   - **Create**
+4. **Advanced Security** → **Dependabot alerts**: **Enable**; **Dependabot security updates**: **Enable**.
+5. https://github.com/tomigorn/WG-Chores/labels → **New label** → name `major` → **Create label** (Dependabot and the workflow tag major PRs with it).
+6. Check: https://github.com/tomigorn/WG-Chores/network/updates lists cargo, npm, gradle, docker, rust-toolchain, github-actions; **Check for updates** starts one at once.
 
 | Update | What happens |
 |---|---|
-| minor, patch, digest (Dockerfile bases, GitHub Actions) | PR on Monday before 06:00 (Zurich), merged by Renovate once CI is green |
-| waiting time after a release | GitHub Actions 7 days; npm, cargo, Dockerfile bases and the Rust toolchain 3 days |
-| lock file refresh (all npm/cargo dependencies at once) | PR on Monday, you merge it |
-| major | PR with label `major`, you merge it |
-| `@playwright/test` | PR, you merge it (fastpi's preinstalled Chromium must match the version) |
-| known vulnerability | PR at once, any day |
+| minor, patch (one grouped PR per ecosystem), Docker digest, Rust toolchain | PR on Monday 04:00 (Zurich); auto-merge (squash) once all required checks are green; the workflow then starts **Release** |
+| waiting time after a release | GitHub Actions 7 days, everything else 3 days (not for security updates) |
+| major | own PR with label `major`, you merge it |
+| `@playwright/test` | own PR, you merge it (fastpi's preinstalled Chromium must match the version) |
+| known vulnerability (cargo, npm, GitHub Actions) | security PR at once, any day; minor/patch ones auto-merge too |
+| CI red (e.g. stale `android/app/gradle.lockfile`) | PR stays open; fix: `android/scripts/beefy-build.sh --write-locks`, commit the lockfile onto the PR branch, merge by hand |
+
+A merge done by the workflow's token starts no push workflow, so the workflow starts **Release** itself (`gh workflow run`). It waits up to 80 min for the merge; later merges ship with the Monday release.
 
 ## 8. First version tag
 v2 starts at `2.0.0` (the .NET v1 ended at 1.2.0). The tag must equal `version` in `server/Cargo.toml`.
@@ -122,10 +141,10 @@ Never delete tags on Docker Hub: they are the way back.
 ## How the image stays fresh
 | What | How |
 |---|---|
-| Base images (`node`, `rust` in the `Dockerfile`) | pinned by digest; Renovate moves the digest, merges after CI, the push to `main` starts a release |
+| Base images (`node`, `rust` in the `Dockerfile`; `eclipse-temurin` in `android/build-env/Dockerfile`) | pinned by digest; Dependabot moves the digest, auto-merge after CI, then **Release** |
 | Weekly rebuild (Monday 03:23 UTC) | without cache: fresh Alpine packages in the build stage, so the CA bundle (the only OS file in the `scratch` image) stays current |
-| Rust version (`rust-toolchain.toml`, used by CI) | Renovate PR "Rust toolchain", together with the `rust` digest in the `Dockerfile` |
-| Rust crates, npm packages, Actions | Renovate PRs, see step 7 |
+| Rust version (`rust-toolchain.toml`, used by CI) | Dependabot `rust-toolchain` PR, separate from the `rust` digest PR (the image uses the newest Rust 1.x of `rust:1-alpine`) |
+| Rust crates, npm packages, Android libraries, Actions | Dependabot PRs, see step 7 |
 
 ## fastpi follows the image (at go-live, not yet applied)
 | Step | Detail |
