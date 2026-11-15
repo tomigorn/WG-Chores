@@ -1,9 +1,9 @@
 package ch.tomigorn.wgchores.notify
 
+import ch.tomigorn.wgchores.domain.Days
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.ZonedDateTime
 
 /** When the background check runs: the server's notify times in the server's zone, whatever zone the phone is in. */
@@ -16,7 +16,7 @@ object NotifySchedule {
         runCatching { LocalTime.of(h.toInt(), min.toInt()) }.getOrNull()
     }.distinct().sorted()
 
-    fun zone(tz: String): ZoneId = runCatching { ZoneId.of(tz) }.getOrDefault(ZoneOffset.UTC)
+    fun zone(tz: String): ZoneId = Days.zone(tz)
 
     fun validZone(tz: String): Boolean = runCatching { ZoneId.of(tz) }.isSuccess
 

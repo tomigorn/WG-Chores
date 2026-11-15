@@ -69,7 +69,7 @@ class NotifyScheduler(private val work: () -> WorkManager, private val store: No
             store.saveSignature(null)
             return
         }
-        if (!NotifySchedule.validZone(plan.tz)) Log.w("WgChores", "server time zone '${plan.tz}' unknown, notify times taken as UTC")
+        if (!NotifySchedule.validZone(plan.tz)) Log.w("WgChores", "server time zone '${plan.tz}' unknown, notify times taken in the phone's zone")
         val signature = "${plan.account}|${plan.times.joinToString(",")}|${plan.tz}"
         val policy = if (store.signature() == signature) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE
         work().enqueueUniqueWork(NAME, policy, request(at))

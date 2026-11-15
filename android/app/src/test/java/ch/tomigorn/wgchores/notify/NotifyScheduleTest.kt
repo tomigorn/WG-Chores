@@ -1,5 +1,6 @@
 package ch.tomigorn.wgchores.notify
 
+import ch.tomigorn.wgchores.domain.Days
 import java.time.Instant
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
@@ -67,6 +68,14 @@ class NotifyScheduleTest {
         assertEquals(at("2026-11-15T14:00:00Z"), NotifySchedule.next(at("2026-11-15T09:00:00Z"), times, "UTC"))
     }
 
-    @Test fun anUnknownZoneCountsAsUtc() =
-        assertEquals(at("2026-11-15T14:00:00Z"), NotifySchedule.next(at("2026-11-15T09:00:00Z"), times, "Mars/Olympus"))
+    @Test fun anUnknownZoneFallsBackToThePhonesZoneLikeTheDueDays() {
+        val saved = TimeZone.getDefault()
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tokyo"))
+            assertEquals(at("2026-11-15T10:00:00Z"), NotifySchedule.next(at("2026-11-15T09:00:00Z"), times, "Mars/Olympus"))
+            assertEquals(Days.zone("Mars/Olympus"), NotifySchedule.zone("Mars/Olympus"))
+        } finally {
+            TimeZone.setDefault(saved)
+        }
+    }
 }
