@@ -6,9 +6,13 @@ on:
       - main
     tags:
       - "v*"
-  schedule:
-    - cron: "23 3 * * 1"
+  # update.yml starts it after landing an update, and on Mondays without cache (base image and Alpine packages)
   workflow_dispatch:
+    inputs:
+      no_cache:
+        description: Build without cache
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -92,7 +96,7 @@ jobs:
           target: test
           platforms: ${{ matrix.platform }}
           pull: true
-          no-cache: ${{ github.event_name == 'schedule' }}
+          no-cache: ${{ inputs.no_cache == true }}
           build-args: CARGO_BUILD_JOBS=4
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,scope=${{ matrix.arch }},mode=max

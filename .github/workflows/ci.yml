@@ -9,6 +9,11 @@ on:
         type: boolean
         default: false
   workflow_dispatch:
+    inputs:
+      skip_android:
+        description: Skip the Android job (update.yml sets it when nothing under android/ changed)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -65,9 +70,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Node major of the Dockerfile
+        id: node
+        run: echo "major=$(sed -n 's/^FROM node:\([0-9]*\)-.*/\1/p' Dockerfile)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: ${{ steps.node.outputs.major }}
           cache: npm
           cache-dependency-path: web/package-lock.json
       - working-directory: web
@@ -95,9 +103,12 @@ jobs:
         with:
           workspaces: server
           key: e2e
+      - name: Node major of the Dockerfile
+        id: node
+        run: echo "major=$(sed -n 's/^FROM node:\([0-9]*\)-.*/\1/p' Dockerfile)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: ${{ steps.node.outputs.major }}
           cache: npm
           cache-dependency-path: web/package-lock.json
       - working-directory: web
@@ -129,10 +140,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: JDK major of android/build-env/Dockerfile
+        id: jdk
+        run: echo "major=$(sed -n 's/^FROM eclipse-temurin:\([0-9]*\)-.*/\1/p' android/build-env/Dockerfile)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
-          java-version: 21
+          java-version: ${{ steps.jdk.outputs.major }}
           cache: gradle
           cache-dependency-path: |
             android/gradle/libs.versions.toml
