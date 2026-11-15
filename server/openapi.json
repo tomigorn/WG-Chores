@@ -1621,13 +1621,13 @@
        "schema": {
         "type": "object",
         "properties": {
+         "current_password": {
+          "type": "string"
+         },
          "confirm_username": {
           "type": "string"
          }
         },
-        "required": [
-         "confirm_username"
-        ],
         "additionalProperties": false
        }
       }
@@ -1637,7 +1637,8 @@
      {
       "cookie": []
      }
-    ]
+    ],
+    "description": "Local accounts confirm with `current_password` (wrong: 403 `wrong_password`, counts towards the login rate limit), SSO accounts with `confirm_username` = their display name. Households left without members are deleted with their chores, completions, categories and invites."
    }
   },
   "/api/v1/me/last-household": {

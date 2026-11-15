@@ -568,7 +568,7 @@ async fn deleted_account_invites_cancelled() {
     let (_, t_ben) = invite(&mut b, h).await;
     let (_, t_anna) = invite(&mut a, h).await;
     let r = b
-        .delete("/api/v1/me", json!({"confirm_username": "ben"}))
+        .delete("/api/v1/me", json!({"current_password": PW}))
         .await;
     assert_eq!(r.status, 204);
     assert_cancelled(&app, &t_ben).await;

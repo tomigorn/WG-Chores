@@ -530,15 +530,20 @@ async fn delete_account_keeps_history_as_former() {
     let mut c = app.client();
     c.login("anna", PW).await;
     let r = c
-        .delete("/api/v1/me", json!({"confirm_username": "nope"}))
+        .delete("/api/v1/me", json!({"confirm_username": "anna"}))
         .await;
     assert_eq!(
         (r.status, r.body["error"].as_str()),
-        (400, Some("confirmation_mismatch"))
+        (400, Some("current_password_required"))
     );
     let r = c
-        .delete("/api/v1/me", json!({"confirm_username": "Anna"}))
+        .delete("/api/v1/me", json!({"current_password": "wrong password here"}))
         .await;
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (403, Some("wrong_password"))
+    );
+    let r = c.delete("/api/v1/me", json!({"current_password": PW})).await; // leak-check: ok
     assert_eq!(r.status, 204);
     assert!(c.jar.is_empty());
     let (former, username, name, comps, idents, sessions, members): (
@@ -569,7 +574,7 @@ async fn delete_account_keeps_history_as_former() {
         })
         .await;
     assert_eq!((former, username, name.as_str()), (1, None, "anna"));
-    assert_eq!((comps, idents, sessions, members), (1, 0, 0, 0));
+    assert_eq!((comps, idents, sessions, members), (0, 0, 0, 0));
     assert_eq!(c.login("anna", PW).await.status, 401);
     let r = c.post("/api/v1/auth/register", reg("anna", PW)).await;
     assert_eq!(r.status, 201);
@@ -744,7 +749,7 @@ async fn csrf_header_required_on_patch_and_delete() {
     let r = c.patch("/api/v1/me", json!({"display_name": "X"})).await;
     assert_eq!((r.status, r.body["error"].as_str()), (403, Some("csrf")));
     let r = c
-        .delete("/api/v1/me", json!({"confirm_username": "anna"}))
+        .delete("/api/v1/me", json!({"current_password": PW}))
         .await;
     assert_eq!((r.status, r.body["error"].as_str()), (403, Some("csrf")));
     c.csrf = true;
@@ -825,4 +830,44 @@ async fn sso_session_absolute_expiry_30_days() {
     assert_eq!(c.get("/api/v1/me").await.status, 200);
     app.clock.advance(Duration::days(2));
     assert_eq!(c.get("/api/v1/me").await.status, 401);
+}
+
+#[tokio::test]
+async fn delete_account_keeps_shared_history_and_deletes_households_left_empty() {
+    let app = TestApp::new();
+    let id = app.seed_local_user("anna", PW).await;
+    let ben = app.seed_local_user("ben", PW).await;
+    app.db(move |c| {
+        c.execute_batch(&format!(
+            "INSERT INTO households (id, name, created_at) VALUES (1, 'alone', 'x'), (2, 'shared', 'x');
+             INSERT INTO memberships VALUES (1, {id}, 'x'), (2, {id}, 'x'), (2, {ben}, 'x');
+             INSERT INTO chores (id, household_id, name, created_at) VALUES (1, 1, 'c1', 'x'), (2, 2, 'c2', 'x');
+             INSERT INTO categories (household_id, name) VALUES (1, 'Kitchen');
+             INSERT INTO completions (id, chore_id, user_id, done_on, created_at) VALUES
+               ('u1', 1, {id}, '2026-01-01', 'x'), ('u2', 2, {id}, '2026-01-01', 'x');
+             INSERT INTO invites (household_id, token_hash, created_by, created_at, expires_at) VALUES
+               (1, 'h1', {id}, 'x', '2099-01-01T00:00:00.000Z');"
+        ))
+    })
+    .await;
+    let mut c = app.client();
+    c.login("anna", PW).await;
+    let r = c.delete("/api/v1/me", json!({"current_password": PW})).await; // leak-check: ok
+    assert_eq!(r.status, 204);
+    let counts: Vec<i64> = app
+        .db(|c| {
+            [
+                "SELECT count(*) FROM households WHERE id = 1",
+                "SELECT count(*) FROM households WHERE id = 2",
+                "SELECT count(*) FROM chores",
+                "SELECT count(*) FROM categories",
+                "SELECT count(*) FROM completions",
+                "SELECT count(*) FROM invites",
+            ]
+            .iter()
+            .map(|q| c.query_row(q, [], |r| r.get(0)))
+            .collect()
+        })
+        .await;
+    assert_eq!(counts, [0, 1, 1, 0, 1, 0]);
 }

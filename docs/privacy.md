@@ -13,7 +13,8 @@ WG Chores has no central service. Your data lives on the WG Chores server you co
 | Invite links (stored hashed), who created them | joining a household |
 | Sessions and devices (stored hashed), last seen | staying signed in |
 | Push subscriptions (browser push address + keys), notification settings | notifications |
-| Error logs (no IP addresses; IPs are only held in memory for login rate limits, the reverse proxy in front may log them) | debugging |
+| Error logs (no IP addresses) | debugging |
+| Client IP (IPv6: its /64) with the time of sign-in and registration attempts, dropped after about an hour; the reverse proxy in front may log IPs too | rate limits |
 
 ## What it does not do
 - No ads, no tracking, no analytics, no third-party scripts.
@@ -24,4 +25,4 @@ WG Chores has no central service. Your data lives on the WG Chores server you co
 Members of a household see its chores, completions and the names of its members. With `MEMBER_DIRECTORY` on, signed-in users of the same server can find your display name when adding members.
 
 ## Your rights
-Delete your account at any time: [account-deletion.md](account-deletion.md). Questions about the demo or Holy Grail servers: open an issue at https://github.com/tomigorn/WG-Chores/issues. For any other server, ask its operator.
+Delete your account at any time: [account-deletion.md](account-deletion.md). Households where you are the only member are deleted with it. Questions about the demo or Holy Grail servers: open an issue at https://github.com/tomigorn/WG-Chores/issues. For any other server, ask its operator.

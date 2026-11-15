@@ -173,28 +173,45 @@ pub async fn patch(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteMe {
-    confirm_username: String,
+    confirm_username: Option<String>,
+    current_password: Option<String>, // leak-check: ok
 }
 
+/// Local accounts confirm with their current password, SSO accounts by typing their display name.
 pub async fn delete(
     State(st): State<AppState>,
     u: CurrentUser,
+    ip: ClientIp,
     ApiJson(b): ApiJson<DeleteMe>,
 ) -> Result<Response, ApiError> {
     let row = load(&st, u.id).await?;
-    let given = b.confirm_username.trim();
-    let matches = match u.kind {
-        AccountKind::Local => row
-            .username
-            .as_deref()
-            .is_some_and(|n| n.eq_ignore_ascii_case(given)),
-        AccountKind::Sso => given == row.display_name,
-    };
-    if !matches {
-        return Err(ApiError::bad_request(
-            "confirmation_mismatch",
-            "The confirmation does not match your account.",
-        ));
+    match u.kind {
+        AccountKind::Local => {
+            let current = b.current_password.ok_or_else(|| {
+                ApiError::bad_request(
+                    "current_password_required",
+                    "The current password is required.",
+                )
+            })?;
+            let name = row.username.clone().unwrap_or_default();
+            let attempt = local::reserve(&st, Some(&name), ip).await?;
+            let ok = current.len() <= 1024 && st.hasher.verify(current, row.hash.clone()).await?;
+            if !ok {
+                return Err(ApiError::forbidden(
+                    "wrong_password",
+                    "The current password is wrong.",
+                ));
+            }
+            attempt.succeed(&st.db).await?;
+        }
+        AccountKind::Sso => {
+            if b.confirm_username.as_deref().map(str::trim) != Some(row.display_name.as_str()) {
+                return Err(ApiError::bad_request(
+                    "confirmation_mismatch",
+                    "The confirmation does not match your account.",
+                ));
+            }
+        }
     }
     let (id, now) = (u.id, ts(st.clock.now()));
     st.db
@@ -204,6 +221,10 @@ pub async fn delete(
                 "UPDATE invites SET cancelled_at = ?2 WHERE created_by = ?1 AND used_at IS NULL AND cancelled_at IS NULL",
                 rusqlite::params![id, now],
             )?;
+            let households: Vec<i64> = tx
+                .prepare("SELECT household_id FROM memberships WHERE user_id = ?1")?
+                .query_map([id], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
             for sql in [
                 "DELETE FROM identities WHERE user_id = ?1",
                 "DELETE FROM sessions WHERE user_id = ?1",
@@ -211,6 +232,12 @@ pub async fn delete(
                 "DELETE FROM push_subscriptions WHERE user_id = ?1",
             ] {
                 tx.execute(sql, [id])?;
+            }
+            for hid in households {
+                tx.execute(
+                    "DELETE FROM households WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM memberships WHERE household_id = ?1)",
+                    [hid],
+                )?;
             }
             tx.execute(
                 "UPDATE users SET former = 1, username = NULL, picture_url = NULL, last_household_id = NULL, deleted_at = ?2 WHERE id = ?1",

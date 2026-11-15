@@ -1,13 +1,14 @@
 # WG Chores: delete your account
 
 ## In the app
-Account → **Delete account** → type your username (SSO accounts: your display name) → confirm.
+Account → **Delete account** → enter your current password (SSO accounts: type your display name) → confirm.
 
 | Deleted at once | Kept |
 |---|---|
-| sign-in (password or SSO link), username, picture | your display name on completions you made, shown as "(former member)", so the household's history stays complete |
-| all sessions and devices | households you were in (for the other members) |
+| sign-in (password or SSO link), username, picture | your display name on completions you made in households that still have members, shown as "(former member)", so their history stays complete |
+| all sessions and devices | households that still have other members |
 | household memberships | |
+| households where you were the only member, with their chores, categories, completions and invites | |
 | push subscriptions | |
 | your open invite links (cancelled) | |
 
