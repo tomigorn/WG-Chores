@@ -46,21 +46,4 @@ docker run --rm --network none --user $(id -u):$(id -g) -v $HOME/secrets/wg-chor
   keytool -exportcert -rfc -keystore /keys/upload.jks -storepass:file /keys/upload.pass -alias upload -file /keys/upload_certificate.pem
 ```
 3. Play Console → your app → **Protected with Play** → **Play Store protection** → **Manage Play app signing** (older name: Test and release → Setup → App signing) → section "Upload key certificate" → **Request upload key reset** → reason → upload `upload_certificate.pem` → **Request**.
-4. Wait for Google's email; then upload with the new key. Update `ANDROID_CERT_SHA256` (below) and the KeePassXC entry.
-
-## Fingerprints for the server (App Links)
-The server's `/.well-known/assetlinks.json` lists the certificates allowed to open invite links in the app. Phones see Google's app signing key (Play installs) or your upload key (APKs you sign yourself), so list both.
-
-1. Upload key:
-```
-docker run --rm --network none --user $(id -u):$(id -g) -v $HOME/secrets/wg-chores:/keys:ro $J \
-  keytool -list -v -keystore /keys/upload.jks -storepass:file /keys/upload.pass -alias upload | grep SHA256:
-```
-2. App signing key: Play Console → **Manage Play app signing** (path above) → section "App signing key certificate" → copy **SHA-256 certificate fingerprint**. Appears after the first AAB upload. If several are listed (newer apps get a quantum-ready key too), add each SHA-256.
-3. Server env, comma-separated (colons optional):
-```
-ANDROID_CERT_SHA256=<app signing SHA-256>,<upload SHA-256>
-```
-4. Recreate the container, then check: `curl -s https://wg-chores.holy-grail.ch/.well-known/assetlinks.json` shows both.
-
-Fingerprints are public, they may go into the compose file.
+4. Wait for Google's email; then upload with the new key. Update the KeePassXC entry.
