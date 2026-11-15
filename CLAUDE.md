@@ -9,7 +9,8 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 | `web/` | Svelte 5 web app (`src/lib/` api client, i18n, theme, router, due rules mirror, push, install banner logic; `src/screens/`, `src/components/`; `src/app.css` design tokens; `src/sw.ts` + `src/sw/core.ts` service worker built by `sw-plugin.ts`; `public/` manifest + icons from `scripts/icons.mjs`; `e2e/` Playwright browser and layout suite) |
 | `android/` | Kotlin + Compose app (`app/`, catalog `gradle/libs.versions.toml`); `build-env/` beefy build image (`Dockerfile`, `run-in-container.sh`, `smoke/` self-test project), `scripts/beefy-build.sh` (+ `completions/`, `test-beefy-build.sh`): builds on beefy from fastpi, see `android/README.md` |
 | `deploy/` | `compose.example.yaml` (self-hosters); `holy-grail/` fastpi kit: `Projects/` mirrors HomeLab-FastPi paths (compose `Docker/WG-Chores-v2` + `Docker/WG-Chores-Demo` incl. demo-reset `systemd/`, Traefik route, Authentik provisioning, post-update checks), `snippets/` inserted into existing files, `apply.sh` (dry-run diff / apply, never commits there), `completions/` |
-| `.github/` | `workflows/ci.yml` (tests on pull requests, called by release), `workflows/release.yml` (multi-arch image `tomigorn/wg-chores` to Docker Hub), `workflows/dependabot-auto-merge.yml` (auto-merge minor/patch/digest, then starts release), `dependabot.yml` (weekly dependency updates) |
+| `.github/` | `workflows/ci.yml` (tests; dispatched per update candidate, called by release; Node/JDK major read from the Dockerfiles), `workflows/release.yml` (multi-arch image `tomigorn/wg-chores` to Docker Hub), `workflows/update.yml` (daily dependency updates, no PRs: candidates on `auto-update*` branches, CI, fast-forward `main`, release) |
+| `scripts/` | `update_deps.py` (CI tool for `update.yml`: `--help`, `compatible --dry-run`), `test_update_deps.py`, `update-deps.ignore` (held-back packages with reason) |
 | `docs/` | `reference.md` developer reference (API, internals; moved out of the README, which is also the Docker Hub page: ≤ 25,000 bytes, absolute links), `privacy.md`, `account-deletion.md` |
 | `docs/guides/` | owner guides (`docker-hub-release.md`, `go-live-holy-grail.md`, `play-store-first-release.md`, `android-signing-key.md`); Play Store texts, form answers and graphics (`graphics.mjs`, `screenshots/`) in `android/store/` |
 | `Dockerfile` | stages `web` (npm ci/test/build) → `build` (cargo test + static musl release) → `test` target → `scratch` (uid 65035:65037, `/data`, `/tmp` 1777, health check `wg-chores healthcheck`); bases pinned by digest |
@@ -19,9 +20,10 @@ Rust server (axum, SQLite) plus web app and Android app. Spec: `docs/superpowers
 - `cd web && npm test && npm run check && npm run build` (then `touch server/build.rs` to embed)
 - Browser suite: `cd web && npm run e2e:build && npm run e2e` (Playwright, `web/e2e/`, not in `npm test`)
 - `cd server && cargo clippy --all-targets -- -D warnings`
+- Update script: `python3 -m unittest discover -s scripts -p 'test_*.py'`; workflows: `actionlint`
 - Run: `PUBLIC_URL=http://localhost:8080 cargo run`, then `curl localhost:8080/healthz`
 - Release builds need `web/dist/index.html` or `WGC_ALLOW_PLACEHOLDER=1`
-- Rust version pinned in `rust-toolchain.toml` (the Dockerfile's `rust:1-alpine` base follows the newest 1.x; Dependabot bumps both, in separate PRs)
+- Rust version pinned in `rust-toolchain.toml` (the Dockerfile's `rust:1-alpine` base follows the newest 1.x; `update.yml` bumps the toolchain as its own tested candidate)
 - On fastpi: `CARGO_BUILD_JOBS=2`, one build at a time (`flock ~/.cache/claude-work/rust-build.lock`)
 - Image: `flock ~/.cache/claude-work/rust-build.lock docker build -t wg-chores-v2:local .`; never `docker compose` for project `wg-chores` (live v1)
 

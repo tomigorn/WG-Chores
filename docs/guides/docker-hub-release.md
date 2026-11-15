@@ -4,9 +4,9 @@ The image `tomigorn/wg-chores` (amd64 + arm64) is built and pushed by GitHub Act
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| `.github/workflows/ci.yml` | pull requests, by hand, called by Release (so every push to `main` and every tag is tested once) | server fmt + clippy + tests, web tests + types + build, browser suite (Chromium) |
-| `.github/workflows/release.yml` | push to `main`, tag `v*`, Monday 03:23 UTC, by hand | CI first; then per architecture on its own runner: image tests, push without a tag, start exactly that image and run `wg-chores healthcheck`; only then the tags |
-| `.github/workflows/dependabot-auto-merge.yml` | Dependabot pull requests | minor/patch/digest: auto-merge once checks are green, then starts Release; major: label `major` |
+| `.github/workflows/ci.yml` | pull requests, by hand, started by Update for every candidate, called by Release (so every push to `main` and every tag is tested once) | server fmt + clippy + tests, web tests + types + build, browser suite (Chromium), Android; Node and JDK major taken from the Dockerfiles |
+| `.github/workflows/release.yml` | push to `main`, tag `v*`, started by Update (after an image change landed; Mondays without cache), by hand | CI first; then per architecture on its own runner: image tests, push without a tag, start exactly that image and run `wg-chores healthcheck`; only then the tags |
+| `.github/workflows/update.yml` | daily 01:37 UTC, by hand (**Run workflow**, options Android / dry run) | dependency updates without pull requests, see step 7 |
 
 | Tag | When |
 |---|---|
@@ -71,38 +71,34 @@ git push origin main
 docker buildx imagetools inspect tomigorn/wg-chores:latest
 ```
 
-## 7. Dependabot (dependency updates)
-Config: `.github/dependabot.yml`; merging: `.github/workflows/dependabot-auto-merge.yml`. Settings at https://github.com/tomigorn/WG-Chores/settings:
+## 7. Automatic updates
+`update.yml` + `scripts/update_deps.py`: updates are tested commits on branches `auto-update*`, never pull requests. What passes CI goes to `main` and Docker Hub; what fails stays out.
 
+Once, at https://github.com/tomigorn/WG-Chores/settings:
 1. Renovate installed earlier? https://github.com/settings/installations → **Renovate** → **Configure** → under "Repository access" remove `WG-Chores` (or **Uninstall**) → **Save**.
-2. **General** → section "Pull Requests" → tick **Allow auto-merge** (saves at once).
-3. **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**:
-   - **Ruleset Name**: `main`
-   - **Enforcement status**: **Active**
-   - **Bypass list** → **Add bypass** → tick **Repository admin** → **Add selected** (stays "Always allow": your own pushes and tags keep working)
-   - **Target branches** → **Add target** → **Include default branch**
-   - Leave **Restrict deletions** and **Block force pushes** ticked; leave **Require a pull request before merging** off
-   - Tick **Require status checks to pass**; leave **Require branches to be up to date before merging** off; **Add checks**, type each name, pick the one from **GitHub Actions**:
-     - `Server (fmt, clippy, test)`
-     - `README fits Docker Hub`
-     - `Web (test, check, build)`
-     - `Browser suite (Chromium)`
-     - `Android (JVM tests, screenshots, release build)`
-   - **Create**
-4. **Advanced Security** → **Dependabot alerts**: **Enable**; **Dependabot security updates**: **Enable**.
-5. https://github.com/tomigorn/WG-Chores/labels → **New label** → name `major` → **Create label** (Dependabot and the workflow tag major PRs with it).
-6. Check: https://github.com/tomigorn/WG-Chores/network/updates lists cargo, npm, gradle, docker, rust-toolchain, github-actions; **Check for updates** starts one at once.
+2. **Rules** → **Rulesets** → **MAIN** (https://github.com/tomigorn/WG-Chores/settings/rules/27331464): untick **Require status checks to pass**; leave **Restrict deletions** and **Block force pushes** ticked → **Save changes**. (The workflow token cannot be on the bypass list; CI runs on the candidate before `main` moves; your own pushes bypassed the checks anyway.)
+3. **Advanced Security** → **Dependabot alerts**: leave **Enabled**; **Dependabot security updates**: **Disable** (the update job takes advisory fixes at once, without PRs).
+4. **General** → section "Pull Requests" → untick **Allow auto-merge** (nothing uses it anymore).
+5. Optional: https://github.com/tomigorn/WG-Chores/labels → `major` → **Delete**.
+6. Failure mail: https://github.com/settings/notifications → section **System** → **Actions** → tick **Email** and **Only notify for failed workflows**. Mails for the scheduled run go to whoever last changed its `cron` line (you, with the push).
+7. Check: https://github.com/tomigorn/WG-Chores/actions/workflows/update.yml → **Run workflow** → tick **dry run** → **Run workflow**. Green, and the run page lists what it would update.
 
 | Update | What happens |
 |---|---|
-| minor, patch (one grouped PR per ecosystem), Docker digest, Rust toolchain | PR on Monday 04:00 (Zurich); auto-merge (squash) once all required checks are green; the workflow then starts **Release** |
-| waiting time after a release | GitHub Actions 7 days, everything else 3 days (not for security updates) |
-| major, and below 1.0 also a minor step (0.32 → 0.42) | own PR with label `major`, you merge it |
-| `@playwright/test` | own PR, you merge it (fastpi's preinstalled Chromium must match the version) |
-| known vulnerability (cargo, npm, GitHub Actions) | security PR at once, any day; minor/patch ones auto-merge too |
-| CI red (e.g. stale `android/app/gradle.lockfile`) | PR stays open; fix: `android/scripts/beefy-build.sh --write-locks`, commit the lockfile onto the PR branch, merge by hand |
+| cargo, npm within the major; base image digests; Android libraries (Mondays) | one commit "dependency updates" on `auto-update`; full CI (Android only when `android/` changed); green → `main` fast-forwards to it, **Release** starts |
+| waiting time | new versions only 3 days after publishing (crates.io, npm, Maven dates); a version fixing an advisory (OSV: RustSec, GitHub) of the one in use at once; base image digests at once (rebuilt by Docker Official Images; a tag cannot pin an older digest) |
+| majors (cargo, npm, below 1.0 also 0.32 → 0.42), `node` next LTS, `eclipse-temurin` next LTS, Rust toolchain | each its own commit on top (`auto-update-N`) with its own CI; up to 5 per run, rotated daily; the first green one lands, one per run; red ones stay out (warning, branch kept for a look) |
+| `scripts/update-deps.ignore` | held back, each with a reason: `@playwright/test` (fastpi's Chromium must match), `typescript` major (svelte-check), `@types/node` major (moves with the `node` LTS step) |
+| GitHub Actions pins | not automatic: the workflow token may not change workflow files. The run page lists them (7 days old, same major); by hand: `python3 scripts/update_deps.py actions --write`, commit, push. A vulnerable action still sends a Dependabot alert |
+| Android majors, Gradle wrapper | by hand; Android majors are listed on the run page |
+| compatible updates red | nothing lands, the run is red, you get the mail; fix on `main`, the next run retries |
 
-A merge done by the workflow's token starts no push workflow, so the workflow starts **Release** itself (`gh workflow run`). It waits up to 80 min for the merge; later merges ship with the Monday release.
+| Command | Does |
+|---|---|
+| `python3 scripts/update_deps.py compatible --dry-run` | what the job would update today (scratch copy, nothing written) |
+| `python3 scripts/update_deps.py separate` | today's separate candidates (JSON) |
+| `python3 scripts/update_deps.py apply <id> --dry-run` | one candidate |
+| `python3 -m unittest discover -s scripts -p 'test_*.py'` | unit tests |
 
 ## 8. First version tag
 v2 starts at `2.0.0` (the .NET v1 ended at 1.2.0). The tag must equal `version` in `server/Cargo.toml`.
@@ -141,10 +137,10 @@ Never delete tags on Docker Hub: they are the way back.
 ## How the image stays fresh
 | What | How |
 |---|---|
-| Base images (`node`, `rust` in the `Dockerfile`; `eclipse-temurin` in `android/build-env/Dockerfile`) | pinned by digest; Dependabot moves the digest, auto-merge after CI, then **Release** |
-| Weekly rebuild (Monday 03:23 UTC) | without cache: fresh Alpine packages in the build stage, so the CA bundle (the only OS file in the `scratch` image) stays current |
-| Rust version (`rust-toolchain.toml`, used by CI) | Dependabot `rust-toolchain` PR, separate from the `rust` digest PR (the image uses the newest Rust 1.x of `rust:1-alpine`) |
-| Rust crates, npm packages, Android libraries, Actions | Dependabot PRs, see step 7 |
+| Base images (`node`, `rust` in the `Dockerfile`; `eclipse-temurin` in `android/build-env/Dockerfile`) | pinned by digest; Update moves the digest daily, CI, then **Release** |
+| Weekly rebuild (Monday, after Update) | without cache: fresh Alpine packages in the build stage, so the CA bundle (the only OS file in the `scratch` image) stays current |
+| Rust version (`rust-toolchain.toml`, used by CI) | Update, as a separate candidate (new clippy lints must not block the other updates); the image uses the newest Rust 1.x of `rust:1-alpine` |
+| Rust crates, npm packages, Android libraries | Update, see step 7 |
 
 ## fastpi follows the image (at go-live, not yet applied)
 | Step | Detail |
@@ -152,5 +148,6 @@ Never delete tags on Docker Hub: they are the way back.
 | Compose | `deploy/holy-grail/Projects/Docker/WG-Chores-v2/docker-compose.yaml` (and `WG-Chores-Demo`): `image: tomigorn/wg-chores:latest` (pull, no local build); go-live: [go-live-holy-grail.md](go-live-holy-grail.md) |
 | Nightly update | 03:10 `auto_update.py` (HomeLab-FastPi `Docker/_global/`), one row in `auto-update.conf`; a new digest of `latest` is applied after a 24 h cool-down through `update-project.sh pull`: snapshot of compose/.env and the old image, backup, pull, recreate, wait, check every container is running and healthy, functional check, customization check, on failure the old image and the backup come back |
 | Tier | the app migrates its database at start: `auto` row (owner 2026-11-15): backup `vol:wg-chores-v2_wg-chores-v2-data`, check `docker exec wg-chores-v2 /wg-chores healthcheck`, rollback on failure |
+| Cool-down | each new `latest` digest restarts the 24 h cool-down: on days with a release fastpi waits for a day without one (open: HomeLab-FastPi `auto_update.py`) |
 | Major versions | never applied by the nightly update: the image label `org.opencontainers.image.version` is the `server/Cargo.toml` version |
 | Cup | lists `tomigorn/wg-chores` as soon as a container runs it; "update available" between a push to Docker Hub and fastpi's pull |
