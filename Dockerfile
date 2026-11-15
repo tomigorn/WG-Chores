@@ -1,7 +1,7 @@
 # Static musl binary with the web app embedded, shipped on scratch. On fastpi build only under the rust-build lock:
 # flock ~/.cache/claude-work/rust-build.lock docker build -t wg-chores-v2:local .
 # `--target test` stops after the web and server test suites.
-FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS web
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
