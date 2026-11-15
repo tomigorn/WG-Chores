@@ -1,6 +1,6 @@
 # WG Chores Android
 
-Builds run on beefy (x86_64, KVM) in Docker, driven from fastpi. Nothing is installed on beefy's host.
+Builds run on beefy (x86_64, KVM) in Docker, driven from fastpi. Nothing is installed on beefy's host. Release artifacts are built unsigned on beefy and signed on fastpi.
 
 ## Build
 
@@ -8,37 +8,64 @@ Builds run on beefy (x86_64, KVM) in Docker, driven from fastpi. Nothing is inst
 |---|---|
 | `android/scripts/beefy-build.sh assembleDebug` | build the app in `android/` |
 | `android/scripts/beefy-build.sh --emulator connectedCheck` | instrumented tests on a headless emulator |
+| `android/scripts/beefy-build.sh bundleRelease assembleRelease` | unsigned release AAB + APK (sign them on fastpi, below) |
 | `android/scripts/beefy-build.sh --self-test` | build env self-test: smoke app builds, its Compose test passes on the emulator |
-| `android/scripts/beefy-build.sh --help` | all options (`--project`, `--head`, `--dry-run`) |
-| `android/scripts/test-beefy-build.sh` | offline checks of the script's arguments |
+| `android/scripts/beefy-build.sh --help` | all options (`--project`, `--head`, `--allow-untracked`, `--dry-run`) |
+| `android/scripts/test-beefy-build.sh` | offline checks: arguments, secret guard, completion |
 
-Artifacts (APK/AAB, reports, `screenshots/`, `emulator.log`): `~/.cache/claude-work/wgc-android/latest/` (last 10 runs kept).
+Artifacts (APK/AAB, reports, `screenshots/<package>.png` of the app on the emulator, `emulator.log`): `~/.cache/claude-work/wgc-android/latest/` (last 10 runs kept).
+
+Completion:
+- fish: `ln -s $PWD/android/scripts/completions/beefy-build.fish ~/.config/fish/completions/beefy-build.sh.fish`
+- bash: `source android/scripts/completions/beefy-build.bash` (e.g. in `~/.bashrc`)
 
 ## How it works
-1. beefy asleep → wake via the Beefy-Waker (`POST :9001/wake`), never plain `ssh beefy`.
-2. Sets `/run/beefy-keep-awake`, removes it on every exit (trap); a marker someone else set is left alone.
-3. Working tree (incl. untracked, not ignored files; `--head` = committed HEAD) → `git bundle` → `~/build/wg-chores/src` on beefy (scratch, recreated each run).
-4. Image `wgc-android-build:local` from `build-env/Dockerfile`, rebuilt when `Dockerfile` or `run-in-container.sh` change (label `wgc.env-hash`).
-5. Container: uid 10501, `--cpus 6`, `--memory 20g`, `--cap-drop ALL`, network `wgc-build` (beefy's default bridge cannot resolve names), Gradle cache in volume `wgc-gradle-cache`, `--device /dev/kvm` with `--emulator`.
+1. One run at a time: lock on fastpi (`~/.cache/claude-work/wgc-android/.lock`) and on beefy (`~/build/wg-chores/.lock`).
+2. beefy asleep → wake via the Beefy-Waker (`POST :9001/wake`, header `X-Wake: 1`), never plain `ssh beefy`.
+3. Sets `/run/beefy-keep-awake` (content `wgc-build <run>`) plus a 3 h watchdog on beefy; removed on every exit incl. Ctrl-C/HUP/TERM; a failed removal is a loud error. A marker someone else set is left alone.
+4. Only `android/` is shipped: working tree incl. untracked, not ignored files (`--head` = committed HEAD) → `git bundle` → `~/build/wg-chores/<run>/` on beefy, removed at the end of the run. Untracked `*.jks`, `*.keystore`, `*.pem`, `.env*`, `*secret*`, `keystore.properties` abort the run (`--allow-untracked` overrides).
+5. Image `wgc-android-build:local` from `build-env/Dockerfile`, rebuilt when `Dockerfile` or `run-in-container.sh` change (label `wgc.env-hash`; built with `--network host`).
+6. Container `wgc-android-build-<run>`: uid 10501, `--cpus 6`, `--memory 20g`, `--cap-drop ALL`, `TZ` of fastpi, network `wgc-build` (beefy's default bridge cannot resolve names), Gradle cache in volume `wgc-gradle-cache`, `--device /dev/kvm` with `--emulator`. Removed on cleanup; leftovers of a killed run are removed by the next run.
+
+Night window: beefy runs its own jobs 03:55–04:45 (auto-update 04:12, backup 04:26). A build may run then (`--cpus 6` of 12 keeps it moderate); avoid image rebuilds in that window.
+
+## Signing (fastpi only)
+Upload key and password file stay in `~/secrets/wg-chores/` on fastpi (mode 600, backed up to KeePassXC); no keystore ever goes to beefy. fastpi has no JDK, so signing runs in the pinned JDK container (arm64 from the same multi-arch digest).
+
+One-time: copy `apksigner.jar` out of the build image.
+```
+mkdir -p ~/.local/share/wg-chores
+ssh beefy-direct 'sudo docker run --rm --entrypoint cat wgc-android-build:local /opt/android-sdk/build-tools/36.0.0/lib/apksigner.jar' > ~/.local/share/wg-chores/apksigner.jar
+```
+
+Sign (in the folder with the unsigned artifacts; keystore/alias names as created with the keystore):
+```
+J=eclipse-temurin:21-jdk@sha256:0a3f329821dcadf54b2a3033a15e2e9f007069a9db43d7f51897e6b80e726b07
+RUN="docker run --rm --user $(id -u):$(id -g) -v $HOME/.local/share/wg-chores:/tools:ro -v $HOME/secrets/wg-chores:/keys:ro -v $PWD:/w -w /w $J"
+$RUN java -jar /tools/apksigner.jar sign --ks /keys/upload.jks --ks-pass file:/keys/upload.pass --ks-key-alias upload --out app-release.apk app-release-unsigned.apk
+$RUN java -jar /tools/apksigner.jar verify --print-certs app-release.apk
+$RUN jarsigner -keystore /keys/upload.jks -storepass:file /keys/upload.pass -sigalg SHA256withRSA -digestalg SHA-256 -signedjar app-release-signed.aab app-release.aab upload
+```
+APK: `apksigner` (v2/v3 signatures); AAB: `jarsigner` (what Play expects for the upload key). Both checked with a throwaway key on fastpi 2026-11-15.
 
 ## Image
 | Part | Version |
 |---|---|
-| Base | `eclipse-temurin:21-jdk` pinned by digest (Ubuntu 26.04) |
+| Base | `eclipse-temurin:21-jdk` pinned by digest (Ubuntu 26.04), `tzdata` |
 | cmdline-tools | 15859902 (sha256 checked) |
-| SDK | platform-tools, `platforms;android-36`, `build-tools;36.0.0`, emulator, `system-images;android-36;google_apis;x86_64` |
-| Size | 9.7 GB disk space on beefy (2.9 GB compressed) |
+| SDK | platform-tools, `platforms;android-36`, `platforms;android-37.0`, `build-tools;36.0.0`, emulator, `system-images;android-36;google_apis;x86_64` |
+| Size | 9.9 GB disk space on beefy (2.9 GB compressed) |
 
-API 36 = Play's target requirement since 2026-08-31 (developer.android.com/google/play/requirements/target-sdk). Compose BOM 2026.08.00+ (Compose 1.12) needs compileSdk 37; the smoke app stays on BOM 2026.06.01.
+SDK levels: targetSdk 36 = Play's requirement since 2026-08-31 (developer.android.com/google/play/requirements/target-sdk); compileSdk 37 because Compose 1.12 (BOM 2026.08.00+) needs it. Emulator runs API 36.
 
 ## Smoke project
-`build-env/smoke/`: Compose hello world + one instrumented test. AGP 9.5.1, Kotlin 2.4.21, Gradle 9.9.1 (wrapper, sha256 pinned).
+`build-env/smoke/`: Compose hello world + one instrumented test; compileSdk 37, targetSdk 36, minSdk 26, Compose BOM 2026.09.00, AGP 9.5.1, Kotlin 2.4.21, Gradle 9.9.1 (wrapper, sha256 pinned).
 
 ## Timings (beefy, 2026-11-15)
 | Step | Time |
 |---|---|
-| Image build, cold | 227 s |
-| Emulator boot | 29 s |
+| Image build, cold | 224 s |
+| Emulator boot | 28–36 s |
 | Self-test, first run (empty Gradle cache) | 121 s total, Gradle 85 s |
-| Self-test, warm | 75 s total, Gradle 40 s |
+| Self-test, warm | 75–80 s total, Gradle 40–67 s |
 | `assembleDebug`, warm | 11 s total, Gradle 9 s |
