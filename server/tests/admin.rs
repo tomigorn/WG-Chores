@@ -1,7 +1,7 @@
 use chrono::{NaiveDate, TimeZone, Utc};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use wg_chores::auth::local::Hasher;
+use wg_chores::auth::hasher::Hasher;
 use wg_chores::cli::{self, Command, Ctx, Who};
 use wg_chores::db::Db;
 use wg_chores::domain::{DueLevel, Interval, due_level, interval_days};

@@ -33,7 +33,7 @@ async fn admin(cmd: wg_chores::cli::Command) {
     };
     let ctx = Ctx {
         get: Box::new(|k| std::env::var(k).ok()),
-        hasher: wg_chores::auth::local::Hasher::new(),
+        hasher: wg_chores::auth::hasher::Hasher::new(),
         now: chrono::Utc::now(),
         prompt_password: Box::new(prompt_password), // leak-check: ok
     };

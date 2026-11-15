@@ -225,7 +225,6 @@ pub async fn add_member(
         &st,
         format!("member-add:user:{uid}"),
         MEMBER_ADDS_PER_HOUR,
-        chrono::Duration::hours(1),
     )
     .await?;
     let username = b.username.unwrap_or_default().trim().to_string();

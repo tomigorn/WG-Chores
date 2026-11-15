@@ -1,5 +1,6 @@
 pub mod app;
 pub mod csrf;
+pub mod hasher;
 pub mod local;
 pub mod oidc;
 pub mod session;

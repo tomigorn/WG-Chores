@@ -183,7 +183,7 @@ async fn display_name_rules() {
 }
 
 #[tokio::test]
-async fn rate_limit_after_5_failures_per_account() {
+async fn rate_limit_after_5_failures_per_account_and_ip() {
     let app = TestApp::new();
     app.seed_local_user("anna", PW).await;
     let mut c = app.client();
@@ -195,13 +195,25 @@ async fn rate_limit_after_5_failures_per_account() {
     assert_eq!(r.body["error"], "too_many_attempts");
     let retry: i64 = r.headers["retry-after"].to_str().unwrap().parse().unwrap();
     assert!(retry > 0 && retry <= 900, "{retry}");
-    let mut other = app.client();
-    other.peer = "192.0.2.77:1".parse().unwrap();
-    assert_eq!(other.login("anna", PW).await.status, 429);
-    assert_eq!(other.login("ANNA", PW).await.status, 429);
+    assert_eq!(c.login("ANNA", PW).await.status, 429);
     app.clock
         .advance(Duration::minutes(15) + Duration::seconds(1));
     assert_eq!(c.login("anna", PW).await.status, 200);
+}
+
+#[tokio::test]
+async fn failures_from_one_ip_do_not_lock_the_account_elsewhere() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    for _ in 0..5 {
+        assert_eq!(c.login("anna", "wrong password here").await.status, 401);
+    }
+    assert_eq!(c.login("anna", PW).await.status, 429);
+    let mut other = app.client();
+    other.peer = "192.0.2.77:1".parse().unwrap();
+    assert_eq!(other.login("ANNA", PW).await.status, 200);
+    assert_eq!(c.login("anna", PW).await.status, 429);
 }
 
 #[tokio::test]

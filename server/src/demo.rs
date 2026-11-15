@@ -1,4 +1,4 @@
-use crate::auth::local::Hasher;
+use crate::auth::hasher::Hasher;
 use crate::auth::session::ts;
 use crate::db::Db;
 use chrono::{DateTime, Duration, NaiveDate, Utc};

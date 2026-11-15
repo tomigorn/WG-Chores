@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tower::ServiceExt;
 use wg_chores::app::{AppState, router};
-use wg_chores::auth::local::Hasher;
+use wg_chores::auth::hasher::Hasher;
 use wg_chores::clock::FixedClock;
 use wg_chores::config::Config;
 use wg_chores::db::Db;

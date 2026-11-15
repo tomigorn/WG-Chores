@@ -1,4 +1,4 @@
-use crate::auth::local::Hasher;
+use crate::auth::hasher::Hasher;
 use crate::auth::oidc::{self, Provider};
 use crate::clock::{Clock, SystemClock};
 use crate::config::Config;
