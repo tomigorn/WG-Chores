@@ -28,6 +28,7 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route("/api/v1/me/last-household", put(me::set_last_household))
         .route("/api/v1/me/devices", get(me::devices))
         .route("/api/v1/me/devices/{id}", delete(me::delete_device))
+        .route("/api/v1/notifications/poll", get(crate::notify::poll::poll))
         .route(
             "/api/v1/households",
             get(households::list).post(households::create),
