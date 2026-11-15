@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.test.core.app.ApplicationProvider
 import ch.tomigorn.wgchores.R
 import ch.tomigorn.wgchores.domain.Intervals
+import ch.tomigorn.wgchores.ui.chore.intervalRes
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,22 +24,19 @@ class WordsTest {
         return base.createConfigurationContext(conf)
     }
 
-    private val ids = mapOf(
-        "3d" to R.string.interval_3d, "1w" to R.string.interval_1w, "2w" to R.string.interval_2w, "1m" to R.string.interval_1m,
-        "3m" to R.string.interval_3m, "6m" to R.string.interval_6m, "1y" to R.string.interval_1y,
-    )
-
-    private fun chips(lang: String) = Intervals.ORDER.map { ctx(lang).getString(ids.getValue(it)) }
+    private fun chips(lang: String) = Intervals.ORDER.map { ctx(lang).getString(intervalRes(it)) }
 
     @Test fun intervalChipsInEnglish() = assertEquals(
-        listOf("every 3 days", "every week", "every 2 weeks", "every month", "every 3 months", "every 6 months", "every year"),
+        listOf("every 3 days", "every week", "every 2 weeks", "every month", "every 2 months", "every 3 months", "every 6 months", "every year"),
         chips("en"),
     )
 
     @Test fun intervalChipsInGerman() = assertEquals(
-        listOf("alle 3 Tage", "jede Woche", "alle 2 Wochen", "jeden Monat", "alle 3 Monate", "alle 6 Monate", "jedes Jahr"),
+        listOf("alle 3 Tage", "jede Woche", "alle 2 Wochen", "jeden Monat", "alle 2 Monate", "alle 3 Monate", "alle 6 Monate", "jedes Jahr"),
         chips("de"),
     )
+
+    @Test fun noIntervalReadsAsEveryMonth() = assertEquals(R.string.interval_1m, intervalRes(null))
 
     @Test fun neverBiweeklyNorEveryDay() {
         for (w in chips("en") + chips("de")) {

@@ -8,7 +8,7 @@ import kotlinx.coroutines.CancellationException
 
 /** "Roughly how often" chips: the order of the web app; tapping the picked one unpicks it. */
 object Intervals {
-    val ORDER: List<String> = listOf("3d", "1w", "2w", "1m", "3m", "6m", "1y")
+    val ORDER: List<String> = listOf("3d", "1w", "2w", "1m", "2m", "3m", "6m", "1y")
 
     fun toggle(current: String?, tapped: String): String? = if (current == tapped) null else tapped
 }

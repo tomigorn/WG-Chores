@@ -97,18 +97,19 @@ interface ChoreActions {
     fun dismissSnack(seq: Long)
 }
 
+fun intervalRes(code: String?): Int = when (code) {
+    "3d" -> R.string.interval_3d
+    "1w" -> R.string.interval_1w
+    "2w" -> R.string.interval_2w
+    "2m" -> R.string.interval_2m
+    "3m" -> R.string.interval_3m
+    "6m" -> R.string.interval_6m
+    "1y" -> R.string.interval_1y
+    else -> R.string.interval_1m
+}
+
 @Composable
-fun intervalWord(code: String?): String = stringResource(
-    when (code) {
-        "3d" -> R.string.interval_3d
-        "1w" -> R.string.interval_1w
-        "2w" -> R.string.interval_2w
-        "3m" -> R.string.interval_3m
-        "6m" -> R.string.interval_6m
-        "1y" -> R.string.interval_1y
-        else -> R.string.interval_1m
-    },
-)
+fun intervalWord(code: String?): String = stringResource(intervalRes(code))
 
 @Composable
 fun whoText(by: By): String = if (by.former) stringResource(R.string.chore_former, by.displayName) else by.displayName

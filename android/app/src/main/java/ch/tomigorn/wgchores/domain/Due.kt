@@ -12,7 +12,7 @@ object Due {
     const val LONG_OVERDUE = "long_overdue"
     const val NEVER = "never"
 
-    val INTERVALS = linkedMapOf("3d" to 3, "1w" to 7, "2w" to 14, "1m" to 30, "3m" to 91, "6m" to 182, "1y" to 365)
+    val INTERVALS = linkedMapOf("3d" to 3, "1w" to 7, "2w" to 14, "1m" to 30, "2m" to 61, "3m" to 91, "6m" to 182, "1y" to 365)
     const val DEFAULT_INTERVAL = "1m"
 
     fun intervalDays(code: String?): Int = INTERVALS[code] ?: INTERVALS.getValue(DEFAULT_INTERVAL)

@@ -113,12 +113,12 @@ class ScreensFlowTest {
             click("chore-edit")
             compose.waitForTag("iv-1w")
             click("iv-1w")
-            click("iv-3m")
+            click("iv-2m")
             click("edit-save")
-            waitUntil("saved") { fake.chores.single { it.id == 2L }.interval == "3m" }
-            compose.waitFor("every 3 months")
+            waitUntil("saved") { fake.chores.single { it.id == 2L }.interval == "2m" }
+            compose.waitFor("every 2 months")
             click("chore-edit")
-            click("iv-3m")
+            click("iv-2m")
             click("edit-save")
             waitUntil("unpicked") { fake.chores.single { it.id == 2L }.interval == null }
         }

@@ -161,6 +161,7 @@
     <string name="interval_1w">every week</string>
     <string name="interval_2w">every 2 weeks</string>
     <string name="interval_1m">every month</string>
+    <string name="interval_2m">every 2 months</string>
     <string name="interval_3m">every 3 months</string>
     <string name="interval_6m">every 6 months</string>
     <string name="interval_1y">every year</string>

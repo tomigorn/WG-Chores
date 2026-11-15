@@ -15,7 +15,7 @@ class RulesTest {
     private fun at(s: String) = Rules.expiresIn(s, now)
 
     @Test fun intervalChipsKeepTheWebOrder() {
-        assertEquals(listOf("3d", "1w", "2w", "1m", "3m", "6m", "1y"), Intervals.ORDER)
+        assertEquals(listOf("3d", "1w", "2w", "1m", "2m", "3m", "6m", "1y"), Intervals.ORDER)
     }
 
     @Test fun tappingThePickedChipUnpicksIt() {
