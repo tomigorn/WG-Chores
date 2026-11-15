@@ -491,6 +491,15 @@ fn backup(ctx: &Ctx, file: &Path, force: bool) -> Result<String, String> {
     }
     let tmp = file.with_extension("tmp-backup");
     let _ = std::fs::remove_file(&tmp);
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&tmp)
+            .map_err(|e| format!("cannot create {}: {e}", tmp.display()))?;
+    }
     let copy = || -> rusqlite::Result<()> {
         let src = rusqlite::Connection::open(&src_path)?;
         let mut dst = rusqlite::Connection::open(&tmp)?;

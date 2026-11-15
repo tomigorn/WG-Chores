@@ -207,13 +207,18 @@ async fn backup_produces_openable_db() {
     assert!(n >= 10);
     assert_eq!(ok, "ok");
     drop(copy);
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |p: PathBuf| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode(d.path("copy.db")), 0o600);
     let e = cli::run(args(&["backup", &out]).unwrap(), ctx(&env, "x"))
         .await
         .unwrap_err();
     assert!(e.contains("--force"), "{e}");
+    std::fs::set_permissions(d.path("copy.db"), std::fs::Permissions::from_mode(0o644)).unwrap();
     cli::run(args(&["backup", &out, "--force"]).unwrap(), ctx(&env, "x"))
         .await
         .unwrap();
+    assert_eq!(mode(d.path("copy.db")), 0o600);
     assert!(!d.path("copy.db-wal").exists());
 }
 
