@@ -86,11 +86,11 @@ docker buildx imagetools inspect tomigorn/wg-chores:latest
 | known vulnerability | PR at once, any day |
 
 ## 8. First version tag
-The number is decided at the switch to v2 (`1.0.0` is set, change it if you pick another). The tag must equal `version` in `server/Cargo.toml`.
-1. The version is already `1.0.0` (commit "version bump to v1.0.0"). Check:
+v2 starts at `2.0.0` (the .NET v1 ended at 1.2.0). The tag must equal `version` in `server/Cargo.toml`.
+1. The version is already `2.0.0` (commit "version bump to v2.0.0"). Check:
 ```
 cd ~/Documents/development/WG-Chores
-grep -m1 '^version' server/Cargo.toml          # shows: version = "1.0.0"
+grep -m1 '^version' server/Cargo.toml          # shows: version = "2.0.0"
 ```
 Another number: set it, update the lock file, commit with the fixed message, then rebuild and re-sign the Android files ([android/README.md](../../android/README.md#release-build)):
 ```
@@ -100,20 +100,20 @@ git commit -m "version bump to v1.1.0" -- server/Cargo.toml server/Cargo.lock
 ```
 2. Tag (the tag must equal the version):
 ```
-git tag -a v1.0.0 -m "WG-Chores v1.0.0"
+git tag -a v2.0.0 -m "WG-Chores v2.0.0"
 ```
 3. Scan (see step 4 for which scan), then push the commit and the tag:
 ```
 gitleaks git --log-opts="origin/main..HEAD"
 git push origin main --follow-tags
 ```
-4. Watch https://github.com/tomigorn/WG-Chores/actions: two **Release** runs start, one for `main` (moves `latest`) and one for `v1.0.0`. Both green = done.
-5. Check https://hub.docker.com/r/tomigorn/wg-chores/tags: `v1.0.0` is there with **linux/amd64** and **linux/arm64**.
+4. Watch https://github.com/tomigorn/WG-Chores/actions: two **Release** runs start, one for `main` (moves `latest`) and one for `v2.0.0`. Both green = done.
+5. Check https://hub.docker.com/r/tomigorn/wg-chores/tags: `v2.0.0` is there with **linux/amd64** and **linux/arm64**.
 
-The `v1.0.0` run fails at **App version** when the tag and `server/Cargo.toml` differ. Fix: delete the tag (`git tag -d v1.0.0 && git push origin :refs/tags/v1.0.0`), fix the version, tag again.
+The `v2.0.0` run fails at **App version** when the tag and `server/Cargo.toml` differ. Fix: delete the tag (`git tag -d v2.0.0 && git push origin :refs/tags/v2.0.0`), fix the version, tag again.
 
 ## Roll back
-1. In the compose file, pin an older tag instead of `latest`, e.g. `image: tomigorn/wg-chores:v1.0.0` or `image: tomigorn/wg-chores:sha-abc1234`.
+1. In the compose file, pin an older tag instead of `latest`, e.g. `image: tomigorn/wg-chores:v2.0.0` or `image: tomigorn/wg-chores:sha-abc1234`.
 2. `docker compose -f <compose file> up -d`
 3. The database is migrated one way at start: an older image may not run on it. Then restore the backup from before the update (fastpi: `~/backups/pre-update/<date>/<project>/`).
 

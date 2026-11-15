@@ -39,7 +39,7 @@ Der Server des Autors und ein öffentlicher Demo-Server sind nur zwei von belieb
 Quellcode: https://github.com/tomigorn/WG-Chores
 ```
 
-## Versionshinweise 1.0.0 (500)
+## Versionshinweise 2.0.0 (500)
 ```
 <de-DE>
 Erste Version: Aufgaben nach Raum, «Tage seit»-Farben, erledigt mit einem Tipp samt Rückgängig, Notizen und andere Daten, mehrere Haushalte, Einladungslinks, Benachrichtigungen und Offline-Erledigen.

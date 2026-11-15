@@ -22,7 +22,7 @@ One container, data in the `/data` volume, port 8080 on 127.0.0.1, needs an http
 
 | Image tag | Use |
 |---|---|
-| `tomigorn/wg-chores:vX.Y.Z` (e.g. `v1.0.0`) | self-hosting: pin a release, update by changing the tag |
+| `tomigorn/wg-chores:vX.Y.Z` (e.g. `v2.0.0`) | self-hosting: pin a release, update by changing the tag |
 | `tomigorn/wg-chores:latest` | follows `main` (every merged change), for testing |
 | `wg-chores:local` | your own build, until the image is on Docker Hub |
 

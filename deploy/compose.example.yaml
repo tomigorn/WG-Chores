@@ -5,7 +5,7 @@ services:
   wg-chores:
     # pin a release and update by changing the tag; :latest follows main
     # until the image is on Docker Hub: docker build -t wg-chores:local . and use image: wg-chores:local
-    image: tomigorn/wg-chores:v1.0.0
+    image: tomigorn/wg-chores:v2.0.0
     container_name: wg-chores
     restart: unless-stopped
     ports:

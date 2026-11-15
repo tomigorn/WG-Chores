@@ -39,7 +39,7 @@ The author's server and a public demo server are just two servers among any numb
 Source code: https://github.com/tomigorn/WG-Chores
 ```
 
-## Release notes 1.0.0 (500)
+## Release notes 2.0.0 (500)
 ```
 <en-GB>
 First release: chores by room, "days since" colours, one-tap done with undo, notes and other dates, several households, invite links, notifications and offline marking.
