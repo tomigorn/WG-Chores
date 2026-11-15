@@ -113,7 +113,10 @@
     "connect": "Verbinde dich mit dem Internet, um das zu speichern",
     "failed": "Speichern hat nicht geklappt. Bitte versuch es noch einmal.",
     "rejected_many": "{n} Erledigt-Markierungen konnten nicht gespeichert werden und wurden aus der Warteschlange entfernt.",
-    "rejected_unknown": "Ein Erledigt-Eintrag konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt."
+    "rejected_unknown": "Ein Erledigt-Eintrag konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.",
+    "undo_dropped": "Rückgängig für {name} nicht möglich; die Markierung bleibt.",
+    "undo_dropped_many": "{n} Markierungen konnten nicht rückgängig gemacht werden; sie bleiben.",
+    "undo_dropped_unknown": "Eine Markierung konnte nicht rückgängig gemacht werden; sie bleibt."
   },
   "sheet": {
     "title": "{name} – erledigt am",

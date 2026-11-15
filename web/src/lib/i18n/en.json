@@ -113,7 +113,10 @@
     "connect": "Connect to the internet to save this",
     "failed": "Could not save. Please try again.",
     "rejected_many": "{n} done marks could not be saved and were removed from the queue.",
-    "rejected_unknown": "A done mark could not be saved and was removed from the queue."
+    "rejected_unknown": "A done mark could not be saved and was removed from the queue.",
+    "undo_dropped": "Couldn't undo {name}; the mark stays.",
+    "undo_dropped_many": "Couldn't undo {n} done marks; they stay.",
+    "undo_dropped_unknown": "Couldn't undo a done mark; it stays."
   },
   "sheet": {
     "title": "{name} – done on",

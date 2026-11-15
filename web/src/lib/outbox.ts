@@ -182,7 +182,7 @@ export class Outbox {
     const ok = await this.lock(async () => {
       if (uuid === this.inFlight) return false;
       const cur = (await this.items()).find((i) => i.uuid === uuid);
-      if (!cur) return false;
+      if (!cur || cur.tried || cur.kind) return false;
       await this.store.put(this.user, { ...cur, ...p });
       return true;
     });

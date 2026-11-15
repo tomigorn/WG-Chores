@@ -56,6 +56,13 @@ export function droppedMessage(dropped: readonly { choreId: number }[], names: R
   return name ? tIn(lang, 'done.rejected', { name }) : tIn(lang, 'done.rejected_unknown');
 }
 
+export function droppedUndoMessage(dropped: readonly { choreId: number }[], names: ReadonlyMap<number, string>, lang: Lang): string | null {
+  if (dropped.length === 0) return null;
+  if (dropped.length > 1) return tIn(lang, 'done.undo_dropped_many', { n: dropped.length });
+  const name = names.get(dropped[0]!.choreId);
+  return name ? tIn(lang, 'done.undo_dropped', { name }) : tIn(lang, 'done.undo_dropped_unknown');
+}
+
 export function canConfirmDelete(me: { kind: AccountKind; username: string | null; display_name: string }, typed: string): boolean {
   if (me.kind === 'sso') return typed.trim() === me.display_name;
   return typed.length > 0;

@@ -57,6 +57,16 @@ describe('outbox', () => {
     expect(seen).toEqual([1, 1, 0]);
   });
 
+  it('update_refuses_a_tried_item', async () => {
+    const box = new Outbox(memoryStore(), 1, async () => {
+      throw new OfflineError();
+    });
+    await box.add(item('a'));
+    await box.flush();
+    expect(await box.update('a', { doneOn: '2026-11-12' })).toBe(false);
+    expect(await box.items()).toEqual([expect.objectContaining({ doneOn: '2026-11-14', tried: true })]);
+  });
+
   it('item_being_sent_is_reported_in_flight', async () => {
     let release!: () => void;
     const box = new Outbox(memoryStore(), 1, () => new Promise<void>((r) => (release = r)));

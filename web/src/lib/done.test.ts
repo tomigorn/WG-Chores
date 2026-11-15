@@ -156,4 +156,16 @@ describe('client uuid', () => {
       Object.defineProperty(crypto, 'randomUUID', { value: real, configurable: true });
     }
   });
+
+  it('tried_mark_edit_goes_to_patch_not_local_rewrite', async () => {
+    const { done, api, outbox, net } = setup(false);
+    const { uuid } = await done.mark(4, '2026-11-14', null);
+    expect(await outbox.items()).toEqual([expect.objectContaining({ uuid, tried: true })]);
+    net.online = true;
+    expect(await done.change(uuid, { doneOn: '2026-11-10', note: 'x' })).toBe('ok');
+    expect(api.patchCompletion).toHaveBeenCalledWith(uuid, { done_on: '2026-11-10', note: 'x' });
+    expect((await outbox.items())[0]).toMatchObject({ doneOn: '2026-11-14', note: null });
+    net.online = false;
+    expect(await done.change(uuid, { doneOn: '2026-11-10', note: 'x' })).toBe('offline');
+  });
 });

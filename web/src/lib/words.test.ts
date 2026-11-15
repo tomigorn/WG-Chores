@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, OfflineError, type Chore } from './api';
-import { canConfirmDelete, errorText, choreMeta, droppedMessage, expiresIn, initials, INTERVAL_ORDER, intervalWord, lastDone, memberDirectory, passwordProblem, usualText } from './words';
+import { canConfirmDelete, errorText, choreMeta, droppedMessage, droppedUndoMessage, expiresIn, initials, INTERVAL_ORDER, intervalWord, lastDone, memberDirectory, passwordProblem, usualText } from './words';
 
 const chore = (p: Partial<Chore> = {}): Chore => ({
   id: 7,
@@ -67,6 +67,15 @@ describe('words', () => {
     expect(droppedMessage([{ choreId: 99 }], names, 'en')).toBe('A done mark could not be saved and was removed from the queue.');
     expect(droppedMessage([{ choreId: 7 }, { choreId: 99 }], names, 'en')).toBe('2 done marks could not be saved and were removed from the queue.');
     expect(droppedMessage([], names, 'en')).toBeNull();
+  });
+
+  it('dropped_undo_message', () => {
+    const names = new Map([[7, 'Clean toilet']]);
+    expect(droppedUndoMessage([{ choreId: 7 }], names, 'en')).toBe("Couldn't undo Clean toilet; the mark stays.");
+    expect(droppedUndoMessage([{ choreId: 99 }], names, 'en')).toBe("Couldn't undo a done mark; it stays.");
+    expect(droppedUndoMessage([{ choreId: 7 }, { choreId: 99 }], names, 'en')).toBe("Couldn't undo 2 done marks; they stay.");
+    expect(droppedUndoMessage([], names, 'en')).toBeNull();
+    expect(droppedUndoMessage([{ choreId: 7 }], names, 'de')).toBe('Rückgängig für Clean toilet nicht möglich; die Markierung bleibt.');
   });
 
   it('delete_confirmation_matches_account', () => {

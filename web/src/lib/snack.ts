@@ -1,7 +1,7 @@
 import type { Snack } from '../components/DoneSnackbar.svelte';
 import type { Lang } from './i18n';
 import { marks, type FlushResult } from './outbox';
-import { droppedMessage } from './words';
+import { droppedMessage, droppedUndoMessage } from './words';
 
 type Listener = (s: Snack | null) => void;
 
@@ -46,5 +46,7 @@ export function watchDropped(outbox: { onFlushed: (l: (r: FlushResult) => void) 
   return outbox.onFlushed((r) => {
     const m = droppedMessage(marks(r.dropped), choreNames, lang());
     if (m) toast(m);
+    const u = droppedUndoMessage(r.dropped.filter((i) => i.kind === 'delete'), choreNames, lang());
+    if (u) toast(u);
   });
 }
