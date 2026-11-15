@@ -1,8 +1,6 @@
 package ch.tomigorn.wgchores
 
-import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -50,7 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         fallbackOpen = savedInstanceState?.getBoolean(FALLBACK_OPEN) ?: false
-        if (!handleCallback(intent) && !fallbackOpen) setFallbackCallback(false)
+        if (!fallbackOpen) setFallbackCallback(false)
         setContent {
             val state by vm.auth.collectAsStateWithLifecycle()
             val theme by vm.theme.collectAsStateWithLifecycle()
@@ -65,11 +63,6 @@ class MainActivity : ComponentActivity() {
             }
             WgcTheme(dark = dark) { AppRoot(state, theme, actions) }
         }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleCallback(intent)
     }
 
     override fun onResume() {
@@ -91,15 +84,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun handleCallback(intent: Intent?): Boolean {
-        val uri = SsoCallback.fromIntent(intent?.component?.className, packageName, intent?.data?.toString()) ?: return false
-        // disabling the alias would finish an activity started through it; onDestroy or the next launch closes it then
-        if (this.intent?.component?.className != "$packageName.${SsoCallback.FALLBACK_ALIAS}") setFallbackCallback(false)
-        intent?.data = null
-        vm.finishSso(uri)
-        return true
-    }
-
     /** Auth Tab returns the callback only to this app; browsers without it get a Custom Tab and the wgchores://auth filter, enabled just for that. */
     private fun openSso(url: String) {
         val browser = CustomTabsClient.getPackageName(this, null)
@@ -112,13 +96,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun setFallbackCallback(enabled: Boolean) {
-        packageManager.setComponentEnabledSetting(
-            ComponentName(this, "$packageName.${SsoCallback.FALLBACK_ALIAS}"),
-            if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP,
-        )
-    }
+    private fun setFallbackCallback(enabled: Boolean) = SsoCallbackActivity.setFallback(this, enabled)
 
     companion object {
         private const val FALLBACK_OPEN = "fallback_open"

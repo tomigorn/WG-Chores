@@ -102,7 +102,7 @@ class AuthControllerTest {
 
     @Test fun passwordLoginSignsIn() {
         signedInViaForm()
-        assertEquals(SignedIn(fake.url, "Jane Doe"), auth.state.value)
+        assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
         runBlocking { assertTrue(store.read().token in fake.issued) }
     }
 
@@ -117,7 +117,7 @@ class AuthControllerTest {
         auth.start()
         auth.connect(fake.url)
         auth.register("Jane Doe", "anna", fake.pw)
-        assertEquals(SignedIn(fake.url, "Jane Doe"), auth.state.value)
+        assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
     }
 
     @Test fun restartStaysSignedInWithoutNetwork() {
@@ -125,7 +125,7 @@ class AuthControllerTest {
         fake.close()
         val again = AuthController(store, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
         runBlocking { again.start() }
-        assertEquals(SignedIn(fake.url, "Jane Doe"), again.state.value)
+        assertEquals(SignedIn(fake.url, "Jane Doe", 1), again.state.value)
     }
 
     @Test fun restartWithAServerShowsItsLogin() = runBlocking {
@@ -174,7 +174,7 @@ class AuthControllerTest {
         val start = auth.beginSso()!!
         val challenge = start.substringAfter("challenge=")
         auth.finishSso("wgchores://auth?code=${fake.issueSsoCode(challenge)}")
-        assertEquals(SignedIn(fake.url, "Jane Doe"), auth.state.value)
+        assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
     }
 
     @Test fun ssoErrorFromTheServerIsShown() = runBlocking {
@@ -240,16 +240,31 @@ class AuthControllerTest {
         assertEquals(ServerError.Unexpected, (auth.state.value as PickServer).error)
     }
 
-    @Test fun ssoCallbackWithoutAPendingStartIsRefused() = runBlocking {
+    @Test fun ssoCallbackWithoutAPendingStartIsIgnored() = runBlocking {
         auth.start()
         auth.connect(fake.url)
+        val before = auth.state.value
         auth.finishSso("wgchores://auth?code=${fake.issueSsoCode("x")}")
-        assertEquals(LoginError.Code("sso_failed"), (auth.state.value as Login).error)
+        auth.finishSso("wgchores://auth?error=sso_failed")
+        assertEquals(before, auth.state.value)
+        assertTrue(fake.issued.isEmpty())
+    }
+
+    @Test fun callbackWithAStoredTokenChangesNothingEvenBeforeStart() {
+        signedInViaForm()
+        val fresh = AuthController(store, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
+        runBlocking {
+            store.saveVerifier("v".repeat(43))
+            fresh.finishSso("wgchores://auth?code=${fake.issueSsoCode(Pkce.challenge("v".repeat(43)))}")
+        }
+        assertEquals(AuthState.Loading, fresh.state.value)
+        assertEquals(1, fake.issued.size)
+        runBlocking { assertEquals("v".repeat(43), store.takeVerifier()) }
     }
 
     @Test fun strayCallbackWhileSignedInChangesNothing() {
         signedInViaForm()
         runBlocking { auth.finishSso("wgchores://auth?error=sso_failed") }
-        assertEquals(SignedIn(fake.url, "Jane Doe"), auth.state.value)
+        assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
     }
 }

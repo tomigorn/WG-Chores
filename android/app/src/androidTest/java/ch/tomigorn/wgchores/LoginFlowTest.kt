@@ -106,10 +106,11 @@ class LoginFlowTest {
             .setData(android.net.Uri.parse("wgchores://auth?code=$code"))
         ActivityScenario.launch<MainActivity>(intent).use {
             compose.waitFor("Sign in with Holy Grail")
-            Thread.sleep(1_000)
+            compose.waitForIdle()
             compose.waitFor("Sign in with Holy Grail")
         }
         assertTrue(fake.issued.isEmpty())
+        assertEquals(null, fake.lastRequest("/api/v1/auth/app-token"))
         runBlocking { assertEquals("v".repeat(43), app.container.session.takeVerifier()) }
     }
 
@@ -129,14 +130,13 @@ class LoginFlowTest {
             .setComponent(alias)
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         app.startActivity(intent)
+        compose.waitUntil(10_000) {
+            app.packageManager.getComponentEnabledSetting(alias) == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        }
         compose.waitForTag("chore-list")
         assertEquals(1, fake.issued.size)
+        runBlocking { assertEquals(null, app.container.session.takeVerifier()) }
         finishAll()
-        Thread.sleep(1_000)
-        assertEquals(
-            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            app.packageManager.getComponentEnabledSetting(alias),
-        )
     }
 
     @Test fun changeServerForgetsTheServer() {

@@ -33,7 +33,7 @@ class AuthController(
         val server = s.server ?: return set(AuthState.PickServer())
         if (s.config != null && tooOld(server, s.config)) return
         if (s.token != null) {
-            set(AuthState.SignedIn(server, s.userName.orEmpty()))
+            set(AuthState.SignedIn(server, s.userName.orEmpty(), s.userId))
             refreshConfig(server)
         } else {
             set(AuthState.Login(server, s.config))
@@ -91,19 +91,16 @@ class AuthController(
         return SsoCallback.startUrl(server, Pkce.challenge(verifier))
     }
 
+    /** A callback counts only while signed out and with a sign-in started here; anything else is ignored. */
     suspend fun finishSso(uri: String) {
-        // a late or stray callback must not end a sign-in that is already done
-        if (_state.value is AuthState.SignedIn) return
+        if (store.read().token != null) return
         val cb = SsoCallback.parse(uri) ?: return
-        val verifier = store.takeVerifier()
+        val verifier = store.takeVerifier() ?: return
         when (cb) {
             is SsoCallback.Error -> loginError(LoginError.Code(cb.code))
-            is SsoCallback.Code -> {
-                if (verifier == null) return loginError(LoginError.Code("sso_failed"))
-                signIn { server ->
-                    val bearer = api(server).appToken(cb.code, verifier, deviceName)
-                    AuthResult(bearer, ApiClient(server, bearer = { bearer }).me())
-                }
+            is SsoCallback.Code -> signIn { server ->
+                val bearer = api(server).appToken(cb.code, verifier, deviceName)
+                AuthResult(bearer, ApiClient(server, bearer = { bearer }).me())
             }
         }
     }
@@ -116,7 +113,7 @@ class AuthController(
         return try {
             val user = api(server).me()
             store.saveUser(user.id, user.displayName, user.lastHouseholdId)
-            _state.update { if (it is AuthState.SignedIn) it.copy(userName = user.displayName) else it }
+            _state.update { if (it is AuthState.SignedIn) it.copy(userName = user.displayName, userId = user.id) else it }
             user
         } catch (_: ApiException) {
             null
@@ -187,7 +184,7 @@ class AuthController(
             }
             return loginError(LoginError.Code("keystore_failed"))
         }
-        set(AuthState.SignedIn(server, name))
+        set(AuthState.SignedIn(server, name, result.user?.id))
     }
 
     private suspend fun loginError(error: LoginError) {
