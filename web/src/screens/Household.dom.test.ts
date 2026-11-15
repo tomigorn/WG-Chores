@@ -6,6 +6,9 @@ import { api, ApiError, OfflineError, type Chore, type Completion, type Me, type
 import { clearSnack, watchDropped } from '../lib/snack';
 import { startSync, stopSync } from '../lib/sync';
 import SnackHost from '../components/SnackHost.svelte';
+import * as router from '../lib/router';
+
+vi.mock('../lib/router', async (orig) => ({ ...(await orig<typeof import('../lib/router')>()), restoreScroll: vi.fn() }));
 
 const config: ServerConfig = { name: 'WG Chores', local_accounts: true, open_registration: false, oidc: null, notify_times: [], tz: 'Europe/Zurich', version: 'test' };
 const me: Me = { id: 1, username: 'anna', display_name: 'Anna', kind: 'local', picture_url: null, account_url: null, last_household_id: 1, notify_due: true, notify_done: true };
@@ -194,5 +197,19 @@ describe('Household screen', () => {
     document.querySelector('form')!.requestSubmit();
     await vi.waitFor(() => expect(complete).toHaveBeenCalled());
     expect(complete.mock.calls[0]![1].done_on).toBe('2026-11-15');
+  });
+
+  it('scroll_is_restored_once_after_the_list_rendered', async () => {
+    const restore = vi.mocked(router.restoreScroll);
+    restore.mockClear();
+    let rowsAtRestore = -1;
+    restore.mockImplementation(() => void (rowsAtRestore = document.querySelectorAll('.row').length));
+    await open();
+    await vi.waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
+    expect(rowsAtRestore).toBe(1);
+    dispatchEvent(new Event('online'));
+    await vi.waitFor(() => expect(api.chores).toHaveBeenCalledTimes(2));
+    await Promise.resolve();
+    expect(restore).toHaveBeenCalledTimes(1);
   });
 });

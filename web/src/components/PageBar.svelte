@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n';
+  import { backTo } from '../lib/router';
 
   let { title, back = null, left, right }: { title: string; back?: string | null; left?: Snippet; right?: Snippet } = $props();
 </script>
@@ -11,7 +12,7 @@
     {#if left}
       {@render left()}
     {:else if back}
-      <a class="icon-btn" href={back} aria-label={t('chore.back')}><Icon name="arrow-left" size={22} /></a>
+      <a class="icon-btn" href={back} aria-label={t('chore.back')} onclick={(e) => back && backTo(back) && e.preventDefault()}><Icon name="arrow-left" size={22} /></a>
     {/if}
   </div>
   <h1 class="title clamp" data-clamp="2">{title}</h1>

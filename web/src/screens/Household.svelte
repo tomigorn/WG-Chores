@@ -11,7 +11,7 @@
   import { t, type Lang } from '../lib/i18n';
   import { marker } from '../lib/marking';
   import { marks, type FlushResult } from '../lib/outbox';
-  import { navigate } from '../lib/router';
+  import { navigate, restoreScroll } from '../lib/router';
   import { clearSnack, rememberChores, toast } from '../lib/snack';
   import { startSync } from '../lib/sync';
   import type { ThemeSetting } from '../lib/theme';
@@ -164,6 +164,13 @@
     switcherOpen = false;
     navigate(path);
   }
+
+  let restored = false;
+  $effect(() => {
+    if (!loaded || restored) return;
+    restored = true;
+    restoreScroll();
+  });
 
   onMount(() => {
     const offCount = outbox.onChange((n) => (pending = n));

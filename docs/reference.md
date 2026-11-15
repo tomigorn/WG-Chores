@@ -72,7 +72,7 @@ Svelte 5 + Vite + TypeScript, no UI or CSS framework. Node 24.
 |---|---|
 | `npm ci` | install |
 | `npm run dev` | dev server on :5173; `/api` and `/auth` go to `WGC_SERVER` (default `http://localhost:8080`) |
-| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router, theme, chore list logic, words, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
+| `npm test` | Vitest (due rules against `docs/test-vectors`, i18n keys, API client, router (incl. scroll restore), theme, chore list logic, words, outbox, long press; components via `svelte/server` or mounted in happy-dom for `*.dom.test.ts` / `*.svelte.test.ts`) |
 | `npm run check` | svelte-check (types), and tsc for `e2e/` |
 | `npm run build` | `web/dist`, then `touch ../server/build.rs` and rebuild the server to embed it |
 | `npm run e2e:build` | web build + `cargo build --features test-util --bins` (server with the web app embedded, plus `fake-oidc`); on fastpi run it as `flock ~/.cache/claude-work/rust-build.lock npm run e2e:build` |
@@ -102,6 +102,7 @@ cd web && npm run dev
 | Topic | Detail |
 |---|---|
 | Routes | `/` (→ last household, else `/households`), `/login`, `/households` (`?new=1` opens the create form), `/households/:id`, `/households/:id/settings`, `/households/:id/new-chore`, `/chores/:id`, `/chores/:id/edit`, `/invite/:token`, `/settings`, `/account`; unknown → `/` |
+| Scroll position | each history entry gets a key in `history.state`; leaving it saves `scrollY` (memory + `sessionStorage` `wgc.scroll`, last 50); back/forward restores it once the household list or households list has rendered (cache or network, a later refresh does not move it); a link or `navigate()` opens at the top; the in-app back arrow steps back in history when the previous entry is its target, so the place is kept |
 | Chore page | last done (days, date, who, "N days overdue"), "Usually done every ~N days" (server median, hidden below 3 completions), history 20 per page, more on scroll; tap an entry = change date/note or delete (confirm); footer Done today / calendar icon button (Other date…); read-only from the IndexedDB cache when offline |
 | Add / edit chore | name, category (existing ones offered, or a new one), interval chips (tap again = none = every month); renaming a category for all its chores is a checkbox when the category text changes; archive with confirm, restore in household settings |
 | Household settings | rename, members (add by exact username, or search when `MEMBER_DIRECTORY=true`: detected from `GET /api/v1/users` answering 404), remove (confirm), invite links (create → Copy / Share, list with creator and expiry, cancel), archived chores (Restore), leave (confirm; last member: deletes the household) |

@@ -69,6 +69,19 @@ describe('Chore page', () => {
     expect(document.querySelector('dialog[open]')).not.toBeNull();
   });
 
+  it('back_arrow_steps_back_to_the_list_it_came_from', async () => {
+    history.replaceState({ key: 'k1', from: '/households/1' }, '', '/chores/7');
+    const back = vi.spyOn(history, 'back').mockImplementation(() => {});
+    await open();
+    const link = document.querySelector<HTMLAnchorElement>('header a[aria-label="Back"]')!;
+    expect(link.getAttribute('href')).toBe('/households/1');
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    link.dispatchEvent(ev);
+    expect(back).toHaveBeenCalled();
+    expect(ev.defaultPrevented).toBe(true);
+    history.replaceState(null, '', '/');
+  });
+
   it('usual_and_overdue_hidden_when_not_applicable', async () => {
     vi.mocked(api.chore).mockResolvedValue(toilet({ usual_interval: null, days_overdue: 0, days_since: 3, due_level: 'soon', last: { done_on: '2026-11-11', by: anna } }));
     await open();

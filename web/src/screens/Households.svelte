@@ -5,7 +5,7 @@
   import PageBar from '../components/PageBar.svelte';
   import { api, OfflineError, type Household, type Me } from '../lib/api';
   import { t, type Lang } from '../lib/i18n';
-  import { navigate } from '../lib/router';
+  import { navigate, restoreScroll } from '../lib/router';
   import { errorText } from '../lib/words';
 
   let { me, lang, url }: { me: Me; lang: Lang; url: URL } = $props();
@@ -61,6 +61,13 @@
   }
 
   const plural = (n: number) => t(n === 1 ? 'households.members_one' : 'households.members_other', { n });
+
+  let restored = false;
+  $effect(() => {
+    if (phase !== 'ready' || restored) return;
+    restored = true;
+    restoreScroll();
+  });
 
   onMount(load);
 </script>

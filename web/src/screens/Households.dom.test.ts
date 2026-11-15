@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import * as router from '../lib/router';
 import { me, text, type } from './testkit';
 
-vi.mock('../lib/router', async (orig) => ({ ...(await orig<typeof import('../lib/router')>()), navigate: vi.fn() }));
+vi.mock('../lib/router', async (orig) => ({ ...(await orig<typeof import('../lib/router')>()), navigate: vi.fn(), restoreScroll: vi.fn() }));
 
 let app: ReturnType<typeof mount> | null = null;
 
@@ -49,5 +49,15 @@ describe('Households', () => {
     document.querySelector<HTMLFormElement>('.new form')!.requestSubmit();
     await vi.waitFor(() => expect(create).toHaveBeenCalledWith('Studio'));
     await vi.waitFor(() => expect(router.navigate).toHaveBeenCalledWith('/households/5', { replace: true }));
+  });
+
+  it('scroll_is_restored_once_after_the_list_rendered', async () => {
+    const restore = vi.mocked(router.restoreScroll);
+    restore.mockClear();
+    let rowsAtRestore = -1;
+    restore.mockImplementation(() => void (rowsAtRestore = document.querySelectorAll('.hh-row').length));
+    await open();
+    await vi.waitFor(() => expect(restore).toHaveBeenCalledTimes(1));
+    expect(rowsAtRestore).toBe(2);
   });
 });

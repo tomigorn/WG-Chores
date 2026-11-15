@@ -143,7 +143,7 @@
 
   onMount(() => {
     setUnauthenticatedHandler(toLogin);
-    startRouter();
+    const stopRouter = startRouter();
     const offRoute = onRoute((r, u) => {
       route = r;
       url = u;
@@ -162,6 +162,7 @@
     addEventListener('online', online);
     boot();
     return () => {
+      stopRouter();
       offRoute();
       offLang();
       removeEventListener('online', online);
