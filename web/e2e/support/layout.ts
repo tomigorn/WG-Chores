@@ -130,7 +130,11 @@ function inspect(o: LayoutOptions): string[] {
     const cs = getComputedStyle(el);
     if (cs.display !== 'inline' && cs.display !== 'contents') {
       const ellipsis = cs.textOverflow === 'ellipsis' && cs.overflowX !== 'visible';
-      if (!ellipsis && el.scrollWidth > el.clientWidth + 1) problems.push(`text sticks out of its box (${el.scrollWidth}>${el.clientWidth}): ${label(el)}`);
+      if (!ellipsis) {
+        const { content } = edges(el);
+        const right = Math.max(0, ...rangeRects(el).map((r) => r.right));
+        if (el.scrollWidth > el.clientWidth + 0.5 || right > content.right + 0.5) problems.push(`text sticks out of its box (${el.scrollWidth}>${el.clientWidth}): ${label(el)}`);
+      }
       if (ellipsis) checkShown(el, 1);
     }
   }
@@ -165,6 +169,34 @@ function inspect(o: LayoutOptions): string[] {
   for (const el of scope.querySelectorAll<HTMLElement>('[data-copy]')) {
     if (!visible(el)) continue;
     for (const w of splitWords(el)) problems.push(`word "${w}" broken across lines: ${label(el)}`);
+  }
+
+  // character boxes actually painted: not clipped away by the element or an ancestor up to it
+  const drawnChars = (root: Element) => {
+    const out: DOMRect[] = [];
+    for (const t of textNodes(root)) {
+      const clips: DOMRect[] = [];
+      for (let e = t.parentElement; e; e = e.parentElement) {
+        if (getComputedStyle(e).overflowX !== 'visible' || getComputedStyle(e).overflowY !== 'visible') clips.push(e.getBoundingClientRect());
+        if (e === root) break;
+      }
+      for (let i = 0; i < t.data.length; i++) {
+        if (/\s/.test(t.data[i]!)) continue;
+        const r = rangeRects(t, i, i + 1)[0];
+        if (r && clips.every((c) => r.left >= c.left - 0.5 && r.right <= c.right + 0.5 && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5)) out.push(r);
+      }
+    }
+    return out;
+  };
+  // 1d. a [data-nowrap] text must not run into a sibling in its row (a date touching the name)
+  for (const el of scope.querySelectorAll<HTMLElement>('[data-nowrap]')) {
+    if (!visible(el)) continue;
+    const mine = rangeRects(el);
+    for (const sib of el.parentElement?.children ?? []) {
+      if (sib === el || !visible(sib)) continue;
+      const theirs = drawnChars(sib);
+      if (mine.some((r) => theirs.some((t) => overlaps(r, t)))) problems.push(`text runs into its sibling: ${label(el)} / ${label(sib)}`);
+    }
   }
 
   // 2. no horizontal scrolling, also inside an open sheet

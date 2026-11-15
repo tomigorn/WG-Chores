@@ -42,6 +42,7 @@ async function makeSeed(tag: string): Promise<Seed> {
     [12, null, ben],
     [20, 'Nur die Platten', anna],
     [31, null, ben],
+    [400, null, anna],
   ] as const) await who.done(long.id, isoDay(d), note ?? undefined);
   // one chore per due level, and a four-digit day count
   const levels: [string, string, number | null][] = [

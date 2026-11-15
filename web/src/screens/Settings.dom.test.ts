@@ -118,6 +118,16 @@ describe('Settings', () => {
     await vi.waitFor(() => expect(disable).toHaveBeenCalledTimes(1));
   });
 
+  it('one_off_keeps_subscription', async () => {
+    vi.spyOn(push, 'status').mockReturnValue('ready');
+    const disable = vi.spyOn(push, 'disable').mockResolvedValue();
+    const patch = vi.spyOn(api, 'patchMe').mockImplementation(async (p) => ({ ...me, ...p }));
+    open({ notify_done: true, notify_due: true });
+    document.querySelector<HTMLInputElement>('#notify-due')!.click();
+    await vi.waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    expect(disable).not.toHaveBeenCalled();
+  });
+
   it('iphone_tab_needs_install_first', () => {
     vi.spyOn(push, 'status').mockReturnValue('needs-install');
     open();
