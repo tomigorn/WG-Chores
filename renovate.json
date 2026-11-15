@@ -9,6 +9,7 @@
     "dockerfile",
     "npm",
     "cargo",
+    "gradle",
     "github-actions",
     "custom.regex"
   ],
@@ -65,7 +66,8 @@
     {
       "matchManagers": [
         "npm",
-        "cargo"
+        "cargo",
+        "gradle"
       ],
       "minimumReleaseAge": "3 days"
     },
