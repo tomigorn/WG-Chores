@@ -246,7 +246,7 @@
     {#if offline}<p data-copy class="note">{t('list.offline_note')}</p>{/if}
     {#each groups as g (g.category ?? '')}
       <section class="group">
-        <h2 class="cat clamp" data-clamp="2">{g.category ?? t('list.other_category')}</h2>
+        <h2 class="cat"><span class="clamp" data-clamp="2">{g.category ?? t('list.other_category')}</span></h2>
         <ul class="list">
           {#each g.chores as c (c.id)}
             <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, null, null)} onlong={() => openSheet(c, c, null, { doneOn: todayIn(config.tz), note: null })} />

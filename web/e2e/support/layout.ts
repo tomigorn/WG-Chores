@@ -52,23 +52,52 @@ function inspect(o: LayoutOptions): string[] {
     return [...range.getClientRects()].filter((r) => r.width > 0.5 && r.height > 0.5);
   };
   // characters drawn fully inside the element's box (clipped and ellipsized ones are outside or under the ellipsis)
+  // the content box: border box minus border and padding; clipped text may only be drawn here
+  const edges = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    const px = (v: string) => parseFloat(v) || 0;
+    const pad = {
+      left: r.left + px(cs.borderLeftWidth),
+      right: r.right - px(cs.borderRightWidth),
+      top: r.top + px(cs.borderTopWidth),
+      bottom: r.bottom - px(cs.borderBottomWidth),
+    };
+    const content = {
+      left: pad.left + px(cs.paddingLeft),
+      right: pad.right - px(cs.paddingRight),
+      top: pad.top + px(cs.paddingTop),
+      bottom: pad.bottom - px(cs.paddingBottom),
+    };
+    return { pad, content };
+  };
+  const inside = (r: DOMRect, b: { left: number; right: number; top: number; bottom: number }) =>
+    r.left >= b.left - 0.5 && r.right <= b.right + 0.5 && r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5;
+  const overlaps = (r: DOMRect, b: { left: number; right: number; top: number; bottom: number }) =>
+    Math.min(r.right, b.right) - Math.max(r.left, b.left) > 1 && Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top) > 1;
   const shownChars = (el: Element) => {
-    const box = el.getBoundingClientRect();
+    const { pad, content } = edges(el);
     let total = 0;
     let shown = 0;
+    let leaked = 0;
     const tops: DOMRect[] = [];
     for (const t of textNodes(el)) {
       for (let i = 0; i < t.data.length; i++) {
         if (/\s/.test(t.data[i]!)) continue;
         total++;
         const r = rangeRects(t, i, i + 1)[0];
-        if (r && r.left >= box.left - 0.5 && r.right <= box.right + 0.5 && r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5) {
+        if (!r) continue;
+        if (inside(r, content)) {
           shown++;
           tops.push(r);
+        } else if (overlaps(r, pad)) {
+          // painted in the top or bottom padding band (an ellipsis hides what crosses the side edges)
+          const band = (lo: number, hi: number) => Math.min(r.bottom, hi) - Math.max(r.top, lo) > 1;
+          if (band(pad.top, content.top) || band(content.bottom, pad.bottom)) leaked++;
         }
       }
     }
-    return { total, shown, lines: lineCount(tops) };
+    return { total, shown, leaked, lines: lineCount(tops) };
   };
   // words split over two line boxes; a break after a hyphen is a normal break
   const splitWords = (el: Element) => {
@@ -90,6 +119,7 @@ function inspect(o: LayoutOptions): string[] {
     // one shown character is lost to the ellipsis
     if (c.shown < c.total && c.shown - 1 < Math.min(MIN_SHOWN, c.total)) problems.push(`shows only ${Math.max(0, c.shown - 1)} of ${c.total} characters: ${label(el)}`);
     if (c.lines > maxLines) problems.push(`shows ${c.lines} lines, at most ${maxLines}: ${label(el)}`);
+    if (c.leaked) problems.push(`${c.leaked} characters drawn in the padding: ${label(el)}`);
   };
 
   // 1. [data-nowrap] (values, dates, short names): one line box; a cut name still shows at least 8 characters
@@ -118,6 +148,17 @@ function inspect(o: LayoutOptions): string[] {
       const wordWidth = rangeRects(t, i, i + w.length).reduce((sum, r) => sum + r.width, 0);
       if (wordWidth <= width) problems.push(`word "${w}" broken across lines: ${label(el)}`);
     }
+  }
+
+  // 1b'. any other element that clips its text (ellipsis or line clamp) must not draw it in its padding
+  for (const el of scope.querySelectorAll<HTMLElement>('body *')) {
+    if (el.matches('[data-clamp], [data-nowrap]') || !visible(el)) continue;
+    const cs = getComputedStyle(el);
+    const clips = cs.overflowX !== 'visible' || cs.overflowY !== 'visible';
+    const clampsText = cs.textOverflow === 'ellipsis' || (cs.webkitLineClamp && cs.webkitLineClamp !== 'none');
+    if (!clips || !clampsText || !textNodes(el).length) continue;
+    const c = shownChars(el);
+    if (c.leaked) problems.push(`${c.leaked} characters drawn in the padding: ${label(el)}`);
   }
 
   // 1c. [data-copy] (UI text: banner, empty states, hints): never a word broken across lines
@@ -225,7 +266,16 @@ export async function checkLayout(page: Page, o: LayoutOptions): Promise<string[
 
 /** Runs in the page: characters of the element drawn fully inside its box, and on how many lines. */
 export function shownText(el: Element): { total: number; shown: number; lines: number; text: string } {
-  const box = el.getBoundingClientRect();
+  const r0 = el.getBoundingClientRect();
+  const cs = getComputedStyle(el);
+  const px = (v: string) => parseFloat(v) || 0;
+  // the content box: text drawn in the padding does not count as shown
+  const box = {
+    left: r0.left + px(cs.borderLeftWidth) + px(cs.paddingLeft),
+    right: r0.right - px(cs.borderRightWidth) - px(cs.paddingRight),
+    top: r0.top + px(cs.borderTopWidth) + px(cs.paddingTop),
+    bottom: r0.bottom - px(cs.borderBottomWidth) - px(cs.paddingBottom),
+  };
   const tops = new Set<number>();
   let total = 0;
   let shown = 0;

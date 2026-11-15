@@ -51,7 +51,7 @@
   }
 
   .title {
-    padding: 0 var(--s1);
+    margin: 0 var(--s1);
     font-size: var(--fs-lg);
     font-weight: 680;
     letter-spacing: -0.01em;

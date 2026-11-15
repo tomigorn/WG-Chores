@@ -230,7 +230,9 @@ input {
 }
 
 /* names and titles: one line with an ellipsis; in a narrow container (small screen or large text) up to two lines, whole words */
+/* no padding on a .clamp element: a clamped line would be painted into it; pad a wrapper instead */
 .clamp {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
