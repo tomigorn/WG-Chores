@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_tagline">Wer hat was gemacht, und wann.</string>
+
+    <string name="server_title">Mit deinem Server verbinden</string>
+    <string name="server_label">Serveradresse</string>
+    <string name="server_connect">Verbinden</string>
+    <string name="server_hint">Danach siehst du seine Anmeldeoptionen. Die App merkt sich den Server.</string>
+    <string name="server_invalid">Gib eine Adresse wie https://chores.example.com ein</string>
+    <string name="server_not_https">Nur https://-Adressen sind erlaubt.</string>
+    <string name="server_not_wgc">Unter dieser Adresse gibt es keinen WG-Chores-Server.</string>
+    <string name="server_unreachable">Der Server antwortet nicht. Prüf die Adresse und deine Verbindung.</string>
+    <string name="server_change">Server wechseln</string>
+
+    <string name="login_title">Anmelden</string>
+    <string name="login_sso">Mit %1$s anmelden</string>
+    <string name="login_or">oder</string>
+    <string name="login_username">Benutzername</string>
+    <string name="login_pw">Passwort</string>
+    <string name="login_submit">Anmelden</string>
+    <string name="login_create_account">Konto erstellen</string>
+    <string name="login_have_account">Schon ein Konto? Anmelden</string>
+    <string name="login_register_title">Konto erstellen</string>
+    <string name="login_display_name">Dein Name</string>
+    <string name="login_display_name_hint">Für deine Mitbewohner sichtbar</string>
+    <string name="login_new_pw_hint">Mindestens 12 Zeichen</string>
+    <string name="login_register_submit">Konto erstellen</string>
+    <string name="login_nothing_enabled">Auf diesem Server ist keine Anmeldung eingerichtet. Frag die Administration.</string>
+    <string name="login_show_pw">Passwort zeigen</string>
+    <string name="login_hide_pw">Passwort verbergen</string>
+
+    <string name="update_title">Bitte aktualisiere die App</string>
+    <string name="update_text">Dieser Server braucht WG Chores %1$s oder neuer. Diese App ist %2$s.</string>
+    <string name="update_open_store">Google Play öffnen</string>
+
+    <string name="error_not_allowed">Dein Konto ist auf diesem Server nicht zugelassen. Bitte die Administration, dich der richtigen Gruppe hinzuzufügen.</string>
+    <string name="error_sso_failed">Die Anmeldung hat nicht geklappt. Bitte versuch es noch einmal.</string>
+    <string name="error_sso_unavailable">Der Anmeldedienst ist gerade nicht erreichbar. Versuch es in einer Minute wieder.</string>
+    <string name="error_invalid_credentials">Benutzername oder Passwort falsch.</string>
+    <string name="error_too_many_attempts">Zu viele Versuche. Versuch es in ein paar Minuten wieder.</string>
+    <string name="error_local_accounts_disabled">Die Anmeldung mit Benutzername und Passwort ist auf diesem Server ausgeschaltet.</string>
+    <string name="error_registration_closed">Dieser Server nimmt keine neuen Konten an.</string>
+    <string name="error_invalid_username">Benutzernamen haben 3 bis 32 Zeichen: a–z, 0–9, Punkt, Unterstrich, Bindestrich.</string>
+    <string name="error_username_taken">Dieser Benutzername ist schon vergeben.</string>
+    <string name="error_password_too_short">Das Passwort braucht mindestens 12 Zeichen.</string>
+    <string name="error_password_too_long">Das Passwort ist zu lang.</string>
+    <string name="error_invalid_display_name">Dein Name braucht 1 bis 60 Zeichen.</string>
+    <string name="error_offline">Keine Verbindung. Prüf dein Internet und versuch es noch einmal.</string>
+    <string name="error_generic">Etwas ist schiefgelaufen. Bitte versuch es noch einmal.</string>
+
+    <string name="theme_label">Design</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+
+    <string name="common_loading">Lädt…</string>
+    <string name="common_retry">Noch einmal</string>
+    <string name="common_signed_in_as">Angemeldet als %1$s</string>
+    <string name="common_coming_soon">Diese Seite gibt es noch nicht.</string>
+    <string name="nav_logout">Abmelden</string>
+</resources>

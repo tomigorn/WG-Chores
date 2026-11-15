@@ -1,0 +1,179 @@
+package ch.tomigorn.wgchores.auth
+
+import ch.tomigorn.wgchores.api.ApiClient
+import ch.tomigorn.wgchores.api.ApiException
+import ch.tomigorn.wgchores.api.AuthResult
+import ch.tomigorn.wgchores.api.NotWgChoresException
+import ch.tomigorn.wgchores.api.OfflineException
+import ch.tomigorn.wgchores.data.AppVersion
+import ch.tomigorn.wgchores.data.ServerConfig
+import ch.tomigorn.wgchores.data.ServerUrl
+import ch.tomigorn.wgchores.data.ServerUrlResult
+import ch.tomigorn.wgchores.data.SessionStore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+
+/** Server choice, sign-in and sign-out; the single source of the app's auth state. */
+class AuthController(
+    private val store: SessionStore,
+    private val appVersion: String,
+    private val deviceName: String,
+    private val allowLocalHttp: Boolean,
+) {
+    private val _state = MutableStateFlow<AuthState>(AuthState.Loading)
+    val state: StateFlow<AuthState> = _state
+
+    fun api(server: String): ApiClient =
+        ApiClient(server, bearer = { store.read().token }, onUnauthenticated = { toLogin(server) })
+
+    suspend fun start() {
+        val s = store.read()
+        val server = s.server ?: return set(AuthState.PickServer())
+        if (s.token != null) {
+            set(AuthState.SignedIn(server, s.userName.orEmpty()))
+            refreshConfig(server)
+        } else {
+            set(AuthState.Login(server, s.config))
+            refreshConfig(server)
+        }
+    }
+
+    /** Fetches the config again; offline keeps what is shown. */
+    suspend fun refreshConfig(server: String) {
+        val config = try {
+            ApiClient.probe(server)
+        } catch (e: OfflineException) {
+            _state.update { if (it is AuthState.Login && it.config == null) it.copy(error = LoginError.Offline) else it }
+            return
+        } catch (e: NotWgChoresException) {
+            return
+        }
+        store.saveConfig(config)
+        if (tooOld(server, config)) return
+        _state.update { if (it is AuthState.Login && it.server == server) it.copy(config = config, error = null) else it }
+    }
+
+    suspend fun connect(input: String) {
+        val url = when (val r = ServerUrl.normalize(input, allowLocalHttp)) {
+            is ServerUrlResult.Ok -> r.url
+            ServerUrlResult.Empty, ServerUrlResult.Invalid -> return set(AuthState.PickServer(input, ServerError.Invalid))
+            ServerUrlResult.NotHttps -> return set(AuthState.PickServer(input, ServerError.NotHttps))
+        }
+        set(AuthState.PickServer(input, busy = true))
+        val config = try {
+            ApiClient.probe(url)
+        } catch (e: OfflineException) {
+            return set(AuthState.PickServer(input, ServerError.Unreachable))
+        } catch (e: NotWgChoresException) {
+            return set(AuthState.PickServer(input, ServerError.NotWgChores))
+        }
+        store.saveServer(url, config)
+        if (!tooOld(url, config)) set(AuthState.Login(url, config))
+    }
+
+    suspend fun login(username: String, pw: String) = signIn { api(it).login(username, pw, deviceName) }
+
+    suspend fun register(displayName: String, username: String, pw: String) =
+        signIn { api(it).register(username, pw, displayName, deviceName) }
+
+    /** Returns the URL to open in the Auth Tab, or null when no server is chosen. */
+    suspend fun beginSso(): String? {
+        val server = store.read().server ?: return null
+        val verifier = Pkce.newVerifier()
+        store.saveVerifier(verifier)
+        _state.update { if (it is AuthState.Login) it.copy(error = null) else it }
+        return SsoCallback.startUrl(server, Pkce.challenge(verifier))
+    }
+
+    suspend fun finishSso(uri: String) {
+        val cb = SsoCallback.parse(uri) ?: return
+        val verifier = store.takeVerifier()
+        when (cb) {
+            is SsoCallback.Error -> loginError(LoginError.Code(cb.code))
+            is SsoCallback.Code -> {
+                if (verifier == null) return loginError(LoginError.Code("sso_failed"))
+                signIn { server ->
+                    val bearer = api(server).appToken(cb.code, verifier, deviceName)
+                    AuthResult(bearer, ApiClient(server, bearer = { bearer }).me())
+                }
+            }
+        }
+    }
+
+    /** Checks the token with the server: a revoked one leads to the login screen. */
+    suspend fun refreshUser() {
+        val s = store.read()
+        val server = s.server ?: return
+        if (s.token == null) return
+        try {
+            val user = api(server).me()
+            store.saveSignIn(s.token, user.displayName)
+            _state.update { if (it is AuthState.SignedIn) it.copy(userName = user.displayName) else it }
+        } catch (_: ApiException) {
+        } catch (_: OfflineException) {
+        }
+    }
+
+    suspend fun signOut() {
+        val s = store.read()
+        val server = s.server ?: return set(AuthState.PickServer())
+        if (s.token != null) {
+            try {
+                api(server).logout()
+            } catch (_: ApiException) {
+            } catch (_: OfflineException) {
+            }
+        }
+        toLogin(server)
+    }
+
+    suspend fun changeServer() {
+        val s = store.read()
+        if (s.server != null && s.token != null) {
+            try {
+                api(s.server).logout()
+            } catch (_: ApiException) {
+            } catch (_: OfflineException) {
+            }
+        }
+        store.clearAll()
+        set(AuthState.PickServer())
+    }
+
+    private suspend fun toLogin(server: String) {
+        store.clearSignIn()
+        set(AuthState.Login(server, store.read().config))
+    }
+
+    private suspend fun signIn(call: suspend (String) -> AuthResult) {
+        val server = store.read().server ?: return set(AuthState.PickServer())
+        _state.update { if (it is AuthState.Login) it.copy(busy = true, error = null) else it }
+        val result = try {
+            call(server)
+        } catch (e: ApiException) {
+            return loginError(LoginError.Code(e.code))
+        } catch (e: OfflineException) {
+            return loginError(LoginError.Offline)
+        }
+        val name = result.user?.displayName.orEmpty()
+        store.saveSignIn(result.token, name)
+        set(AuthState.SignedIn(server, name))
+    }
+
+    private suspend fun loginError(error: LoginError) {
+        val s = store.read()
+        val server = s.server ?: return set(AuthState.PickServer())
+        set(AuthState.Login(server, s.config, error = error))
+    }
+
+    private fun tooOld(server: String, config: ServerConfig): Boolean {
+        if (!AppVersion.isOlder(appVersion, config.minAppVersion)) return false
+        set(AuthState.UpdateRequired(server, config.minAppVersion, appVersion))
+        return true
+    }
+
+    private fun set(s: AuthState) {
+        _state.value = s
+    }
+}

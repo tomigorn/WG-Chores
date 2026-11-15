@@ -5,3 +5,5 @@ local.properties
 build/
 .gradle/
 .kotlin/
+# the root ignores data/ (server data dir); Kotlin packages named data are source
+!/app/src/**/data/
