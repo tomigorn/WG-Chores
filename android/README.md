@@ -28,8 +28,14 @@ Completion:
 | Server | https only (debug builds also `http://localhost`, `127.0.0.1`, `10.0.2.2` for tests); probe `GET /api/v1/config` (5 s, JSON only, max 64 KiB), must answer `name: "WG Chores"`; "Change server" wipes the session |
 | Update | app older than `min_app_version` (fresh or cached config, also offline) → "Please update the app" with the Play link |
 | Sign-in | local form and/or SSO; SSO via Auth Tab (`wgchores` scheme, PKCE), Custom Tab + the `.SsoCallback` intent filter only on browsers without Auth Tab; that alias is enabled just for the Custom Tab, disabled on return, and the only way a `wgchores://auth` intent is accepted |
+| Fallback alias | exported only while a Custom Tab sign-in is open; another app can then at most send a wrong code and force a retry (the code is useless without the PKCE verifier) |
+| Start | last household (`/me` → `last_household_id`, cached for offline starts), else "My households" (list, create); Settings, Account, chore page and Add chore are placeholders for now |
+| Chore list | grouped by category, categories and chores A–Z (`java.text.Collator`, primary strength, numbers by value), sticky headers; ✓ = done today, snackbar Undo / Other date (6 s); long press = sheet Today / Yesterday / 2 days ago / Pick date (max today in the server `tz`) + note; below 16 em width (small phone or large font) the row stacks |
+| Due rule | `domain/Due.kt`, checked against `docs/test-vectors/*.json` |
+| Offline | Room `wgc.db`: `pending_marks`, `pending_deletes` (Undo of a mark the server may have), `cache` (last list per household); per account (server + user id); client UUID, retries are idempotent; refused (4xx except 401/429) or older than 30 days → dropped with a notice; sent on app start, network back, each loaded list; "N waiting" chip; other edits offline → "Connect to the internet to save this"; sign-out with waiting marks asks first, then drops them |
+| Refresh | pull to refresh, on resume, every 60 s while shown |
 | Token | bearer per device, in DataStore, AES-GCM with a key in the Android Keystore, decrypted once and kept in memory; Keystore failure → not stored, calm error; no backup or device transfer (`data_extraction_rules.xml`) |
-| Requests | 15 s timeout; no answer, a stalled body or a gateway error → offline; `401 unauthenticated` → login, server kept; any other failure → generic error, never a crash |
+| Requests | 15 s timeout, answers above 4 MiB refused, JSON content type checked case-insensitively; no answer, a stalled body or a gateway error → offline; `401 unauthenticated` → login, server kept; any other failure → generic error, never a crash |
 | Texts | `values/strings.xml` (en) + `values-de/`, wording from `web/src/lib/i18n`; per-app language from the generated locale config |
 | Look | colours from `web/src/app.css` (`ui/theme/Theme.kt`), no dynamic colour, system font; icons: Lucide (ISC, `web/THIRD_PARTY.md`) |
 
@@ -39,7 +45,7 @@ Completion:
 | `android/scripts/beefy-build.sh testDebugUnitTest` | JVM tests (Robolectric) incl. screenshot check |
 | `android/scripts/beefy-build.sh recordRoborazziDebug` | record screenshots; copy them from `latest/app/build/outputs/screenshots/` to `app/src/test/screenshots/` |
 | `android/scripts/beefy-build.sh verifyRoborazziDebug` | compare with the goldens in `app/src/test/screenshots/`; diffs in `latest/app/build/outputs/roborazzi/` |
-| `android/scripts/beefy-build.sh --emulator connectedDebugAndroidTest` | sign-in flow on the emulator against a fake server (`app/src/sharedTest/`) |
+| `android/scripts/beefy-build.sh --emulator connectedDebugAndroidTest` | sign-in, SSO callback alias, chore list (✓, Undo, date sheet, offline mark synced once after a restart) on the emulator against a fake server (`app/src/sharedTest/`) |
 
 Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs minor and patch below 100 (the build fails otherwise).
 
@@ -47,7 +53,7 @@ Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs 
 1. One run at a time: lock on fastpi (`~/.cache/claude-work/wgc-android/.lock`) and on beefy (`~/build/wg-chores/.lock`).
 2. beefy asleep → wake via the Beefy-Waker (`POST :9001/wake`, header `X-Wake: 1`), never plain `ssh beefy`.
 3. Sets `/run/beefy-keep-awake` (content `wgc-build <run>`) plus a 3 h watchdog on beefy; removed on every exit incl. Ctrl-C/HUP/TERM; a failed removal is a loud error. A marker someone else set is left alone.
-4. Only `android/` is shipped: working tree incl. untracked, not ignored files (`--head` = committed HEAD) → `git bundle` → `~/build/wg-chores/<run>/` on beefy, removed at the end of the run. Untracked `*.jks`, `*.keystore`, `*.pem`, `.env*`, `*secret*`, `keystore.properties` abort the run (`--allow-untracked` overrides).
+4. Only `android/` and `docs/test-vectors/` (due rule vectors shared with server and web) are shipped: working tree incl. untracked, not ignored files (`--head` = committed HEAD) → `git bundle` → `~/build/wg-chores/<run>/` on beefy, removed at the end of the run. Untracked `*.jks`, `*.keystore`, `*.pem`, `.env*`, `*secret*`, `keystore.properties` abort the run (`--allow-untracked` overrides).
 5. Image `wgc-android-build:local` from `build-env/Dockerfile`, rebuilt when `Dockerfile` or `run-in-container.sh` change (label `wgc.env-hash`; built with `--network host`).
 6. Container `wgc-android-build-<run>`: uid 10501, `--cpus 6`, `--memory 20g`, `--cap-drop ALL`, `TZ` of fastpi, network `wgc-build` (beefy's default bridge cannot resolve names), Gradle cache in volume `wgc-gradle-cache`, `--device /dev/kvm` with `--emulator`. Removed on cleanup; leftovers of a killed run are removed by the next run.
 

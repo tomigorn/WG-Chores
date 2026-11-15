@@ -5,17 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import ch.tomigorn.wgchores.auth.AuthState
 import ch.tomigorn.wgchores.data.ThemeMode
-import ch.tomigorn.wgchores.ui.screens.HomeScreen
 import ch.tomigorn.wgchores.ui.screens.LoginScreen
 import ch.tomigorn.wgchores.ui.screens.ServerScreen
 import ch.tomigorn.wgchores.ui.screens.UpdateScreen
 import ch.tomigorn.wgchores.ui.theme.Wgc
-import kotlinx.serialization.Serializable
 
 interface AppActions {
     fun connect(url: String)
@@ -29,9 +24,6 @@ interface AppActions {
     fun setTheme(mode: ThemeMode)
 }
 
-@Serializable
-object HomeRoute
-
 /** Signed-out screens follow the auth state; the signed-in area has its own navigation graph. */
 @Composable
 fun AppRoot(state: AuthState, theme: ThemeMode, actions: AppActions) {
@@ -40,11 +32,6 @@ fun AppRoot(state: AuthState, theme: ThemeMode, actions: AppActions) {
         is AuthState.PickServer -> ServerScreen(state, actions::connect)
         is AuthState.Login -> LoginScreen(state, actions::sso, actions::login, actions::register, actions::retry, actions::changeServer)
         is AuthState.UpdateRequired -> UpdateScreen(state, actions::openStore, actions::changeServer)
-        is AuthState.SignedIn -> {
-            val nav = rememberNavController()
-            NavHost(nav, startDestination = HomeRoute) {
-                composable<HomeRoute> { HomeScreen(state.userName, theme, actions::setTheme, actions::signOut) }
-            }
-        }
+        is AuthState.SignedIn -> SignedInArea(state, theme, actions)
     }
 }

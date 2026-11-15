@@ -93,7 +93,8 @@ class MainActivity : ComponentActivity() {
 
     private fun handleCallback(intent: Intent?): Boolean {
         val uri = SsoCallback.fromIntent(intent?.component?.className, packageName, intent?.data?.toString()) ?: return false
-        setFallbackCallback(false)
+        // disabling the alias would finish an activity started through it; onDestroy or the next launch closes it then
+        if (this.intent?.component?.className != "$packageName.${SsoCallback.FALLBACK_ALIAS}") setFallbackCallback(false)
         intent?.data = null
         vm.finishSso(uri)
         return true

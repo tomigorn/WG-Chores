@@ -3,6 +3,8 @@ package ch.tomigorn.wgchores.ui
 import ch.tomigorn.wgchores.auth.AuthState
 import ch.tomigorn.wgchores.auth.LoginError
 import ch.tomigorn.wgchores.auth.ServerError
+import ch.tomigorn.wgchores.ui.list.DoneSheet
+import ch.tomigorn.wgchores.ui.list.Snack
 import ch.tomigorn.wgchores.ui.screens.ServerScreen
 import org.junit.Before
 import org.junit.Test
@@ -26,6 +28,23 @@ class ScreenshotMatrixTest(private val fontScale: Float, private val dark: Boole
 
     @Test fun serverPicker() = Shots.capture("server_picker", fontScale, dark) {
         ServerScreen(AuthState.PickServer("https://chores.example", ServerError.NotWgChores), onConnect = {})
+    }
+
+    @Test fun choreList() = Shots.capture("list", fontScale, dark) { Shots.ListScreen(Shots.list) }
+
+    @Test fun snackbar() = Shots.capture("list_snackbar", fontScale, dark) {
+        val prev = Shots.chores[1]
+        val done = Shots.list.copy(
+            chores = Shots.chores.map { if (it.id == 2L) ch.tomigorn.wgchores.domain.Chores.applyCompletion(it, "2026-11-14", prev.last!!.by, Shots.today) else it },
+            snack = Snack.Done(prev, "u", "2026-11-14", null, otherDate = true),
+            pending = 1,
+        )
+        Shots.ListScreen(done)
+    }
+
+    @Test fun doneSheet() = Shots.capture("list_sheet", fontScale, dark) {
+        val c = Shots.chores[1]
+        Shots.ListScreen(Shots.list.copy(sheet = DoneSheet(c, c, null, "2026-11-14", null)))
     }
 
     @Test fun login() = Shots.capture("login", fontScale, dark) {

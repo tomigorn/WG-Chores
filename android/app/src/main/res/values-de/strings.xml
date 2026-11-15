@@ -59,4 +59,93 @@
     <string name="common_signed_in_as">Angemeldet als %1$s</string>
     <string name="common_coming_soon">Diese Seite gibt es noch nicht.</string>
     <string name="nav_logout">Abmelden</string>
+    <string name="nav_households">Meine Haushalte</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_account">Konto</string>
+
+    <string name="menu_open">Menü</string>
+    <string name="menu_new_household">Neuer Haushalt</string>
+    <string name="menu_switch">Haushalt wechseln</string>
+    <string name="menu_your_households">Deine Haushalte</string>
+    <string name="menu_hh_switch_label">%1$s, Haushalt wechseln</string>
+
+    <string name="list_other_category">Sonstiges</string>
+    <string name="list_empty_title">Noch keine Aufgaben</string>
+    <string name="list_empty_text">Füg die erste Sache hinzu, die euer Haushalt im Blick behält.</string>
+    <string name="list_add_chore">Aufgabe hinzufügen</string>
+    <string name="list_mark_done">%1$s als erledigt markieren</string>
+    <string name="list_never_done">nie erledigt</string>
+    <string name="list_offline">Offline</string>
+    <string name="list_offline_note">Offline – zuletzt geladene Liste</string>
+    <string name="list_loading">Aufgaben laden…</string>
+
+    <string name="day_today">heute</string>
+    <string name="day_yesterday">gestern</string>
+    <string name="day_on">am %1$s</string>
+
+    <string name="badge_days">%1$d T</string>
+    <string name="badge_never">nie</string>
+    <string name="badge_never_label">nie erledigt</string>
+    <plurals name="badge_since">
+        <item quantity="one">vor 1 Tag</item>
+        <item quantity="other">vor %1$d Tagen</item>
+    </plurals>
+    <plurals name="badge_overdue">
+        <item quantity="one">1 Tag überfällig</item>
+        <item quantity="other">%1$d Tage überfällig</item>
+    </plurals>
+
+    <string name="done_snack">– %1$s erledigt</string>
+    <string name="done_undo">Rückgängig</string>
+    <string name="done_other_date">Anderes Datum</string>
+    <string name="done_connect">Verbinde dich mit dem Internet, um das zu speichern</string>
+    <string name="done_failed">Speichern hat nicht geklappt. Bitte versuch es noch einmal.</string>
+    <string name="done_rejected">%1$s konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.</string>
+    <string name="done_rejected_many">%1$d Erledigt-Markierungen konnten nicht gespeichert werden und wurden aus der Warteschlange entfernt.</string>
+    <string name="done_rejected_unknown">Ein Erledigt-Eintrag konnte nicht gespeichert werden und wurde aus der Warteschlange entfernt.</string>
+
+    <string name="sheet_title">%1$s – erledigt am</string>
+    <string name="sheet_done_on">– erledigt am</string>
+    <string name="sheet_today">Heute</string>
+    <string name="sheet_yesterday">Gestern</string>
+    <string name="sheet_two_days">Vorgestern</string>
+    <string name="sheet_pick">Datum wählen</string>
+    <string name="sheet_date">Datum</string>
+    <string name="sheet_note">Notiz (optional)</string>
+    <string name="sheet_note_placeholder">z. B. neuen Reiniger benutzt</string>
+    <string name="sheet_save">Speichern</string>
+    <string name="sheet_cancel">Abbrechen</string>
+
+    <string name="sync_short">warten auf Sync</string>
+    <plurals name="sync_waiting">
+        <item quantity="one">1 wartet auf Sync</item>
+        <item quantity="other">%1$d warten auf Sync</item>
+    </plurals>
+    <plurals name="sync_waiting_label">
+        <item quantity="one">1 Erledigt-Markierung wartet auf Sync</item>
+        <item quantity="other">%1$d Erledigt-Markierungen warten auf Sync</item>
+    </plurals>
+
+    <string name="households_title">Meine Haushalte</string>
+    <string name="households_new">Neuer Haushalt</string>
+    <string name="households_name">Name</string>
+    <string name="households_name_placeholder">z. B. WG Zürich</string>
+    <string name="households_create">Erstellen</string>
+    <string name="households_cancel">Abbrechen</string>
+    <string name="households_empty_title">Noch kein Haushalt</string>
+    <string name="households_empty_text">Erstell einen, oder öffne einen Einladungslink von einem Mitbewohner.</string>
+    <plurals name="households_members">
+        <item quantity="one">1 Mitglied</item>
+        <item quantity="other">%1$d Mitglieder</item>
+    </plurals>
+
+    <string name="logout_title">Abmelden?</string>
+    <string name="logout_anyway">Trotzdem abmelden</string>
+    <string name="logout_cancel">Angemeldet bleiben</string>
+    <plurals name="logout_unsynced">
+        <item quantity="one">1 Erledigt-Markierung ist noch nicht synchronisiert und geht verloren.</item>
+        <item quantity="other">%1$d Erledigt-Markierungen sind noch nicht synchronisiert und gehen verloren.</item>
+    </plurals>
+    <string name="common_back">Zurück</string>
+    <string name="error_invalid_name">Der Name ist leer oder zu lang.</string>
 </resources>

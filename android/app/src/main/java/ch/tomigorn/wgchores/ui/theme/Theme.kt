@@ -33,6 +33,7 @@ data class WgcColors(
     val dangerBorder: Color,
     val dangerText: Color,
     val due: Map<String, Pair<Color, Color>>,
+    val dark: Boolean = false,
 )
 
 val LightColors = WgcColors(
@@ -79,6 +80,7 @@ val DarkColors = WgcColors(
         "long_overdue" to (Color(0xFFD93A2B) to Color.White),
         "never" to (Color(0xFFFF6B5A) to Color(0xFF2A0602)),
     ),
+    dark = true,
 )
 
 val LocalWgcColors = staticCompositionLocalOf { LightColors }
