@@ -119,7 +119,7 @@ fn html(l: Lang, title: &str, main: &str) -> String {
         Lang::De => "de",
     };
     format!(
-        "<!doctype html>\n<html lang=\"{code}\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"referrer\" content=\"no-referrer\">\n<title>{t}</title>\n<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"/icons/icon-192.png\">\n{css}{theme}</head>\n<body>\n<main class=\"screen legal\">\n<h1>{t}</h1>\n{main}</main>\n</body>\n</html>\n",
+        "<!doctype html>\n<html lang=\"{code}\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n<meta name=\"color-scheme\" content=\"light dark\">\n<title>{t}</title>\n<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"/icons/icon-192.png\">\n{css}{theme}</head>\n<body>\n<main class=\"screen legal\">\n<h1>{t}</h1>\n{main}</main>\n</body>\n</html>\n",
         t = escape(title),
     )
 }

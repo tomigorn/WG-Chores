@@ -80,6 +80,30 @@ test.describe('local accounts with SSO', () => {
     await expect(page.getByText('Jane Doe')).toBeVisible();
   });
 
+  test('app sign-in asks once in the browser before the code goes to the app', async ({ page }) => {
+    const csp: string[] = [];
+    page.on('console', (m) => {
+      if (/Content Security Policy/i.test(m.text())) csp.push(m.text());
+    });
+    const start = `${box.server.url}/auth/oidc/start?client=android&challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM`;
+    await box.oidc!.setUser({ sub: uniqueName('sub'), name: 'Jane Doe', preferred_username: uniqueName('jane'), groups: ['WG'] });
+    await page.goto(start);
+    await expect(page.getByRole('heading', { name: 'Sign in to the WG Chores app?' })).toBeVisible();
+    await expect(page.locator('strong', { hasText: 'Jane Doe' })).toBeVisible();
+    const styled = await page.getByRole('button', { name: 'Sign in to the app' }).evaluate((b) => getComputedStyle(b).borderRadius);
+    expect(styled).not.toBe('0px');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('You can close this tab.')).toBeVisible();
+
+    await page.goto(start);
+    const answer = page.waitForResponse((r) => r.url().endsWith('/auth/app/confirm'));
+    await page.getByRole('button', { name: 'Sign in to the app' }).click();
+    const r = await answer;
+    expect(r.status()).toBe(303);
+    expect(r.headers()['location']).toMatch(/^wgchores:\/\/auth\?code=[\w-]{43}$/);
+    expect(csp).toEqual([]);
+  });
+
   test('SSO user without the required group is refused with a clear message', async ({ page }) => {
     await box.oidc!.setUser({ sub: uniqueName('sub'), name: 'Jane Doe', groups: ['Guests'] });
     await page.goto(box.server.url + '/login');
