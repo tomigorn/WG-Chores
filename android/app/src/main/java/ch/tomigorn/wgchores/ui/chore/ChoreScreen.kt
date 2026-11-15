@@ -308,7 +308,7 @@ private fun LastCard(c: Chore, today: LocalDate, narrow: Boolean) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             val last = c.last
             Text(
-                if (last == null) stringResource(R.string.chore_never) else stringResource(R.string.chore_last_done, dayText(last.doneOn, today)),
+                if (last == null) stringResource(R.string.chore_never) else stringResource(R.string.chore_last_done, dayText(last.doneOn, today).replace(' ', '\u00a0')),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = Wgc.colors.text,
@@ -383,7 +383,8 @@ private fun EntryRow(e: Entry, today: LocalDate, narrow: Boolean, onClick: () ->
                 whoCol(Modifier.weight(1f))
             }
             if (e.waiting) {
-                Icon(painterResource(R.drawable.ic_hourglass), contentDescription = null, tint = Wgc.colors.muted, modifier = Modifier.size(14.dp).align(Alignment.CenterVertically))
+                val glass = with(LocalDensity.current) { 14.sp.toDp() }
+                Icon(painterResource(R.drawable.ic_hourglass), contentDescription = null, tint = Wgc.colors.muted, modifier = Modifier.size(glass).align(Alignment.CenterVertically))
             }
         }
     }

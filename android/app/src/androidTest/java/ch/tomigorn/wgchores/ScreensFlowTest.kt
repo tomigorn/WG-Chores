@@ -86,7 +86,7 @@ class ScreensFlowTest {
             signIn()
             compose.onNodeWithTag("row-2").performClick()
             compose.waitForTag("chore-done")
-            compose.waitFor("Usually done every ~7 days")
+            compose.waitFor("Usually done every\u00a0~7\u00a0days")
             click("chore-done")
             waitUntil("marked") { fake.created().size == 1 }
             assertEquals(fake.today.toString(), fake.created().values.single().doneOn)

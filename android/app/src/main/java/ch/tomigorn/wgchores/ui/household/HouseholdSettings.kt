@@ -5,6 +5,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -142,11 +144,36 @@ class HouseholdSettingsViewModel(app: Application, private val hid: Long) : Andr
     val ui = MutableStateFlow(HhUi())
     private var searchJob: Job? = null
 
+    @Volatile private var directoryKnown = false
+    private val network = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(n: Network) = detectDirectory()
+    }
+
     init {
         load()
+        detectDirectory()
+        runCatching { app.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(network) }
+    }
+
+    override fun onCleared() {
+        runCatching { getApplication<WgcApp>().getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(network) }
+    }
+
+    /** Asked again when the network comes back, until the server has answered once. */
+    private fun detectDirectory() {
+        if (directoryKnown) return
         viewModelScope.launch {
             val a = wgc.account() ?: return@launch
-            val on = Rules.memberDirectory { a.api.searchUsers(it) }
+            var reached = true
+            val on = Rules.memberDirectory {
+                try {
+                    a.api.searchUsers(it)
+                } catch (e: OfflineException) {
+                    reached = false
+                    throw e
+                }
+            }
+            if (reached) directoryKnown = true
             ui.update { it.copy(directory = on) }
         }
     }
@@ -339,8 +366,13 @@ fun shareInvite(context: Context, url: String, title: String) {
     runCatching { context.startActivity(Intent.createChooser(send, title)) }
 }
 
+/** The invite link works for whoever has it: marked sensitive, so Android 13+ hides it in the clipboard preview. */
 fun copyText(context: Context, label: String, text: String) {
-    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(label, text))
+    val clip = ClipData.newPlainText(label, text)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        clip.description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
+    }
+    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
 }
 
 @Composable

@@ -81,6 +81,7 @@ fun Initials(name: String, size: Int = 32) {
 @Composable
 fun TopBar(title: String?, userName: String, pending: Int, offline: Boolean, theme: ThemeMode, actions: BarActions) {
     val chip = pending > 0 || offline
+    val household = title != null
     val density = LocalDensity.current
     Column(Modifier.fillMaxWidth().background(Wgc.colors.bg).windowInsetsPadding(WindowInsets.statusBars)) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -106,14 +107,14 @@ fun TopBar(title: String?, userName: String, pending: Int, offline: Boolean, the
                     }
                     if (!compact) {
                         if (chip) SyncChip(pending, actions)
-                        MenuAndAvatar(userName, theme, actions, title != null)
+                        MenuAndAvatar(userName, theme, actions, household)
                     }
                 }
                 if (compact) {
                     Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (chip) SyncChip(pending, actions)
                         Box(Modifier.weight(1f))
-                        MenuAndAvatar(userName, theme, actions, true)
+                        MenuAndAvatar(userName, theme, actions, household)
                     }
                 }
             }
