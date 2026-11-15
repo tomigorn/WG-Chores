@@ -4,7 +4,7 @@ _beefy_build_sh() {
         mapfile -t COMPREPLY < <(compgen -d -- "$cur")
         return
     fi
-    local opts="--emulator --project --head --allow-untracked --self-test --dry-run --help"
+    local opts="--emulator --project --head --allow-untracked --write-locks --self-test --dry-run --help"
     local tasks="assembleDebug assembleRelease bundleRelease testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck connectedCheck test lint clean"
     mapfile -t COMPREPLY < <(compgen -W "$opts $tasks" -- "$cur")
 }

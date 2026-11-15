@@ -29,6 +29,8 @@ Options:
   --project DIR       Gradle project inside android/ (default: android)
   --head              build the committed HEAD (default: working tree incl. untracked files)
   --allow-untracked   ship even if untracked files look like secrets (*.jks, .env*, …)
+  --write-locks       refresh the Gradle dependency locks and copy them into android/
+                      (default tasks: :app:dependencies assembleRelease testDebugUnitTest assembleDebugAndroidTest)
   --self-test         build the smoke project and run its instrumented test
                       (= --emulator --project android/build-env/smoke assembleDebug connectedCheck)
   --dry-run           print the plan, do not contact beefy
@@ -38,6 +40,7 @@ Examples:
   beefy-build.sh assembleDebug
   beefy-build.sh --emulator connectedCheck
   beefy-build.sh --self-test
+  beefy-build.sh --write-locks
 EOF
 }
 
@@ -50,6 +53,7 @@ head_only=0
 dry_run=0
 self_test=0
 allow_untracked=0
+write_locks=0
 while [ $# -gt 0 ]; do
     case $1 in
         -h|--help) usage; exit 0 ;;
@@ -58,6 +62,7 @@ while [ $# -gt 0 ]; do
         --dry-run) dry_run=1 ;;
         --self-test) self_test=1 ;;
         --allow-untracked) allow_untracked=1 ;;
+        --write-locks) write_locks=1 ;;
         --project)
             [ $# -ge 2 ] && [ -n "$2" ] || die "--project needs a directory" "beefy-build.sh --project android assembleDebug"
             project=${2%/}; shift ;;
@@ -72,6 +77,11 @@ if [ "$self_test" = 1 ]; then
     emulator=1
     project=android/build-env/smoke
     [ ${#gradle_args[@]} -gt 0 ] || gradle_args=(assembleDebug connectedCheck)
+fi
+if [ "$write_locks" = 1 ]; then
+    [ "$self_test" = 0 ] && [ "$project" = android ] || die "--write-locks is for the app project only" "beefy-build.sh --write-locks"
+    [ ${#gradle_args[@]} -gt 0 ] || gradle_args=(:app:dependencies assembleRelease testDebugUnitTest assembleDebugAndroidTest)
+    gradle_args+=(--write-locks)
 fi
 [ ${#gradle_args[@]} -gt 0 ] || die "no gradle tasks given" "beefy-build.sh assembleDebug   (or --self-test)"
 case $project in
@@ -107,6 +117,7 @@ if [ "$dry_run" = 1 ]; then
     echo "source: $([ "$head_only" = 1 ] && echo "HEAD" || echo "working tree")"
     echo "gradle: ${gradle_args[*]}"
     echo "artifacts: $LOCAL_OUT_ROOT/latest"
+    [ "$write_locks" = 1 ] && echo "locks: written to android/ (gradle.lockfile)"
     exit 0
 fi
 
@@ -280,6 +291,9 @@ sudo docker run --rm --name "$container" --label wgc-android-build=1 \
     "${kvm[@]}" \
     -v "$dir/src:/work" -v "$dir/out:/out" -v "$volume:/home/builder/.gradle" \
     "$image" "$project" "$emulator" "$@"
+rc=$?
+(cd "$dir/src" && find android -name gradle.lockfile -not -path '*/build/*' -exec sudo cp --parents {} "$dir/out/" \;)
+exit $rc
 REMOTE_SCRIPT
 remote_pid=$!
 wait "$remote_pid"
@@ -295,6 +309,15 @@ if [ "${copy[0]}" != 0 ] || [ "${copy[1]}" != 0 ]; then
     [ "$rc" = 0 ] && rc=1
 fi
 ln -sfn "$run_id" "$LOCAL_OUT_ROOT/latest"
+if [ "$write_locks" = 1 ] && [ "$rc" = 0 ]; then
+    if [ -d "$local_out/android" ] && (cd "$local_out" && find android -name gradle.lockfile -exec cp --parents {} "$repo/" \;); then
+        log "locks copied into android/: $(cd "$local_out" && find android -name gradle.lockfile | tr '\n' ' ')"
+        echo "  next: git -C $repo diff --stat -- android; commit the gradle.lockfile changes"
+    else
+        echo "beefy-build: ERROR no gradle.lockfile came back from beefy" >&2
+        rc=1
+    fi
+fi
 ls -1d "$LOCAL_OUT_ROOT"/2* 2>/dev/null | head -n -10 | xargs -r rm -rf
 
 echo

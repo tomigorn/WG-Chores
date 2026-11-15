@@ -34,6 +34,10 @@ ver=$(sed -n 's/^version = "\(.*\)"/\1/p' "$here/../../server/Cargo.toml" | head
 check "passes the app version" 0 "gradle: assembleDebug -Pwgc.version=$ver" --dry-run assembleDebug
 check "explicit version wins" 0 "gradle: help -Pwgc.version=1.2.100" --dry-run help -Pwgc.version=1.2.100
 check "smoke gets no version" 0 "gradle: assembleDebug connectedCheck" --dry-run --self-test
+check "write locks default tasks" 0 "gradle: :app:dependencies assembleRelease testDebugUnitTest assembleDebugAndroidTest --write-locks" --dry-run --write-locks
+check "write locks into the repo" 0 "locks: written to android/" --dry-run --write-locks
+check "write locks with own tasks" 0 "gradle: :app:dependencies --write-locks" --dry-run --write-locks :app:dependencies
+check "write locks not for the smoke app" 2 "--write-locks is for the app project only" --dry-run --self-test --write-locks
 
 work=$(mktemp -d "${HOME}/.cache/claude-work/wgc-bbtest.XXXXXX")
 trap 'rm -rf "$work"' EXIT
@@ -65,6 +69,7 @@ check_comp() {
     if comp_bash "$@" | grep -qxF -- "$want"; then echo "ok   $name"; else echo "FAIL $name: no $want in: $(comp_bash "$@" | tr '\n' ' ')"; fail=1; fi
 }
 check_comp "bash completes --self-test" --self-test beefy-build.sh --se
+check_comp "bash completes --write-locks" --write-locks beefy-build.sh --wr
 check_comp "bash bare tab lists options" --emulator beefy-build.sh ""
 check_comp "bash bare tab lists tasks" assembleDebug beefy-build.sh ""
 for t in testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck; do
@@ -73,7 +78,7 @@ done
 if command -v fish >/dev/null; then
     if fish -c "source $here/completions/beefy-build.fish; complete -C 'beefy-build.sh --se'" | grep -q -- '--self-test'; then
         echo "ok   fish completes --self-test"; else echo "FAIL fish completion"; fail=1; fi
-    for want in --allow-untracked testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck; do
+    for want in --allow-untracked --write-locks testDebugUnitTest recordRoborazziDebug verifyRoborazziDebug connectedDebugAndroidTest releaseDeviceCheck; do
         if fish -c "source $here/completions/beefy-build.fish; complete -C 'beefy-build.sh '" | grep -q -- "^$want"; then
             echo "ok   fish bare tab lists $want"; else echo "FAIL fish bare tab: no $want"; fail=1; fi
     done
