@@ -28,13 +28,34 @@ export function safeUrl(u: unknown): string {
   return typeof u === 'string' && /^\/(?![/\\])/.test(u) ? u : '/';
 }
 
-export function notificationFromPush(data: unknown) {
+/** Title and body of a due notification, as in server/src/notify/texts.rs. */
+export function dueTexts(lang: string | undefined, household: string, names: string[]): [string, string] {
+  const de = lang === 'de';
+  if (names.length === 1) return [de ? `${names[0]} ist fällig` : `${names[0]} is due`, household];
+  return [de ? `${names.length} Aufgaben sind fällig` : `${names.length} chores are due`, names.join(', ')];
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+const strings = (v: unknown) => (Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : undefined);
+
+/** `shown`: notifications with the same tag still in the shade; a due push extends them instead of replacing them. */
+export function notificationFromPush(data: unknown, shown: readonly { data?: unknown }[] = []) {
   const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
-  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
-  return {
+  const tag = str(d.tag);
+  const url = safeUrl(d.url);
+  const n = {
     title: str(d.title) || 'WG Chores',
-    options: { body: str(d.body) ?? '', tag: str(d.tag), data: { url: safeUrl(d.url) }, icon: '/icons/icon-192.png', badge: '/icons/badge-96.png' },
+    options: { body: str(d.body) ?? '', tag, data: { url } as { url: string; names?: string[]; household?: string; lang?: string }, icon: '/icons/icon-192.png', badge: '/icons/badge-96.png' },
   };
+  const names = strings(d.names);
+  const household = str(d.household);
+  if (!names || household === undefined || !tag?.startsWith('due-')) return n;
+  const lang = str(d.lang);
+  const before = shown.map((s) => strings((s.data as { names?: unknown } | null | undefined)?.names)).find((x) => x);
+  const all = before ? [...new Set([...before, ...names])] : names;
+  n.options.data = { url, names: all, household, lang };
+  if (before) [n.title, n.options.body] = dueTexts(lang, household, all);
+  return n;
 }
 
 export function targetClient<C extends { url: string; focused: boolean }>(list: readonly C[], origin: string): C | null {
@@ -61,7 +82,7 @@ export interface Scope {
   fetch(r: Request | string): Promise<Response>;
   caches: { open(n: string): Promise<CacheLike>; keys(): Promise<string[]>; delete(n: string): Promise<boolean> };
   clients: { claim(): Promise<void>; matchAll(o: { type: 'window'; includeUncontrolled: boolean }): Promise<readonly WindowClientLike[]>; openWindow(url: string): Promise<unknown> };
-  registration: { showNotification(title: string, o: NotificationOptions): Promise<void> };
+  registration: { showNotification(title: string, o: NotificationOptions): Promise<void>; getNotifications(o: { tag?: string }): Promise<readonly { data?: unknown }[]> };
 }
 
 interface Ext {
@@ -131,8 +152,14 @@ export function registerHandlers(self: Scope, build: Build): void {
     } catch {
       /* not JSON */
     }
-    const n = notificationFromPush(data);
-    e.waitUntil(self.registration.showNotification(n.title, n.options));
+    const tag = (data as { tag?: unknown } | null)?.tag;
+    const shown = typeof tag === 'string' ? self.registration.getNotifications({ tag }).catch(() => []) : Promise.resolve([]);
+    e.waitUntil(
+      shown.then((s) => {
+        const n = notificationFromPush(data, s);
+        return self.registration.showNotification(n.title, n.options);
+      }),
+    );
   });
 
   self.addEventListener('notificationclick', (e: Ext & { notification: { close(): void; data?: { url?: unknown } } }) => {

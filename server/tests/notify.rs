@@ -235,6 +235,10 @@ async fn due_push_once_per_period() {
     assert_eq!(p["body"], "Home");
     assert_eq!(p["tag"], format!("due-{}", w.h));
     assert_eq!(p["url"], format!("/households/{}", w.h));
+    assert_eq!(
+        (&p["names"], &p["household"], &p["lang"]),
+        (&json!(["Bins"]), &json!("Home"), &json!("en"))
+    );
     assert_eq!(got[0].headers["ttl"], "43200");
     assert!(run_due(&w, "2026-01-04T17:00:00Z").await.is_empty());
     assert!(run_due(&w, "2026-01-20T12:00:00Z").await.is_empty());

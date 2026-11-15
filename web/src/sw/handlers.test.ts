@@ -22,6 +22,7 @@ function harness(fetchImpl: (r: Request | string) => Promise<Response>) {
   };
   const client = { url: ORIGIN + '/households/1', focused: false, focus: vi.fn(async () => {}), postMessage: vi.fn() };
   const clients: (typeof client)[] = [client];
+  const shown: { data?: unknown }[] = [];
   const scope = {
     location: { origin: ORIGIN },
     addEventListener: (t: string, cb: (e: never) => void) => handlers.set(t, cb as (e: unknown) => void),
@@ -29,7 +30,7 @@ function harness(fetchImpl: (r: Request | string) => Promise<Response>) {
     fetch: vi.fn(fetchImpl),
     caches: { open, keys: async () => [...stores.keys()], delete: async (n: string) => stores.delete(n) },
     clients: { claim: vi.fn(async () => {}), matchAll: vi.fn(async () => clients), openWindow: vi.fn(async () => null) },
-    registration: { showNotification: vi.fn(async () => {}) },
+    registration: { showNotification: vi.fn(async () => {}), getNotifications: vi.fn(async (_o: { tag?: string }) => shown) },
   } satisfies Scope;
   registerHandlers(scope, BUILD);
 
@@ -41,7 +42,7 @@ function harness(fetchImpl: (r: Request | string) => Promise<Response>) {
     return responded;
   }
   const navigation = (path: string) => ({ url: ORIGIN + path, mode: 'navigate', method: 'GET' }) as unknown as Request;
-  return { scope, stores, dispatch, navigation, client, clients };
+  return { scope, stores, dispatch, navigation, client, clients, shown };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -104,6 +105,14 @@ describe('service worker handlers', () => {
     expect(h.scope.registration.showNotification).toHaveBeenCalledWith('Clean toilet is due', expect.objectContaining({ body: 'Bathroom', tag: 'due-3', data: { url: '/households/3' } }));
     await h.dispatch('push', { data: { json: () => JSON.parse('not json') } });
     expect(h.scope.registration.showNotification).toHaveBeenLastCalledWith('WG Chores', expect.anything());
+  });
+
+  it('due_push_extends_the_shown_due_notification', async () => {
+    const h = harness(async () => new Response('net'));
+    h.shown.push({ data: { url: '/households/3', names: ['Clean toilet'], household: 'Home', lang: 'en' } });
+    await h.dispatch('push', { data: { json: () => ({ title: 'Water plants is due', body: 'Home', url: '/households/3', tag: 'due-3', names: ['Water plants'], household: 'Home', lang: 'en' }) } });
+    expect(h.scope.registration.getNotifications).toHaveBeenCalledWith({ tag: 'due-3' });
+    expect(h.scope.registration.showNotification).toHaveBeenLastCalledWith('2 chores are due', expect.objectContaining({ body: 'Clean toilet, Water plants', tag: 'due-3' }));
   });
 
   it('click_focuses_and_navigates_or_opens', async () => {

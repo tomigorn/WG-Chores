@@ -212,6 +212,24 @@ pub fn payload(title: String, body: String, household: i64, tag: String) -> Stri
     json!({"title": title, "body": body, "url": url, "tag": tag}).to_string()
 }
 
+/// Due message; `names`, `household` and `lang` let the web app merge it into a due notification still shown, and are left out when they do not fit.
+pub fn due_payload(lang: &str, household: &str, hid: i64, names: &[String]) -> String {
+    let (title, body) = texts::due(lang, household, names);
+    let p = payload(title, body, hid, format!("due-{hid}"));
+    let Ok(serde_json::Value::Object(mut v)) = serde_json::from_str(&p) else {
+        return p;
+    };
+    v.insert("names".into(), json!(names));
+    v.insert("household".into(), json!(household));
+    v.insert("lang".into(), json!(lang));
+    let full = serde_json::Value::Object(v).to_string();
+    if full.len() <= MAX_PAYLOAD_BYTES {
+        full
+    } else {
+        p
+    }
+}
+
 fn cut_escaped(s: &str, max: usize) -> String {
     if texts::json_len(s) <= max {
         return s.to_string();
@@ -393,6 +411,25 @@ mod tests {
             (v["title"].as_str(), v["body"].as_str()),
             (Some("T"), Some("B \"q\""))
         );
+    }
+
+    #[test]
+    fn due_payload_carries_names_for_merging_only_when_they_fit() {
+        let names = vec!["Bins".to_string(), "Dust".to_string()];
+        let p = due_payload("de", "Home", 7, &names);
+        let v: Value = serde_json::from_str(&p).unwrap();
+        assert_eq!(v["title"], "2 Aufgaben sind fällig");
+        assert_eq!(v["tag"], "due-7");
+        assert_eq!(
+            (&v["names"], &v["household"], &v["lang"]),
+            (&json!(["Bins", "Dust"]), &json!("Home"), &json!("de"))
+        );
+        let long: Vec<String> = (0..300).map(|i| format!("Chore number {i}")).collect();
+        let p = due_payload("en", "Home", 7, &long);
+        assert!(p.len() <= MAX_PAYLOAD_BYTES, "{}", p.len());
+        let v: Value = serde_json::from_str(&p).unwrap();
+        assert_eq!(v["title"], "300 chores are due");
+        assert!(v.get("names").is_none());
     }
 
     #[tokio::test]

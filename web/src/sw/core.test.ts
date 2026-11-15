@@ -40,6 +40,26 @@ describe('service worker push', () => {
     expect(notificationFromPush({ url: '//evil.example.org/x' }).options.data.url).toBe('/');
   });
 
+  it('due_push_merges_into_the_due_notification_still_shown', () => {
+    const due = (names: string[], lang = 'en') => ({ title: 'x', body: 'x', url: '/households/3', tag: 'due-3', names, household: 'Home', lang });
+    const first = notificationFromPush(due(['Clean toilet']));
+    expect(first.title).toBe('x');
+    expect(first.options.data).toEqual({ url: '/households/3', names: ['Clean toilet'], household: 'Home', lang: 'en' });
+    const merged = notificationFromPush(due(['Water plants', 'Clean toilet']), [first.options]);
+    expect(merged.title).toBe('2 chores are due');
+    expect(merged.options.body).toBe('Clean toilet, Water plants');
+    expect(merged.options.tag).toBe('due-3');
+    expect(merged.options.data.names).toEqual(['Clean toilet', 'Water plants']);
+    const de = notificationFromPush(due(['Staub'], 'de'), [{ data: { names: ['Staub'] } }]);
+    expect([de.title, de.options.body]).toEqual(['Staub ist fällig', 'Home']);
+    const de2 = notificationFromPush(due(['Staub'], 'de'), [{ data: { names: ['Bad'] } }]);
+    expect([de2.title, de2.options.body]).toEqual(['2 Aufgaben sind fällig', 'Bad, Staub']);
+    const done = notificationFromPush({ title: 'Rafi', body: '✓ Dust', tag: 'due-3' }, [first.options]);
+    expect(done.title).toBe('Rafi');
+    const odd = notificationFromPush(due(['A']), [{ data: { names: [1, 'B'] } }, { data: null }]);
+    expect(odd.title).toBe('x');
+  });
+
   it('safe_url_keeps_same_origin_paths', () => {
     expect(safeUrl('/households/3')).toBe('/households/3');
     expect(safeUrl(undefined)).toBe('/');

@@ -1,4 +1,4 @@
-use super::{Outcome, SUB_COLS, Sub, deliver, join_logged, payload, texts};
+use super::{Outcome, SUB_COLS, Sub, deliver, due_payload, join_logged};
 use crate::app::AppState;
 use chrono::{DateTime, Duration, LocalResult, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -120,8 +120,7 @@ pub async fn run_due(st: &AppState, now: DateTime<Utc>) {
     let mut set = tokio::task::JoinSet::new();
     for ((_, hid), g) in groups {
         let names: Vec<String> = g.chores.iter().map(|(_, n, _)| n.clone()).collect();
-        let (title, body) = texts::due(&g.sub.lang, &g.household, &names);
-        let p = payload(title, body, hid, format!("due-{hid}"));
+        let p = due_payload(&g.sub.lang, &g.household, hid, &names);
         let st = st.clone();
         set.spawn(async move { (deliver(&st, &g.sub, &p).await, g) });
     }
