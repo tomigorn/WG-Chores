@@ -22,7 +22,6 @@ async fn main() {
 
 async fn admin(cmd: wg_chores::cli::Command) {
     use wg_chores::cli::{Command, Ctx};
-    let help = matches!(cmd, Command::Help(_));
     let name = match &cmd {
         Command::MigrateV1 { .. } => "migrate-v1",
         Command::Backup { .. } => "backup",
@@ -40,7 +39,6 @@ async fn admin(cmd: wg_chores::cli::Command) {
     };
     match wg_chores::cli::run(cmd, ctx).await {
         Ok(out) => println!("{out}"),
-        Err(e) if help => eprintln!("{e}"),
         Err(e) => {
             eprintln!("error: {e}\nNext: wg-chores {name} --help");
             std::process::exit(1);

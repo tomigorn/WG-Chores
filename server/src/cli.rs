@@ -235,7 +235,9 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
             })
         }
         "revoke-sessions" => match positional.as_slice() {
-            [u] => Ok(Command::RevokeSessions { username: u.clone() }),
+            [u] => Ok(Command::RevokeSessions {
+                username: u.clone(),
+            }),
             [] => Err(err("the username is required".into())),
             [_, x, ..] => Err(err(format!("unexpected argument \"{x}\""))),
         },
@@ -454,15 +456,7 @@ pub async fn create_user(
             if taken {
                 return Ok(false);
             }
-            tx.execute(
-                "INSERT INTO users (username, display_name, created_at) VALUES (?1, ?2, ?3)",
-                rusqlite::params![u, d, now],
-            )?;
-            let id = tx.last_insert_rowid();
-            tx.execute(
-                "INSERT INTO identities (user_id, kind, issuer, subject, password_hash) VALUES (?1, 'local', '', ?2, ?3)",
-                rusqlite::params![id, u, hash],
-            )?;
+            crate::auth::local::insert_local_user(&tx, &u, &d, &hash, &now)?;
             tx.commit()?;
             Ok(true)
         })

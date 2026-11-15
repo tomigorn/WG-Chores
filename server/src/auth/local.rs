@@ -85,7 +85,11 @@ impl Hasher {
     }
 
     /// `hash` None verifies against a dummy hash so unknown users cost the same time.
-    pub async fn verify(self: &Arc<Self>, pw: String, hash: Option<String>) -> Result<bool, ApiError> {
+    pub async fn verify(
+        self: &Arc<Self>,
+        pw: String,
+        hash: Option<String>,
+    ) -> Result<bool, ApiError> {
         let me = self.clone();
         let known = hash.is_some();
         let _permit = self.permit().await?;
@@ -380,15 +384,7 @@ pub async fn register(
         .db
         .run(move |c| {
             let tx = c.transaction()?;
-            tx.execute(
-                "INSERT INTO users (username, display_name, created_at) VALUES (?1, ?2, ?3)",
-                rusqlite::params![u, d, now],
-            )?;
-            let id = tx.last_insert_rowid();
-            tx.execute(
-                "INSERT INTO identities (user_id, kind, issuer, subject, password_hash) VALUES (?1, 'local', '', ?2, ?3)",
-                rusqlite::params![id, u, hash],
-            )?;
+            let id = insert_local_user(&tx, &u, &d, &hash, &now)?;
             if let Some(h) = &invite_hash
                 && let Err(e) = crate::api::invites::accept_in_tx(&tx, h, id, &now)?
             {
@@ -421,6 +417,26 @@ pub async fn register(
             None,
         )),
     ))
+}
+
+/// A user row plus its local password identity; returns the user id.
+pub fn insert_local_user(
+    c: &rusqlite::Connection,
+    username: &str,
+    display_name: &str,
+    hash: &str,
+    now: &str,
+) -> rusqlite::Result<i64> {
+    c.execute(
+        "INSERT INTO users (username, display_name, created_at) VALUES (?1, ?2, ?3)",
+        rusqlite::params![username, display_name, now],
+    )?;
+    let id = c.last_insert_rowid();
+    c.execute(
+        "INSERT INTO identities (user_id, kind, issuer, subject, password_hash) VALUES (?1, 'local', '', ?2, ?3)",
+        rusqlite::params![id, username, hash],
+    )?;
+    Ok(id)
 }
 
 fn username_taken() -> ApiError {
@@ -557,7 +573,10 @@ mod tests {
             tokio::task::yield_now().await;
         }
         let e = h.hash("another password".into()).await.unwrap_err();
-        assert_eq!((e.status.as_u16(), e.code, e.retry_after), (503, "busy", Some(5)));
+        assert_eq!(
+            (e.status.as_u16(), e.code, e.retry_after),
+            (503, "busy", Some(5))
+        );
         let e = h.verify("password".into(), None).await.unwrap_err();
         assert_eq!(e.code, "busy");
         drop(held);

@@ -101,15 +101,7 @@ pub async fn reset(
         ] {
             tx.execute(&format!("DELETE FROM {t}"), [])?;
         }
-        tx.execute(
-            "INSERT INTO users (username, display_name, created_at) VALUES (?1, 'Reviewer', ?2)",
-            rusqlite::params![USERNAME, now_s],
-        )?;
-        let uid = tx.last_insert_rowid();
-        tx.execute(
-            "INSERT INTO identities (user_id, kind, issuer, subject, password_hash) VALUES (?1, 'local', '', ?2, ?3)",
-            rusqlite::params![uid, USERNAME, hash],
-        )?;
+        let uid = crate::auth::local::insert_local_user(&tx, USERNAME, "Reviewer", &hash, &now_s)?;
         tx.execute(
             "INSERT INTO households (name, created_at) VALUES (?1, ?2)",
             rusqlite::params![HOUSEHOLD, now_s],
