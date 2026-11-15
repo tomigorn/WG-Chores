@@ -27,6 +27,12 @@ afterEach(() => {
 });
 
 describe('Account', () => {
+  it('account_links_privacy_and_deletion_pages', () => {
+    open(me);
+    const hrefs = [...document.querySelectorAll<HTMLAnchorElement>('nav.legal-links a')].map((a) => [a.getAttribute('href'), a.dataset.external !== undefined]);
+    expect(hrefs).toEqual([['/privacy', true], ['/account-deletion', true]]);
+  });
+
   it('local_user_deletes_account_with_current_password', async () => {
     const del = vi.spyOn(api, 'deleteMe').mockRejectedValueOnce(new ApiError(403, 'wrong_password', '')).mockResolvedValue(undefined);
     const p = open(me);

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
+  import LegalLinks from '../components/LegalLinks.svelte';
   import PageBar from '../components/PageBar.svelte';
   import { api, OfflineError, type Me } from '../lib/api';
   import { currentLanguage, languageSetting, setLanguage, t, type Lang, type LangSetting } from '../lib/i18n';
@@ -99,6 +100,8 @@
       <p data-copy class="note"><Icon name="bell" size={16} /><span>{t('settings.notify_note')}</span></p>
     {/if}
   </section>
+
+  <LegalLinks />
 </main>
 
 <style>

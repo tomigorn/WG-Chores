@@ -3,6 +3,7 @@
   import Avatar from '../components/Avatar.svelte';
   import ConfirmSheet from '../components/ConfirmSheet.svelte';
   import Icon from '../components/Icon.svelte';
+  import LegalLinks from '../components/LegalLinks.svelte';
   import PageBar from '../components/PageBar.svelte';
   import { api, type Me, type ServerConfig } from '../lib/api';
   import { t, type Lang } from '../lib/i18n';
@@ -148,6 +149,7 @@
     <h2 data-copy class="section-title">{t('account.delete')}</h2>
     <p data-copy class="muted small pad">{t('account.delete_text')}</p>
     <button class="btn btn-danger" type="button" onclick={() => (deleting = true)}><Icon name="trash-2" size={18} />{t('account.delete')}</button>
+    <LegalLinks />
   </section>
 </main>
 

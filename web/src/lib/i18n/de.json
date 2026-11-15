@@ -344,5 +344,10 @@
   "update": {
     "available": "Update verfügbar",
     "reload": "Neu laden"
+  },
+  "legal": {
+    "label": "Rechtliches",
+    "privacy": "Datenschutz (English)",
+    "deletion": "Konto löschen (English)"
   }
 }

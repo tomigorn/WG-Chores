@@ -344,5 +344,10 @@
   "update": {
     "available": "Update available",
     "reload": "Reload"
+  },
+  "legal": {
+    "label": "Legal",
+    "privacy": "Privacy policy",
+    "deletion": "Account deletion"
   }
 }

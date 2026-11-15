@@ -53,6 +53,30 @@ async fn spa_fallback_serves_index() {
 }
 
 #[tokio::test]
+async fn legal_pages_are_static_and_signed_out() {
+    let app = TestApp::new();
+    for (path, heading) in [
+        ("/privacy", "<h1>WG Chores: privacy</h1>"),
+        ("/privacy/", "<h1>WG Chores: privacy</h1>"),
+        (
+            "/account-deletion",
+            "<h1>WG Chores: delete your account</h1>",
+        ),
+    ] {
+        let (status, headers, body) = raw(&app, Method::GET, path).await;
+        assert_eq!(status, 200, "{path}");
+        assert!(
+            h(&headers, "content-type").starts_with("text/html"),
+            "{path}"
+        );
+        assert_eq!(h(&headers, "cache-control"), "no-cache", "{path}");
+        let body = String::from_utf8_lossy(&body);
+        assert!(body.contains(heading), "{path}");
+        assert!(!body.contains("id=\"app\""), "{path}");
+    }
+}
+
+#[tokio::test]
 async fn api_404_stays_json() {
     let app = TestApp::new();
     for path in [

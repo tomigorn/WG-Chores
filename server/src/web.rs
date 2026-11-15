@@ -68,7 +68,7 @@ fn mime(path: &str) -> &'static str {
 fn cache_control(path: &str) -> &'static str {
     if path.starts_with("assets/") {
         IMMUTABLE
-    } else if matches!(path, "index.html" | "sw.js" | "manifest.webmanifest") {
+    } else if path.ends_with("index.html") || matches!(path, "sw.js" | "manifest.webmanifest") {
         "no-cache"
     } else {
         "public, max-age=86400"
@@ -111,6 +111,13 @@ pub async fn serve(method: Method, uri: Uri) -> Response {
         && let Some(body) = find(path)
     {
         return file(path, body, head);
+    }
+    let dir = path.trim_end_matches('/');
+    if !dir.is_empty() && !dir.contains('.') {
+        let index = format!("{dir}/index.html");
+        if let Some(body) = find(&index) {
+            return file(&index, body, head);
+        }
     }
     if path.starts_with("assets/") || path.rsplit('/').next().is_some_and(|s| s.contains('.')) {
         return StatusCode::NOT_FOUND.into_response();

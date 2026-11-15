@@ -82,6 +82,8 @@ const SCREENS: Screen[] = [
       await p.locator('#display-name').waitFor();
     },
   },
+  { name: 'privacy', signedOut: true, open: async (p, _s, b) => void (await p.goto(b + '/privacy'), await p.locator('h1').waitFor()) },
+  { name: 'account-deletion', signedOut: true, open: async (p, _s, b) => void (await p.goto(b + '/account-deletion'), await p.locator('h1').waitFor()) },
   { name: 'invite-signed-out', signedOut: true, open: async (p, s) => void (await p.goto(s.invite), await p.locator('#username').waitFor()) },
   { name: 'households', open: async (p, _s, b) => void (await p.goto(b + '/households'), await p.locator('.hh-row').first().waitFor()) },
   { name: 'households-new', open: async (p, _s, b) => void (await p.goto(b + '/households?new=1'), await p.locator('#hh-name').waitFor()) },

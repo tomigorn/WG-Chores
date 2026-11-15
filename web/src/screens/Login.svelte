@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Icon from '../components/Icon.svelte';
+  import LegalLinks from '../components/LegalLinks.svelte';
   import { api, ApiError, OfflineError, ssoStartUrl, type ServerConfig } from '../lib/api';
   import { clearLogoutPending, endPendingLogout, logoutPending, setLogoutPending } from '../lib/boot';
   import { leave } from '../lib/router';
@@ -161,6 +162,8 @@
       </button>
     </p>
   {/if}
+
+  <LegalLinks />
 </main>
 
 <style>
