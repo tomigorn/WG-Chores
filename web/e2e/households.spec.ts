@@ -26,14 +26,14 @@ test('rename, add a member by username, remove them', async ({ page, context }) 
   expect(await ben.ok<unknown[]>('GET', '/api/v1/households')).toEqual([]);
 });
 
-test('unknown username says so', async ({ page, context }) => {
+test('unknown username gets the one refusal text', async ({ page, context }) => {
   const anna = await Api.register(box.server.url, 'Anna');
   const h = await anna.household('WG Basel');
   await anna.signInContext(context);
   await page.goto(`${box.server.url}/households/${h.id}/settings`);
   await page.getByLabel('Add member').fill('nobody-here');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('No user with this username.');
+  await expect(page.getByRole('alert')).toHaveText('No user with that name can be added.');
 });
 
 test('switch between households from the top bar', async ({ page, context }) => {
