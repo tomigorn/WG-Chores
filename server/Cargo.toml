@@ -22,8 +22,8 @@ getrandom = "0.4.3"
 openidconnect = { version = "4.1", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
 hmac = "0.13"
 tower-http = { version = "0.6", default-features = false, features = ["compression-gzip"] }
-rsa = { version = "0.9", optional = true, features = ["sha2"] }
-rand = { version = "0.8", optional = true }
+rsa = { version = "0.10", optional = true, features = ["pkcs1v15"] }
+rand = { version = "0.10", optional = true }
 tower-service = { version = "0.3", optional = true }
 
 [features]

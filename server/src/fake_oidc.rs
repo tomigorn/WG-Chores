@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use rsa::pkcs1v15::SigningKey;
 use rsa::signature::{SignatureEncoding, Signer};
 use rsa::traits::PublicKeyParts;
-use rsa::{RsaPrivateKey, sha2::Sha256 as RsaSha256};
+use rsa::{PrivateKey, sha2::Sha256 as RsaSha256};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -41,14 +41,14 @@ impl FakeKey {
         }
     }
 
-    fn private(self) -> &'static RsaPrivateKey {
-        static A: OnceLock<RsaPrivateKey> = OnceLock::new();
-        static B: OnceLock<RsaPrivateKey> = OnceLock::new();
+    fn private(self) -> &'static PrivateKey {
+        static A: OnceLock<PrivateKey> = OnceLock::new();
+        static B: OnceLock<PrivateKey> = OnceLock::new();
         let cell = match self {
             FakeKey::A => &A,
             FakeKey::B => &B,
         };
-        cell.get_or_init(|| RsaPrivateKey::new(&mut rand::rngs::OsRng, 2048).expect("rsa key"))
+        cell.get_or_init(|| PrivateKey::new(&mut rand::rngs::SysRng, 2048).expect("rsa key"))
     }
 }
 
@@ -246,8 +246,8 @@ async fn jwks(State(s): State<Shared>) -> Json<Value> {
         "use": "sig",
         "alg": "RS256",
         "kid": published.kid(),
-        "n": URL_SAFE_NO_PAD.encode(pk.n().to_bytes_be()),
-        "e": URL_SAFE_NO_PAD.encode(pk.e().to_bytes_be()),
+        "n": URL_SAFE_NO_PAD.encode(pk.n().to_be_bytes_trimmed_vartime()),
+        "e": URL_SAFE_NO_PAD.encode(pk.e().to_be_bytes_trimmed_vartime()),
     }]}))
 }
 
