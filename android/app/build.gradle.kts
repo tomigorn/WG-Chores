@@ -95,6 +95,7 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.datastore.preferences)
     implementation(libs.browser)
+    implementation(libs.appcompat)
     implementation(libs.okhttp)
     implementation(libs.serialization.json)
     implementation(libs.room.runtime)

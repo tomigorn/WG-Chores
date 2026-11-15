@@ -55,7 +55,7 @@ import ch.tomigorn.wgchores.data.ThemeMode
 import ch.tomigorn.wgchores.domain.Words
 import ch.tomigorn.wgchores.ui.theme.Wgc
 
-enum class Dest { Households, NewHousehold, Settings, Account }
+enum class Dest { Households, NewHousehold, HouseholdSettings, Settings, Account }
 
 interface BarActions {
     fun switchHousehold()
@@ -106,14 +106,14 @@ fun TopBar(title: String?, userName: String, pending: Int, offline: Boolean, the
                     }
                     if (!compact) {
                         if (chip) SyncChip(pending, actions)
-                        MenuAndAvatar(userName, theme, actions)
+                        MenuAndAvatar(userName, theme, actions, title != null)
                     }
                 }
                 if (compact) {
                     Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (chip) SyncChip(pending, actions)
                         Box(Modifier.weight(1f))
-                        MenuAndAvatar(userName, theme, actions)
+                        MenuAndAvatar(userName, theme, actions, true)
                     }
                 }
             }
@@ -131,7 +131,7 @@ private fun titleStyle() = MaterialTheme.typography.titleMedium.copy(fontSize = 
 private fun chipStyle() = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
 
 @Composable
-private fun MenuAndAvatar(userName: String, theme: ThemeMode, actions: BarActions) {
+private fun MenuAndAvatar(userName: String, theme: ThemeMode, actions: BarActions, household: Boolean) {
     var menu by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Box {
@@ -139,7 +139,7 @@ private fun MenuAndAvatar(userName: String, theme: ThemeMode, actions: BarAction
             IconButton(onClick = { menu = true }, modifier = Modifier.testTag("menu").semantics { contentDescription = menuLabel }) {
                 Icon(painterResource(R.drawable.ic_menu), contentDescription = null, tint = Wgc.colors.text)
             }
-            Menu(menu, onClose = { menu = false }, theme, actions)
+            Menu(menu, onClose = { menu = false }, theme, actions, household)
         }
         val accountLabel = stringResource(R.string.nav_account)
         IconButton(onClick = { actions.navigate(Dest.Account) }, modifier = Modifier.semantics { contentDescription = accountLabel }) {
@@ -221,10 +221,11 @@ private fun MenuItem(icon: Int, label: Int, tag: String, onClose: () -> Unit, ru
 )
 
 @Composable
-private fun Menu(open: Boolean, onClose: () -> Unit, theme: ThemeMode, actions: BarActions) {
+private fun Menu(open: Boolean, onClose: () -> Unit, theme: ThemeMode, actions: BarActions, household: Boolean) {
     DropdownMenu(expanded = open, onDismissRequest = onClose, shape = RoundedCornerShape(12.dp), containerColor = Wgc.colors.surface) {
         MenuItem(R.drawable.ic_house, R.string.nav_households, "menu-households", onClose) { actions.navigate(Dest.Households) }
         MenuItem(R.drawable.ic_plus, R.string.menu_new_household, "menu-new-household", onClose) { actions.navigate(Dest.NewHousehold) }
+        if (household) MenuItem(R.drawable.ic_users, R.string.menu_household_settings, "menu-household-settings", onClose) { actions.navigate(Dest.HouseholdSettings) }
         MenuItem(R.drawable.ic_settings, R.string.nav_settings, "menu-settings", onClose) { actions.navigate(Dest.Settings) }
         MenuItem(R.drawable.ic_user_round, R.string.nav_account, "menu-account", onClose) { actions.navigate(Dest.Account) }
         HorizontalDivider(color = Wgc.colors.border)

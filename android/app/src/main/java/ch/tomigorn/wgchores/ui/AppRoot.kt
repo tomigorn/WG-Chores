@@ -22,6 +22,7 @@ interface AppActions {
     fun openStore()
     fun signOut()
     fun setTheme(mode: ThemeMode)
+    fun openUrl(url: String)
 }
 
 /** Signed-out screens follow the auth state; the signed-in area has its own navigation graph. */

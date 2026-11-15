@@ -24,6 +24,10 @@ class ScreenshotGermanTest {
         Shots.ListScreen(Shots.list.copy(sheet = DoneSheet(c, c, "u", "2026-11-10", "neuer Reiniger")))
     }
 
+    @Test fun chorePage() = Shots.capture("chore_de", 2f, dark = false) { ch.tomigorn.wgchores.ui.chore.ChoreScreen(Screens.chore, noop()) }
+
+    @Test fun choreEdit() = Shots.capture("chore_edit_de", 2f, dark = false) { ch.tomigorn.wgchores.ui.chore.ChoreEditScreen(Screens.edit, noop()) }
+
     @Test fun login() = Shots.capture("login_de", 2f, dark = false) {
         Shots.Login(AuthState.Login(Shots.SERVER, Shots.config, LoginError.Code("not_allowed")))
     }

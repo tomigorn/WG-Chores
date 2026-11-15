@@ -60,7 +60,14 @@ private const val PICK = -1
 /** "Clean toilet – done on": Today / Yesterday / 2 days ago / Pick date, a note, Save. Dates never in the future. */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun DoneSheetContent(name: String, today: LocalDate, initialDoneOn: String, initialNote: String?, onSave: (String, String?) -> Unit) {
+fun DoneSheetContent(
+    name: String,
+    today: LocalDate,
+    initialDoneOn: String,
+    initialNote: String?,
+    onSave: (String, String?) -> Unit,
+    onDelete: (() -> Unit)? = null,
+) {
     val initialBack = (0..2).firstOrNull { today.minusDays(it.toLong()).toString() == initialDoneOn } ?: PICK
     var choice by rememberSaveable(name, initialDoneOn) { mutableStateOf(initialBack) }
     var picked by rememberSaveable(name, initialDoneOn) { mutableStateOf(initialDoneOn) }
@@ -108,6 +115,9 @@ fun DoneSheetContent(name: String, today: LocalDate, initialDoneOn: String, init
             )
         }
         PrimaryButton(stringResource(R.string.sheet_save), onClick = { if (valid) onSave(doneOn, note.trim().ifEmpty { null }) }, enabled = valid, modifier = Modifier.testTag("sheet-save"))
+        if (onDelete != null) {
+            SecondaryButton(stringResource(R.string.entry_delete), onDelete, Modifier.testTag("sheet-delete"), icon = R.drawable.ic_trash_2, danger = true)
+        }
     }
 
     if (picking) {

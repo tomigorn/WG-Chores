@@ -61,7 +61,24 @@ data class HouseholdsUi(
     val busy: Boolean = false,
     /** Text resource of the last create error. */
     val error: Int? = null,
+    val join: JoinUi = JoinUi(),
 )
+
+/** "Join with an invite link": paste, preview, join. */
+data class JoinUi(
+    val link: String = "",
+    val token: String? = null, // leak-check: ok
+    val preview: ch.tomigorn.wgchores.domain.InvitePreview? = null,
+    val error: Int? = null,
+    val errorArg: String? = null,
+    val busy: Boolean = false,
+)
+
+interface JoinActions {
+    fun link(v: String)
+    fun show()
+    fun join()
+}
 
 /** "My households": open one, or create a new one (name + Create). */
 @Composable
@@ -75,6 +92,8 @@ fun HouseholdsScreen(
     onOpen: (Long) -> Unit,
     onCreate: (String) -> Unit,
     onRetry: () -> Unit,
+    onSettings: (Long) -> Unit = {},
+    join: JoinActions? = null,
 ) {
     var creating by rememberSaveable { mutableStateOf(startCreating) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -95,7 +114,7 @@ fun HouseholdsScreen(
                         Text(stringResource(R.string.households_empty_title), style = MaterialTheme.typography.titleLarge, color = Wgc.colors.text)
                         Text(stringResource(R.string.households_empty_text), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.muted)
                     }
-                    ui.households.isNotEmpty() -> HouseholdList(ui.households, onOpen)
+                    ui.households.isNotEmpty() -> HouseholdList(ui.households, onOpen, onSettings)
                 }
                 if (creating) {
                     Column(
@@ -117,7 +136,23 @@ fun HouseholdsScreen(
                         SecondaryButton(stringResource(R.string.households_cancel), { creating = false })
                     }
                 } else if (ui.loaded || ui.households.isNotEmpty()) {
-                    SecondaryButton(stringResource(R.string.households_new), { creating = true }, Modifier.testTag("household-new"))
+                    SecondaryButton(stringResource(R.string.households_new), { creating = true }, Modifier.testTag("household-new"), icon = R.drawable.ic_plus)
+                }
+                if (join != null && (ui.loaded || ui.households.isNotEmpty())) JoinCard(ui.join, join)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HouseholdList(list: List<Household>, onOpen: (Long) -> Unit, onSettings: (Long) -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Wgc.colors.surface).border(1.dp, Wgc.colors.border, RoundedCornerShape(12.dp))) {
+        list.forEachIndexed { i, h ->
+            if (i > 0) HorizontalDivider(color = Wgc.colors.border)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { HouseholdItem(h, current = false) { onOpen(h.id) } }
+                androidx.compose.material3.IconButton(onClick = { onSettings(h.id) }, modifier = Modifier.testTag("household-settings-${h.id}")) {
+                    Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.households_settings_for, h.name), tint = Wgc.colors.muted, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -125,11 +160,34 @@ fun HouseholdsScreen(
 }
 
 @Composable
-private fun HouseholdList(list: List<Household>, onOpen: (Long) -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Wgc.colors.surface).border(1.dp, Wgc.colors.border, RoundedCornerShape(12.dp))) {
-        list.forEachIndexed { i, h ->
-            if (i > 0) HorizontalDivider(color = Wgc.colors.border)
-            HouseholdItem(h, current = false) { onOpen(h.id) }
+private fun JoinCard(j: JoinUi, act: JoinActions) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 8.dp).background(Wgc.colors.surface, RoundedCornerShape(12.dp)).border(1.dp, Wgc.colors.border, RoundedCornerShape(12.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(stringResource(R.string.join_title), style = MaterialTheme.typography.titleMedium, color = Wgc.colors.text, modifier = Modifier.semantics { heading() })
+        val p = j.preview
+        if (p == null) {
+            Field(
+                stringResource(R.string.join_link), j.link, act::link, Modifier.testTag("join-link"),
+                hint = stringResource(R.string.join_hint),
+                error = j.error?.let { if (j.errorArg != null) stringResource(it, j.errorArg) else stringResource(it) },
+                keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Go,
+                onIme = act::show,
+            )
+            SecondaryButton(stringResource(R.string.join_show), act::show, Modifier.testTag("join-show"), enabled = j.link.isNotBlank(), busy = j.busy, icon = R.drawable.ic_link)
+        } else {
+            Text(stringResource(R.string.invite_preview, p.invitedBy), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.muted)
+            Text(p.householdName, style = MaterialTheme.typography.titleLarge, color = Wgc.colors.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (p.valid) {
+                Text(ch.tomigorn.wgchores.ui.household.expiryText(ch.tomigorn.wgchores.domain.Rules.expiresIn(p.expiresAt, java.time.Instant.now())), style = MaterialTheme.typography.bodySmall, color = Wgc.colors.muted)
+                j.error?.let { Alert(stringResource(it)) }
+                PrimaryButton(stringResource(R.string.invite_join, p.householdName), act::join, Modifier.testTag("join-submit"), busy = j.busy)
+            } else {
+                Alert(stringResource(j.error ?: R.string.error_invite_not_found) + " " + stringResource(R.string.invite_invalid_hint))
+            }
+            SecondaryButton(stringResource(R.string.households_cancel), { act.link("") }, Modifier.testTag("join-cancel"))
         }
     }
 }
@@ -147,25 +205,5 @@ fun HouseholdItem(h: Household, current: Boolean, members: Boolean = true, onCli
             if (members) Text(pluralStringResource(R.plurals.households_members, h.memberCount, h.memberCount), style = MaterialTheme.typography.bodySmall, color = Wgc.colors.muted, maxLines = 1)
         }
         if (current) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = Wgc.colors.accent, modifier = Modifier.size(20.dp))
-    }
-}
-
-/** Screens of a later step: a back bar and a calm note. */
-@Composable
-fun PlaceholderScreen(title: String, onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Wgc.colors.bg)) {
-        Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).heightIn(min = 56.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            androidx.compose.material3.IconButton(onClick = onBack, modifier = Modifier.testTag("back")) {
-                Icon(painterResource(R.drawable.ic_arrow_left), contentDescription = stringResource(R.string.common_back), tint = Wgc.colors.text)
-            }
-            Text(title, style = MaterialTheme.typography.titleMedium, color = Wgc.colors.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        HorizontalDivider(color = Wgc.colors.border)
-        Box(Modifier.fillMaxWidth().padding(24.dp)) {
-            Text(stringResource(R.string.common_coming_soon), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.muted)
-        }
     }
 }

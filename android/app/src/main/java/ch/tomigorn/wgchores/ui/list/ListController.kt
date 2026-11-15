@@ -39,6 +39,8 @@ sealed interface Notice {
     data class Dropped(val marks: Int, val name: String?, val undos: Int) : Notice
     data class Waiting(val count: Int) : Notice
     data object Offline : Notice
+    /** Any other short text: a string resource with an optional name in it. */
+    data class Res(val id: Int, val arg: String? = null) : Notice
 }
 
 data class DoneSheet(val chore: Chore, val prev: Chore, val uuid: String?, val doneOn: String, val note: String?)

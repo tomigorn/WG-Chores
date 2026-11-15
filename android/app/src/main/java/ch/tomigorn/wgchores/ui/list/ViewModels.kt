@@ -64,6 +64,57 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun joinLink(v: String) = households.update { it.copy(join = if (v.isEmpty()) ch.tomigorn.wgchores.ui.screens.JoinUi() else it.join.copy(link = v, error = null, errorArg = null)) }
+
+    private fun joinError(id: Int, arg: String? = null) = households.update { it.copy(join = it.join.copy(busy = false, error = id, errorArg = arg)) }
+
+    fun showInvite() {
+        val a = account.value ?: return
+        val link = households.value.join.link
+        val token = when (val r = ch.tomigorn.wgchores.domain.InviteLink.parse(link, a.server)) {
+            is ch.tomigorn.wgchores.domain.InviteLink.Ok -> r.token
+            is ch.tomigorn.wgchores.domain.InviteLink.OtherServer -> return joinError(R.string.join_other_server, r.host)
+            ch.tomigorn.wgchores.domain.InviteLink.Invalid -> return joinError(R.string.join_invalid)
+        }
+        households.update { it.copy(join = it.join.copy(busy = true, error = null)) }
+        viewModelScope.launch {
+            try {
+                val p = a.api.invitePreview(token)
+                val reason = if (p.valid) null else when (p.reason) {
+                    "used" -> R.string.error_invite_used
+                    "expired" -> R.string.error_invite_expired
+                    "cancelled" -> R.string.error_invite_cancelled
+                    else -> R.string.error_invite_not_found
+                }
+                households.update { it.copy(join = it.join.copy(busy = false, token = token, preview = p, error = reason)) }
+            } catch (e: OfflineException) {
+                joinError(R.string.error_offline)
+            } catch (e: ApiException) {
+                joinError(if (e.status == 404) R.string.error_invite_not_found else ch.tomigorn.wgchores.ui.ErrorText.of(e))
+            }
+        }
+    }
+
+    /** [opened] gets the household id and whether the user was a member already. */
+    fun join(opened: (Long, String, Boolean) -> Unit) {
+        val a = account.value ?: return
+        val j = households.value.join
+        val token = j.token ?: return // leak-check: ok
+        val name = j.preview?.householdName.orEmpty()
+        households.update { it.copy(join = it.join.copy(busy = true, error = null)) }
+        viewModelScope.launch {
+            try {
+                val r = a.api.acceptInvite(token)
+                households.update { it.copy(join = ch.tomigorn.wgchores.ui.screens.JoinUi()) }
+                opened(r.householdId, name, r.alreadyMember)
+            } catch (e: OfflineException) {
+                joinError(R.string.error_offline)
+            } catch (e: ApiException) {
+                joinError(ch.tomigorn.wgchores.ui.ErrorText.of(e))
+            }
+        }
+    }
+
     fun create(name: String, opened: (Long) -> Unit) {
         val a = account.value ?: return
         households.update { it.copy(busy = true, error = null) }

@@ -30,8 +30,9 @@ object Shots {
         minAppVersion = "1.0.0",
     )
 
-    fun setUp(fontScale: Float, dark: Boolean, locale: String? = null) {
-        val height = if (fontScale > 1f) 1500 else 800
+    /** [tall] for long settings pages, so the whole page is in the picture. */
+    fun setUp(fontScale: Float, dark: Boolean, locale: String? = null, tall: Boolean = false) {
+        val height = (if (fontScale > 1f) 1500 else 800) * (if (tall) 2 else 1)
         val lang = locale?.let { "$it-" } ?: ""
         RuntimeEnvironment.setQualifiers("${lang}w320dp-h${height}dp-${if (dark) "night" else "notnight"}-xhdpi")
         RuntimeEnvironment.setFontScale(fontScale)

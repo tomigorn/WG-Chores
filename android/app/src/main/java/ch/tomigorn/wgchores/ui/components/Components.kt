@@ -164,7 +164,7 @@ fun Note(text: String, modifier: Modifier = Modifier, center: Boolean = false) {
 }
 
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, icon: Int? = null) {
     Button(
         onClick = onClick,
         enabled = enabled && !busy,
@@ -176,25 +176,36 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
             disabledContainerColor = Wgc.colors.accent.copy(alpha = 0.6f),
             disabledContentColor = Wgc.colors.accentText,
         ),
-    ) { ButtonLabel(text, busy, Wgc.colors.accentText) }
+    ) { ButtonLabel(text, busy, Wgc.colors.accentText, icon) }
 }
 
 @Composable
-fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false) {
+fun SecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+    icon: Int? = null,
+    danger: Boolean = false,
+) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled && !busy,
         modifier = modifier.fillMaxWidth().heightIn(min = Tap),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Wgc.colors.borderStrong),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = Wgc.colors.surface, contentColor = Wgc.colors.text),
-    ) { ButtonLabel(text, busy, Wgc.colors.text) }
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Wgc.colors.surface, contentColor = if (danger) Wgc.colors.dangerText else Wgc.colors.text),
+    ) { ButtonLabel(text, busy, if (danger) Wgc.colors.dangerText else Wgc.colors.text, icon) }
 }
 
 @Composable
-private fun ButtonLabel(text: String, busy: Boolean, color: androidx.compose.ui.graphics.Color) {
+private fun ButtonLabel(text: String, busy: Boolean, color: androidx.compose.ui.graphics.Color, icon: Int? = null) {
     if (busy) {
         CircularProgressIndicator(Modifier.size(18.dp), color = color, strokeWidth = 2.dp)
+        Spacer(Modifier.width(8.dp))
+    } else if (icon != null) {
+        Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
     }
     Text(text, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)

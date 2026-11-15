@@ -53,7 +53,30 @@ import ch.tomigorn.wgchores.ui.screens.HouseholdItem
 import ch.tomigorn.wgchores.ui.screens.HouseholdScreen
 import ch.tomigorn.wgchores.ui.screens.HouseholdsScreen
 import ch.tomigorn.wgchores.ui.screens.ListActions
-import ch.tomigorn.wgchores.ui.screens.PlaceholderScreen
+import ch.tomigorn.wgchores.domain.Device
+import ch.tomigorn.wgchores.ui.account.AccountActions
+import ch.tomigorn.wgchores.ui.account.AccountScreen
+import ch.tomigorn.wgchores.ui.account.AccountViewModel
+import ch.tomigorn.wgchores.ui.account.SettingsActions
+import ch.tomigorn.wgchores.ui.account.SettingsScreen
+import ch.tomigorn.wgchores.ui.account.SettingsViewModel
+import ch.tomigorn.wgchores.ui.chore.ChoreActions
+import ch.tomigorn.wgchores.ui.chore.ChoreEditScreen
+import ch.tomigorn.wgchores.ui.chore.ChoreEditViewModel
+import ch.tomigorn.wgchores.ui.chore.ChoreScreen
+import ch.tomigorn.wgchores.ui.chore.ChoreViewModel
+import ch.tomigorn.wgchores.ui.chore.EditActions
+import ch.tomigorn.wgchores.ui.chore.EditDone
+import ch.tomigorn.wgchores.ui.chore.Entry
+import ch.tomigorn.wgchores.ui.components.ToastHost
+import ch.tomigorn.wgchores.ui.household.HhActions
+import ch.tomigorn.wgchores.ui.household.HouseholdSettingsScreen
+import ch.tomigorn.wgchores.ui.household.HouseholdSettingsViewModel
+import ch.tomigorn.wgchores.ui.household.copyText
+import ch.tomigorn.wgchores.ui.household.shareInvite
+import ch.tomigorn.wgchores.ui.list.noticeText
+import ch.tomigorn.wgchores.ui.screens.JoinActions
+import androidx.compose.ui.Alignment
 import ch.tomigorn.wgchores.ui.screens.SheetHandle
 import ch.tomigorn.wgchores.ui.theme.Wgc
 import kotlinx.coroutines.delay
@@ -61,9 +84,31 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class HouseholdRoute(val id: Long)
 @Serializable data class HouseholdsRoute(val create: Boolean = false)
-@Serializable data class PlaceholderRoute(val title: String)
+@Serializable data class ChoreRoute(val id: Long)
+/** [choreId] 0 = a new chore in [householdId]. */
+@Serializable data class EditRoute(val choreId: Long = 0, val householdId: Long = 0)
+@Serializable data class HouseholdSettingsRoute(val id: Long)
+@Serializable data object AccountRoute
+@Serializable data object SettingsRoute
 
-/** Signed in: the last household (else the household list), with placeholders for the screens of later steps. */
+/** Short texts that outlive a screen ("Clean toilet added" after going back to the list). */
+class AppToast {
+    var notice by mutableStateOf<Notice?>(null)
+        private set
+    var seq by mutableStateOf(0L)
+        private set
+
+    fun show(n: Notice) {
+        notice = n
+        seq++
+    }
+
+    fun dismiss(s: Long) {
+        if (s == seq) notice = null
+    }
+}
+
+/** Signed in: the last household (else the household list), chore page, editing, household settings, account, settings. */
 @Composable
 fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppActions) {
     val home: HomeViewModel = viewModel(key = "home|${state.server}|${state.userId}")
@@ -72,29 +117,30 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
     var confirmSignOut by remember { mutableStateOf(false) }
     val s = start ?: return Box(Modifier.fillMaxSize().background(Wgc.colors.bg))
     val nav = rememberNavController()
-    val placeholders = mapOf(
-        Dest.Settings to stringResource(R.string.nav_settings),
-        Dest.Account to stringResource(R.string.nav_account),
-    )
+    val toast = remember { AppToast() }
+    val signOut = { if (pending > 0) confirmSignOut = true else actions.signOut() }
 
-    fun bar(onStatus: (Boolean) -> Unit = {}, onSwitch: () -> Unit = {}) = object : BarActions {
+    fun bar(onStatus: (Boolean) -> Unit = {}, onSwitch: () -> Unit = {}, hid: Long? = null) = object : BarActions {
         override fun switchHousehold() = onSwitch()
         override fun status(offline: Boolean) = onStatus(offline)
         override fun theme(mode: ThemeMode) = actions.setTheme(mode)
-        override fun signOut() {
-            if (pending > 0) confirmSignOut = true else actions.signOut()
-        }
+        override fun signOut() = signOut()
         override fun navigate(d: Dest) = when (d) {
             Dest.Households -> nav.navigate(HouseholdsRoute())
             Dest.NewHousehold -> nav.navigate(HouseholdsRoute(create = true))
-            else -> nav.navigate(PlaceholderRoute(placeholders.getValue(d)))
+            Dest.HouseholdSettings -> if (hid != null) nav.navigate(HouseholdSettingsRoute(hid)) else Unit
+            Dest.Settings -> nav.navigate(SettingsRoute)
+            Dest.Account -> nav.navigate(AccountRoute)
         }
     }
+    val back: () -> Unit = { if (!nav.popBackStack()) nav.navigate(HouseholdsRoute()) }
 
     val startRoute: Any = when (s) {
         is Start.Household -> HouseholdRoute(s.id)
         Start.Households -> HouseholdsRoute()
     }
+    val app = LocalContext.current.applicationContext as Application
+    Box(Modifier.fillMaxSize()) {
     NavHost(nav, startDestination = startRoute) {
         composable<HouseholdRoute> { entry ->
             HouseholdRouteContent(entry.toRoute<HouseholdRoute>().id, state.userName, theme, home, nav, ::bar)
@@ -102,14 +148,106 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
         composable<HouseholdsRoute> { entry ->
             val ui by home.households.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) { home.loadHouseholds() }
+            val join = object : JoinActions {
+                override fun link(v: String) = home.joinLink(v)
+                override fun show() = home.showInvite()
+                override fun join() = home.join { id, name, already ->
+                    toast.show(Notice.Res(if (already) R.string.invite_already else R.string.invite_joined, name))
+                    nav.openHousehold(id)
+                }
+            }
             HouseholdsScreen(
                 ui, state.userName, pending, theme, entry.toRoute<HouseholdsRoute>().create, bar(),
                 onOpen = { id -> nav.openHousehold(id) },
                 onCreate = { name -> home.create(name) { id -> nav.openHousehold(id) } },
                 onRetry = home::loadHouseholds,
+                onSettings = { id -> nav.navigate(HouseholdSettingsRoute(id)) },
+                join = join,
             )
         }
-        composable<PlaceholderRoute> { entry -> PlaceholderScreen(entry.toRoute<PlaceholderRoute>().title) { nav.popBackStack() } }
+        composable<ChoreRoute> { entry -> ChoreRouteContent(entry.toRoute<ChoreRoute>().id, app, nav, back) }
+        composable<EditRoute> { entry ->
+            val r = entry.toRoute<EditRoute>()
+            val vm: ChoreEditViewModel = viewModel(factory = ChoreEditViewModel.factory(app, r.choreId.takeIf { it > 0 }, r.householdId.takeIf { it > 0 }))
+            val ui by vm.ui.collectAsStateWithLifecycle()
+            LaunchedEffect(ui.done) {
+                when (val d = ui.done) {
+                    is EditDone.Created -> {
+                        toast.show(Notice.Res(R.string.edit_created, d.name))
+                        back()
+                    }
+                    is EditDone.Saved -> {
+                        toast.show(Notice.Res(R.string.edit_saved))
+                        back()
+                    }
+                    is EditDone.Archived -> {
+                        toast.show(Notice.Res(R.string.edit_archived, d.name))
+                        if (!nav.popBackStack<HouseholdRoute>(inclusive = false)) nav.openHousehold(d.householdId)
+                    }
+                    null -> {}
+                }
+            }
+            ChoreEditScreen(ui, object : EditActions by vm.actions {
+                override fun cancel() = back()
+            })
+        }
+        composable<HouseholdSettingsRoute> { entry ->
+            val id = entry.toRoute<HouseholdSettingsRoute>().id
+            val vm: HouseholdSettingsViewModel = viewModel(factory = HouseholdSettingsViewModel.factory(app, id))
+            val ui by vm.ui.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            val shareTitle = stringResource(R.string.hh_share_text, ui.household?.name.orEmpty(), stringResource(R.string.app_name))
+            LaunchedEffect(ui.left) {
+                if (ui.left) nav.navigate(HouseholdsRoute()) { popUpTo(nav.graph.id) { inclusive = true } }
+            }
+            HouseholdSettingsScreen(ui, object : HhActions by vm.actions {
+                override fun back() = back()
+                override fun share(url: String) = shareInvite(context, url, shareTitle)
+                override fun copy(url: String) {
+                    copyText(context, shareTitle, url)
+                    vm.copied()
+                }
+            })
+        }
+        composable<AccountRoute> {
+            val vm: AccountViewModel = viewModel()
+            val ui by vm.ui.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            AccountScreen(ui, object : AccountActions {
+                override fun back() = back()
+                override fun retry() = vm.load()
+                override fun manage(url: String) = actions.openUrl(url)
+                override fun name(v: String) = vm.edit { it.copy(name = v.take(60), nameError = null) }
+                override fun saveName() = vm.saveName()
+                override fun current(v: String) = vm.edit { it.copy(current = v) }
+                override fun pw(v: String) = vm.edit { it.copy(pw = v) }
+                override fun repeat(v: String) = vm.edit { it.copy(repeat = v) }
+                override fun savePassword() = vm.savePassword()
+                override fun signOutDevice(d: Device) {
+                    if (d.current) signOut() else vm.signOutOther(d, d.deviceName ?: context.getString(if (d.kind == "web") R.string.devices_browser else R.string.devices_android))
+                }
+                override fun signOut() = signOut()
+                override fun askDelete() = vm.edit { it.copy(deleting = true) }
+                override fun typed(v: String) = vm.edit { it.copy(typed = v, deleteError = null) }
+                override fun delete() = vm.delete()
+                override fun closeDelete() = vm.edit { it.copy(deleting = false, typed = "", deleteError = null) }
+                override fun dismissSnack(seq: Long) = vm.edit { if (it.snackSeq == seq) it.copy(snack = null) else it }
+            })
+        }
+        composable<SettingsRoute> {
+            val vm: SettingsViewModel = viewModel()
+            val ui by vm.ui.collectAsStateWithLifecycle()
+            SettingsScreen(ui, theme, object : SettingsActions {
+                override fun back() = back()
+                override fun theme(mode: ThemeMode) = actions.setTheme(mode)
+                override fun language(tag: String) = vm.language(tag)
+                override fun notify(done: Boolean, on: Boolean) = vm.notify(done, on)
+                override fun open(url: String) = actions.openUrl(url)
+                override fun dismissSnack(seq: Long) = vm.dismiss(seq)
+            })
+        }
+    }
+    ToastHost(toast.notice?.let { noticeText(it) }, toast.seq, toast::dismiss, Modifier.align(Alignment.BottomCenter))
     }
 
     if (confirmSignOut) {
@@ -129,6 +267,34 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
     }
 }
 
+@Composable
+private fun ChoreRouteContent(id: Long, app: Application, nav: NavController, back: () -> Unit) {
+    val vm: ChoreViewModel = viewModel(factory = ChoreViewModel.factory(app, id))
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val ctl by vm.controller.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(vm) { lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { vm.load() } }
+    ChoreScreen(ui, object : ChoreActions {
+        override fun back() = back()
+        override fun edit() = nav.navigate(EditRoute(choreId = id))
+        override fun home() = nav.navigate(HouseholdsRoute()) { popUpTo(nav.graph.id) { inclusive = true } }
+        override fun retry() = vm.retry()
+        override fun more() { ctl?.more() }
+        override fun tap() { ctl?.tap() }
+        override fun undo() { ctl?.undo() }
+        override fun otherDate() { ctl?.otherDate() }
+        override fun openNew() { ctl?.openNew() }
+        override fun openEntry(e: Entry) { ctl?.openEntry(e) }
+        override fun closeSheet() { ctl?.closeSheet() }
+        override fun saveSheet(doneOn: String, note: String?) { ctl?.saveSheet(doneOn, note) }
+        override fun askDelete() { ctl?.askDelete() }
+        override fun delete() { ctl?.delete() }
+        override fun cancelDelete() { ctl?.cancelDelete() }
+        override fun restore() { ctl?.restore() }
+        override fun dismissSnack(seq: Long) { ctl?.dismissSnack(seq) }
+    })
+}
+
 private fun NavController.openHousehold(id: Long) = navigate(HouseholdRoute(id)) {
     popUpTo(graph.id) { inclusive = true }
 }
@@ -141,7 +307,7 @@ private fun HouseholdRouteContent(
     theme: ThemeMode,
     home: HomeViewModel,
     nav: NavController,
-    bar: ((Boolean) -> Unit, () -> Unit) -> BarActions,
+    bar: ((Boolean) -> Unit, () -> Unit, Long?) -> BarActions,
 ) {
     val app = LocalContext.current.applicationContext as Application
     val vm: HouseholdViewModel = viewModel(factory = HouseholdViewModel.factory(app, id))
@@ -169,9 +335,7 @@ private fun HouseholdRouteContent(
     }
 
     val act = object : ListActions {
-        override fun open(choreId: Long) {
-            ui.chores.find { it.id == choreId }?.let { nav.navigate(PlaceholderRoute(it.name)) }
-        }
+        override fun open(choreId: Long) = nav.navigate(ChoreRoute(choreId))
         override fun long(choreId: Long) { ctl?.openSheet(choreId) }
         override fun done(choreId: Long) { ctl?.tap(choreId) }
         override fun undo() { ctl?.undo() }
@@ -179,7 +343,7 @@ private fun HouseholdRouteContent(
         override fun dismissSnack(seq: Long) { ctl?.dismissSnack(seq) }
         override fun refresh() { ctl?.refresh() ?: vm.retry() }
         override fun retry() = vm.retry()
-        override fun addChore() = nav.navigate(PlaceholderRoute(app.getString(R.string.list_add_chore)))
+        override fun addChore() = nav.navigate(EditRoute(householdId = id))
         override fun closeSheet() { ctl?.closeSheet() }
         override fun saveSheet(doneOn: String, note: String?) { ctl?.saveSheet(doneOn, note) }
     }
@@ -192,6 +356,7 @@ private fun HouseholdRouteContent(
                 switcher = true
                 home.loadHouseholds()
             },
+            id,
         ),
         act,
     )

@@ -3,7 +3,7 @@ package ch.tomigorn.wgchores
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,7 +22,7 @@ import ch.tomigorn.wgchores.ui.AppActions
 import ch.tomigorn.wgchores.ui.AppRoot
 import ch.tomigorn.wgchores.ui.theme.WgcTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val vm: AppViewModel by viewModels()
 
     private val authTab = AuthTabIntent.registerActivityResultLauncher(this) { result ->
@@ -38,6 +38,10 @@ class MainActivity : ComponentActivity() {
         override fun changeServer() = vm.changeServer()
         override fun signOut() = vm.signOut()
         override fun setTheme(mode: ThemeMode) = vm.setTheme(mode)
+        override fun openUrl(url: String) {
+            if (!url.startsWith("https://") && !(BuildConfig.DEBUG && url.startsWith("http://"))) return
+            runCatching { CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, url.toUri()) }
+        }
         override fun openStore() {
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, PLAY_STORE_URL.toUri())) }
         }
