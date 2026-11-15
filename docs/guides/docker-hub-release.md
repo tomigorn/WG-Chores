@@ -78,7 +78,9 @@ docker buildx imagetools inspect tomigorn/wg-chores:latest
 
 | Update | What happens |
 |---|---|
-| minor, patch, digest (Dockerfile bases, GitHub Actions), lock file refresh | PR on Monday before 06:00 (Zurich), merged by Renovate once CI is green; npm and cargo wait 3 days after a release |
+| minor, patch, digest (Dockerfile bases, GitHub Actions) | PR on Monday before 06:00 (Zurich), merged by Renovate once CI is green |
+| waiting time after a release | GitHub Actions 7 days; npm, cargo, Dockerfile bases and the Rust toolchain 3 days |
+| lock file refresh (all npm/cargo dependencies at once) | PR on Monday, you merge it |
 | major | PR with label `major`, you merge it |
 | `@playwright/test` | PR, you merge it (fastpi's preinstalled Chromium must match the version) |
 | known vulnerability | PR at once, any day |
@@ -93,7 +95,7 @@ grep -m1 '^version' server/Cargo.toml          # shows: version = "1.0.0"
 (cd server && cargo update -p wg-chores --offline)   # writes the new version into Cargo.lock
 git diff --stat                                  # only server/Cargo.toml and server/Cargo.lock
 ```
-2. Commit and tag:
+2. Commit and tag (the message is fixed by the versioning rule, no `WG-Chores:` prefix; the commit hook accepts it):
 ```
 git commit -m "version bump to v1.0.0" -- server/Cargo.toml server/Cargo.lock
 git tag -a v1.0.0 -m "WG-Chores v1.0.0"

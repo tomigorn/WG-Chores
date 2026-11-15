@@ -37,7 +37,7 @@
   "platformAutomerge": false,
   "lockFileMaintenance": {
     "enabled": true,
-    "automerge": true,
+    "automerge": false,
     "schedule": [
       "before 6am on monday"
     ]
@@ -66,6 +66,19 @@
       "matchManagers": [
         "npm",
         "cargo"
+      ],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchManagers": [
+        "dockerfile",
+        "custom.regex"
       ],
       "minimumReleaseAge": "3 days"
     },
