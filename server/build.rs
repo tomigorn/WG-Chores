@@ -55,6 +55,24 @@ pub fn prepare(
         ] {
             write_if_changed(&dist.join(name), body);
         }
+        for (dir, md) in [
+            ("privacy", "privacy.md"),
+            ("account-deletion", "account-deletion.md"),
+        ] {
+            let text = fs::read_to_string(manifest.join("../docs").join(md)).unwrap_or_default();
+            let title = text
+                .lines()
+                .next()
+                .and_then(|l| l.strip_prefix("# "))
+                .unwrap_or("WG Chores");
+            fs::create_dir_all(dist.join(dir)).unwrap();
+            write_if_changed(
+                &dist.join(dir).join("index.html"),
+                &format!(
+                    "<!doctype html><html><head><meta charset=\"utf-8\"><title>{title}</title></head><body><h1>{title}</h1><p>Web app not built</p></body></html>"
+                ),
+            );
+        }
     }
     let dist = dist.canonicalize().unwrap();
     let mut files = vec![];
@@ -85,7 +103,10 @@ fn main() {
     let allow = std::env::var("WGC_ALLOW_PLACEHOLDER").is_ok_and(|v| v == "1");
     match prepare(&manifest, &out_dir, release, allow) {
         Ok(false) => println!("cargo:rerun-if-changed=../web/dist"),
-        Ok(true) => {}
+        Ok(true) => {
+            println!("cargo:rerun-if-changed=../docs/privacy.md");
+            println!("cargo:rerun-if-changed=../docs/account-deletion.md");
+        }
         Err(e) => {
             eprintln!("error: {e}");
             std::process::exit(1);
