@@ -84,16 +84,23 @@ sealed interface InviteLink {
     data object Invalid : InviteLink
 
     companion object {
-        /** A pasted `https://<server>/invite/<token>` for [server]; links of other servers are refused. */
+        /** A pasted `https://<server>/invite/<token>` for [server]; every URL in the text is tried, links of other servers are refused. */
         fun parse(text: String, server: String): InviteLink {
-            val raw = Regex("""https?://\S+""").find(text)?.value ?: return Invalid
-            val uri = runCatching { URI(raw) }.getOrNull() ?: return Invalid
             val home = runCatching { URI(server) }.getOrNull() ?: return Invalid
-            val token = Regex("""^/invite/([A-Za-z0-9_-]+)/?$""").find(uri.rawPath ?: "")?.groupValues?.get(1) ?: return Invalid // leak-check: ok
-            val host = (uri.host ?: return Invalid).lowercase() + if (uri.port != -1) ":${uri.port}" else ""
-            val sameScheme = uri.scheme.equals(home.scheme, ignoreCase = true)
-            val sameHost = uri.host.equals(home.host, ignoreCase = true) && uri.port == home.port
-            return if (sameScheme && sameHost) Ok(token) else OtherServer(host)
+            var other: InviteLink = Invalid
+            for (m in Regex("""https?://\S+""").findAll(text)) {
+                val uri = runCatching { URI(m.value.trimEnd('.', ',', ';', ')', '!', '?', '>')) }.getOrNull() ?: continue
+                val token = Regex("""^/invite/([A-Za-z0-9_-]+)/?$""").find(uri.rawPath ?: "")?.groupValues?.get(1) ?: continue // leak-check: ok
+                val host = uri.host?.lowercase() ?: continue
+                val port = port(uri)
+                if (uri.scheme.equals(home.scheme, ignoreCase = true) && host == home.host?.lowercase() && port == port(home)) return Ok(token)
+                if (other == Invalid) other = OtherServer(host + if (uri.port != -1 && uri.port != default(uri)) ":${uri.port}" else "")
+            }
+            return other
         }
+
+        private fun default(u: URI): Int = if (u.scheme.equals("http", ignoreCase = true)) 80 else 443
+
+        private fun port(u: URI): Int = if (u.port == -1) default(u) else u.port
     }
 }

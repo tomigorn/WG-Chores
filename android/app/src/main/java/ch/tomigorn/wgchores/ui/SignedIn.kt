@@ -243,6 +243,7 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
                 override fun language(tag: String) = vm.language(tag)
                 override fun notify(done: Boolean, on: Boolean) = vm.notify(done, on)
                 override fun open(url: String) = actions.openUrl(url)
+                override fun reload() = vm.load()
                 override fun dismissSnack(seq: Long) = vm.dismiss(seq)
             })
         }

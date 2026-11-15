@@ -55,6 +55,7 @@ import ch.tomigorn.wgchores.domain.Rules
 import ch.tomigorn.wgchores.ui.ErrorText
 import ch.tomigorn.wgchores.ui.components.Alert
 import ch.tomigorn.wgchores.ui.components.BarButton
+import ch.tomigorn.wgchores.ui.components.narrowScreen
 import ch.tomigorn.wgchores.ui.components.ConfirmDialog
 import ch.tomigorn.wgchores.ui.components.Field
 import ch.tomigorn.wgchores.ui.components.PageBar
@@ -83,6 +84,8 @@ data class EditUi(
     val renameAll: Boolean = false,
     val busy: Boolean = false,
     val error: Int? = null,
+    /** Reason inside [error] ("…keep their category: <reason>"). */
+    val errorDetail: Int? = null,
     val confirmArchive: Boolean = false,
     val done: EditDone? = null,
 ) {
@@ -150,7 +153,7 @@ class ChoreEditViewModel(app: Application, private val choreId: Long?, private v
         val s = ui.value
         val hid = s.householdId ?: return
         if (!s.canSave) return
-        ui.update { it.copy(busy = true, error = null) }
+        ui.update { it.copy(busy = true, error = null, errorDetail = null) }
         viewModelScope.launch {
             try {
                 val a = wgc.account() ?: throw ch.tomigorn.wgchores.api.OfflineException()
@@ -160,12 +163,14 @@ class ChoreEditViewModel(app: Application, private val choreId: Long?, private v
                     ui.update { it.copy(busy = false, done = EditDone.Created(hid, c.name)) }
                     return@launch
                 }
-                if (s.renameAll && s.renameCount > 0 && cat != null) {
-                    val cats = a.api.renameCategory(hid, s.chore!!.category!!, cat)
-                    ui.update { it.copy(categories = cats, renameAll = false, chore = it.chore?.copy(category = cat)) }
+                val renameAll = s.renameAll && s.renameCount > 0
+                when (val r = ChoreEditor.save(a.api, choreId, hid, s.chore?.category, s.name.trim(), cat, s.interval, renameAll)) {
+                    ChoreEditor.Result.Saved -> ui.update { it.copy(busy = false, done = EditDone.Saved(choreId)) }
+                    is ChoreEditor.Result.SaveFailed -> ui.update { it.copy(busy = false, error = r.text) }
+                    is ChoreEditor.Result.RenameFailed -> ui.update {
+                        it.copy(busy = false, error = R.string.edit_rename_failed, errorDetail = r.text, renameAll = false, chore = it.chore?.copy(name = s.name.trim(), category = cat, interval = s.interval))
+                    }
                 }
-                a.api.patchChore(choreId, s.name.trim(), cat, s.interval)
-                ui.update { it.copy(busy = false, done = EditDone.Saved(choreId)) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 ui.update { it.copy(busy = false, error = ErrorText.of(e, R.string.done_connect)) }
@@ -199,7 +204,7 @@ class ChoreEditViewModel(app: Application, private val choreId: Long?, private v
 fun ChoreEditScreen(ui: EditUi, act: EditActions) {
     Column(Modifier.fillMaxSize().background(Wgc.colors.bg)) {
         PageBar(stringResource(if (ui.editing) R.string.edit_edit_title else R.string.edit_new_title), act::cancel) {
-            BarButton(stringResource(R.string.edit_save), act::save, "edit-save", enabled = ui.canSave)
+            BarButton(stringResource(R.string.edit_save), act::save, "edit-save", enabled = ui.canSave, icon = if (narrowScreen()) R.drawable.ic_check else null)
         }
         when (ui.phase) {
             Phase.Loading -> Text(stringResource(R.string.common_loading), color = Wgc.colors.muted, modifier = Modifier.padding(16.dp))
@@ -208,7 +213,7 @@ fun ChoreEditScreen(ui: EditUi, act: EditActions) {
                 Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                ui.error?.let { Alert(stringResource(it)) }
+                ui.error?.let { e -> Alert(ui.errorDetail?.let { stringResource(e, stringResource(it)) } ?: stringResource(e)) }
                 Field(stringResource(R.string.edit_name), ui.name, act::name, Modifier.testTag("edit-name"))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Field(
@@ -218,7 +223,7 @@ fun ChoreEditScreen(ui: EditUi, act: EditActions) {
                     val hits = Rules.categorySuggestions(ui.category, ui.categories)
                     if (hits.isNotEmpty()) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            hits.forEach { h -> Pill(h, selected = false, tag = "cat-$h") { act.category(h) } }
+                            hits.forEach { h -> Pill(h, selected = false, tag = "cat-$h", radio = false) { act.category(h) } }
                         }
                     }
                     val n = ui.renameCount
@@ -263,12 +268,14 @@ fun ChoreEditScreen(ui: EditUi, act: EditActions) {
 }
 
 @Composable
-fun Pill(label: String, selected: Boolean, tag: String, onClick: () -> Unit) {
+fun Pill(label: String, selected: Boolean, tag: String, radio: Boolean = true, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.heightIn(min = 40.dp).testTag(tag).semantics {
-            role = Role.Checkbox
-            this.selected = selected
+            if (radio) {
+                role = Role.RadioButton
+                this.selected = selected
+            }
         },
         shape = RoundedCornerShape(50),
         border = BorderStroke(1.dp, if (selected) Wgc.colors.accent else Wgc.colors.borderStrong),

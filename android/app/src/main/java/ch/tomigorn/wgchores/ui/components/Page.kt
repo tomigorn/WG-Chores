@@ -25,6 +25,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,11 +55,17 @@ fun PageBar(title: String, onBack: () -> Unit, right: (@Composable () -> Unit)? 
             IconButton(onClick = onBack, modifier = Modifier.testTag("back")) {
                 Icon(painterResource(R.drawable.ic_arrow_left), contentDescription = stringResource(R.string.common_back), tint = Wgc.colors.text)
             }
+            // two lines only where they break between words, else one line with an ellipsis
+            var lines by androidx.compose.runtime.remember(title) { androidx.compose.runtime.mutableIntStateOf(2) }
             Text(
                 title,
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize * 1.125f),
                 color = Wgc.colors.text,
-                maxLines = 2,
+                maxLines = lines,
+                onTextLayout = { r ->
+                    val end = if (r.lineCount > 1) r.getLineEnd(0) else 0
+                    if (lines > 1 && end in 1 until title.length && !title[end - 1].isWhitespace() && !title[end].isWhitespace()) lines = 1
+                },
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 4.dp).semantics { heading() },
             )
@@ -67,9 +75,22 @@ fun PageBar(title: String, onBack: () -> Unit, right: (@Composable () -> Unit)? 
     }
 }
 
-/** Text action in a page bar ("Edit", "Save"). */
+/** True when the screen is narrower than [ems] of 16 sp text (small phone or large font). */
+@Composable
+fun narrowScreen(ems: Float = 16f): Boolean {
+    val c = androidx.compose.ui.platform.LocalConfiguration.current
+    return c.screenWidthDp / (16f * c.fontScale) < ems
+}
+
+/** Text action in a page bar ("Edit", "Save"); on a narrow screen only its [icon], so the title stays readable. */
 @Composable
 fun BarButton(text: String, onClick: () -> Unit, tag: String, enabled: Boolean = true, icon: Int? = null, label: String? = null) {
+    if (icon != null && narrowScreen()) {
+        IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.testTag(tag).semantics { contentDescription = label ?: text }) {
+            Icon(painterResource(icon), contentDescription = null, tint = if (enabled) Wgc.colors.accent else Wgc.colors.muted)
+        }
+        return
+    }
     TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp).testTag(tag), shape = RoundedCornerShape(8.dp)) {
         if (icon != null) {
             Icon(painterResource(icon), contentDescription = null, tint = if (enabled) Wgc.colors.accent else Wgc.colors.muted, modifier = Modifier.size(18.dp))

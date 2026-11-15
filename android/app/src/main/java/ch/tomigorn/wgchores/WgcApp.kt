@@ -23,7 +23,7 @@ private val Context.settingsPrefs by preferencesDataStore("settings")
 
 class AppContainer(context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val session = SessionStore(context.sessionPrefs, TokenCipher { TokenCipher.keystoreKey() })
+    val session = SessionStore(context.sessionPrefs, TokenCipher(forget = TokenCipher::deleteKeystoreKey) { TokenCipher.keystoreKey() }) // leak-check: ok
     val settings = SettingsStore(context.settingsPrefs)
     val auth = AuthController(
         session,

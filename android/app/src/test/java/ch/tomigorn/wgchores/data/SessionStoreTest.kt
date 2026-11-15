@@ -86,4 +86,15 @@ class SessionStoreTest {
         assertEquals("v".repeat(43), store.takeVerifier())
         assertNull(store.takeVerifier())
     }
+
+    @Test fun wipingEverythingAlsoDropsTheTokenKey() = runBlocking {
+        var forgotten = 0
+        val s = SessionStore(PreferenceDataStoreFactory.create(scope = scope) { File(tmp.root, "other.preferences_pb") }, TokenCipher(forget = { forgotten++ }) { key })
+        s.saveServer("https://chores.example.com", config)
+        s.saveSignIn("tok-1", "Jane Doe")
+        s.clearSignIn()
+        assertEquals(0, forgotten)
+        s.clearAll()
+        assertEquals(1, forgotten)
+    }
 }

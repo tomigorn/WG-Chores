@@ -98,4 +98,23 @@ class RulesTest {
         assertEquals(InviteLink.Ok("abc"), InviteLink.parse("http://localhost:8080/invite/abc", "http://localhost:8080"))
         assertEquals(InviteLink.OtherServer("localhost:9090"), InviteLink.parse("http://localhost:9090/invite/abc", "http://localhost:8080"))
     }
+
+    @Test fun inviteLinksIgnoreDefaultPortsAndPunctuation() {
+        val s = "https://chores.example.com"
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("https://chores.example.com:443/invite/abc", s))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("https://chores.example.com/invite/abc", "https://chores.example.com:443"))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("http://localhost:80/invite/abc", "http://localhost"))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("(see https://chores.example.com/invite/abc).", s))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("<https://chores.example.com/invite/abc>", s))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("Join: https://chores.example.com/invite/abc!?", s))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("https://chores.example.com/invite/abc,;", s))
+        assertEquals(InviteLink.OtherServer("other.example.com"), InviteLink.parse("https://other.example.com:443/invite/x", s))
+    }
+
+    @Test fun inviteLinksTryEveryUrlInTheText() {
+        val s = "https://chores.example.com"
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("https://other.example.com/invite/x or https://chores.example.com/invite/abc", s))
+        assertEquals(InviteLink.Ok("abc"), InviteLink.parse("https://chores.example.com/help then https://chores.example.com/invite/abc", s))
+        assertEquals(InviteLink.OtherServer("other.example.com"), InviteLink.parse("https://chores.example.com/help https://other.example.com/invite/x", s))
+    }
 }

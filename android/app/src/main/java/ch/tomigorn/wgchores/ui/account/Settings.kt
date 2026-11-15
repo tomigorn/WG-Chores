@@ -65,6 +65,7 @@ data class SettingsUi(
     val notifyDone: Boolean = false,
     val notifyDue: Boolean = false,
     val loaded: Boolean = false,
+    val loadFailed: Boolean = false,
     val server: String? = null,
     val snack: Notice? = null,
     val snackSeq: Long = 0,
@@ -76,6 +77,7 @@ interface SettingsActions {
     fun language(tag: String)
     fun notify(done: Boolean, on: Boolean)
     fun open(url: String)
+    fun reload()
     fun dismissSnack(seq: Long)
 }
 
@@ -89,11 +91,37 @@ object AppLanguage {
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val wgc = app as WgcApp
     val ui = MutableStateFlow(SettingsUi(language = AppLanguage.current()))
+    @Volatile private var lastError: Exception? = null
+    private val sync = NotifySync { done, on ->
+        try {
+            val a = wgc.account() ?: throw OfflineException()
+            val me = a.api.patchMe(buildJsonObject { put(if (done) "notify_done" else "notify_due", on) })
+            NotifySync.State(me.notifyDone, me.notifyDue)
+        } catch (e: Exception) {
+            lastError = e
+            throw e
+        }
+    }
 
     init {
+        viewModelScope.launch { sync.state.collect { s -> ui.update { it.copy(notifyDone = s.done, notifyDue = s.due) } } }
+        load()
+    }
+
+    /** Reads the switches from /me; on failure they stay off with a Try again. */
+    fun load() {
+        ui.update { it.copy(loadFailed = false) }
         viewModelScope.launch {
             ui.update { it.copy(server = wgc.container.session.read().server) }
-            runCatching { wgc.account()?.api?.me() }.getOrNull()?.let { me -> ui.update { it.copy(notifyDone = me.notifyDone, notifyDue = me.notifyDue, loaded = true) } }
+            try {
+                val me = wgc.account()?.api?.me() ?: throw OfflineException()
+                sync.confirmed(me.notifyDone, me.notifyDue)
+                ui.update { it.copy(loaded = true, loadFailed = false) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ui.update { it.copy(loadFailed = !it.loaded) }
+            }
         }
     }
 
@@ -102,18 +130,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         AppLanguage.set(tag)
     }
 
-    /** Saved on the server (PATCH /me); the background check that shows them comes with the notifications step. */
+    /** Saved on the server (PATCH /me), one change at a time; the background check that shows them comes with the notifications step. */
     fun notify(done: Boolean, on: Boolean) {
-        ui.update { if (done) it.copy(notifyDone = on) else it.copy(notifyDue = on) }
         viewModelScope.launch {
-            try {
-                val a = wgc.account() ?: throw OfflineException()
-                val me = a.api.patchMe(buildJsonObject { put(if (done) "notify_done" else "notify_due", on) })
-                ui.update { it.copy(notifyDone = me.notifyDone, notifyDue = me.notifyDue, loaded = true) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                ui.update { (if (done) it.copy(notifyDone = !on) else it.copy(notifyDue = !on)).copy(snack = Notice.Res(if (e is OfflineException) R.string.done_connect else R.string.done_failed), snackSeq = it.snackSeq + 1) }
+            if (!sync.set(done, on)) {
+                val text = if (lastError is OfflineException) R.string.done_connect else R.string.done_failed
+                ui.update { it.copy(snack = Notice.Res(text), snackSeq = it.snackSeq + 1) }
             }
         }
     }
@@ -147,6 +169,10 @@ fun SettingsScreen(ui: SettingsUi, theme: ThemeMode, act: SettingsActions) {
                     Toggle(stringResource(R.string.settings_notify_done), stringResource(R.string.settings_notify_done_hint), ui.notifyDone, ui.loaded, "notify-done") { act.notify(true, it) }
                     HorizontalDivider(color = Wgc.colors.border)
                     Toggle(stringResource(R.string.settings_notify_due), stringResource(R.string.settings_notify_due_hint), ui.notifyDue, ui.loaded, "notify-due") { act.notify(false, it) }
+                }
+                if (ui.loadFailed) {
+                    Text(stringResource(R.string.settings_load_failed), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.dangerText, modifier = Modifier.padding(start = 4.dp))
+                    ch.tomigorn.wgchores.ui.components.SecondaryButton(stringResource(R.string.common_retry), act::reload, Modifier.testTag("notify-retry"))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 4.dp)) {
                     val line = with(androidx.compose.ui.platform.LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() }

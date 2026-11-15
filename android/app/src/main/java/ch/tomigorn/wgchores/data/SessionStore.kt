@@ -114,8 +114,10 @@ class SessionStore(private val prefs: DataStore<Preferences>, private val cipher
         return sealed?.let { withContext(Dispatchers.Default) { cipher.decrypt(it) } }
     }
 
+    /** Change server or a deleted account: everything goes, the token key included. */
     suspend fun clearAll() {
         cached = null
         prefs.edit { it.clear() }
+        withContext(Dispatchers.Default) { cipher.forgetKey() }
     }
 }

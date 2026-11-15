@@ -216,7 +216,7 @@ class AccountViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val a = wgc.account() ?: throw OfflineException()
                 if (me.kind == "sso") a.api.deleteMe(confirmUsername = s.typed.trim()) else a.api.deleteMe(currentPassword = s.typed) // leak-check: ok
-                c.sync.forget(a)
+                runCatching { c.sync.forget(a) }
                 c.auth.accountDeleted()
             } catch (e: CancellationException) {
                 throw e
