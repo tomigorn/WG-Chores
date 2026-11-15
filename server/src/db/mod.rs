@@ -17,6 +17,8 @@ pub enum DbError {
     SchemaTooNew { found: usize, known: usize },
     #[error("database migration {version} would leave broken foreign keys, nothing changed")]
     ForeignKeys { version: usize },
+    #[error("foreign keys could not be switched off for the migration (open transaction?), nothing changed")]
+    ForeignKeysStillOn,
     #[error("database task failed: {0}")]
     Task(#[from] tokio::task::JoinError),
 }
@@ -84,6 +86,10 @@ fn migrate(conn: &mut Connection) -> Result<()> {
     // table rebuilds need foreign keys off (a DROP TABLE would cascade), see sqlite.org/lang_altertable.html
     let fk: bool = conn.query_row("PRAGMA foreign_keys", [], |r| r.get(0))?;
     conn.pragma_update(None, "foreign_keys", "OFF")?;
+    let still_on: bool = conn.query_row("PRAGMA foreign_keys", [], |r| r.get(0))?;
+    if still_on {
+        return Err(DbError::ForeignKeysStillOn);
+    }
     let out = apply(conn, current);
     conn.pragma_update(None, "foreign_keys", fk)?;
     out
@@ -463,6 +469,27 @@ mod tests {
         assert_eq!(v, 3);
         assert_eq!(rows(&conn, "PRAGMA foreign_keys"), ["Integer(1)"]);
         assert_eq!(rows(&conn, "SELECT name FROM chores"), ["Text(\"orphan\")"]);
+    }
+
+    #[test]
+    fn migration_inside_an_open_transaction_is_refused() {
+        let mut conn = conn_at_version(3);
+        conn.execute_batch(
+            "INSERT INTO households (id, name, created_at) VALUES (1, 'h', 'x');
+             INSERT INTO chores (id, household_id, name, interval, created_at) VALUES (1, 1, 'c', '1w', 'x');
+             BEGIN;",
+        )
+        .unwrap();
+        assert!(matches!(
+            migrate(&mut conn),
+            Err(DbError::ForeignKeysStillOn)
+        ));
+        conn.execute_batch("ROLLBACK;").unwrap();
+        let v: usize = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 3);
+        assert_eq!(rows(&conn, "SELECT name FROM chores"), ["Text(\"c\")"]);
     }
 
     #[test]
