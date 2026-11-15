@@ -8,7 +8,7 @@ pub mod push;
 pub mod users;
 
 use crate::app::AppState;
-use crate::auth::{csrf, local};
+use crate::auth::{app, csrf, local};
 use axum::{
     Router, middleware,
     routing::{delete, get, patch, post, put},
@@ -20,11 +20,14 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route("/api/v1/auth/register", post(local::register))
         .route("/api/v1/auth/login", post(local::login))
         .route("/api/v1/auth/logout", post(local::logout))
+        .route("/api/v1/auth/app-token", post(app::token))
         .route(
             "/api/v1/me",
             get(me::get).patch(me::patch).delete(me::delete),
         )
         .route("/api/v1/me/last-household", put(me::set_last_household))
+        .route("/api/v1/me/devices", get(me::devices))
+        .route("/api/v1/me/devices/{id}", delete(me::delete_device))
         .route(
             "/api/v1/households",
             get(households::list).post(households::create),

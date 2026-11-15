@@ -254,6 +254,9 @@ pub async fn delete(
             tx.commit()
         })
         .await?;
+    if u.bearer {
+        return Ok(StatusCode::NO_CONTENT.into_response());
+    }
     Ok(local::clear_session_response(StatusCode::NO_CONTENT).into_response())
 }
 
@@ -283,4 +286,76 @@ pub async fn set_last_household(
         return Err(super::households::not_found());
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Public id of a session: a hash of its token hash, so the stored hash never leaves the server.
+fn device_id(token_hash: &str) -> String {
+    crate::auth::session::hash_token(&format!("device:{token_hash}"))[..16].to_string()
+}
+
+pub async fn devices(State(st): State<AppState>, u: CurrentUser) -> Result<Json<Value>, ApiError> {
+    let (uid, now) = (u.id, ts(st.clock.now()));
+    let rows: Vec<(String, String, Option<String>, String, String)> = st
+        .db
+        .run(move |c| {
+            c.prepare(
+                "SELECT token_hash, kind, device_name, created_at, last_seen_at FROM sessions
+                 WHERE user_id = ?1 AND expires_at > ?2 ORDER BY last_seen_at DESC, created_at DESC",
+            )?
+            .query_map(rusqlite::params![uid, now], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })?
+            .collect()
+        })
+        .await?;
+    Ok(Json(Value::Array(
+        rows.into_iter()
+            .map(|(hash, kind, name, created, seen)| {
+                serde_json::json!({
+                    "id": device_id(&hash),
+                    "kind": kind,
+                    "device_name": name,
+                    "created_at": created,
+                    "last_seen_at": seen,
+                    "current": hash == u.session_hash,
+                })
+            })
+            .collect(),
+    )))
+}
+
+/// Signs out one of the user's own sessions; the current one through the cookie also clears it.
+pub async fn delete_device(
+    State(st): State<AppState>,
+    u: CurrentUser,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Response, ApiError> {
+    let uid = u.id;
+    let hashes: Vec<String> = st
+        .db
+        .run(move |c| {
+            c.prepare("SELECT token_hash FROM sessions WHERE user_id = ?1")?
+                .query_map([uid], |r| r.get(0))?
+                .collect()
+        })
+        .await?;
+    let Some(hash) = hashes.into_iter().find(|h| device_id(h) == id) else {
+        return Err(ApiError::not_found(
+            "device_not_found",
+            "This device is not signed in.",
+        ));
+    };
+    let current = hash == u.session_hash;
+    st.db
+        .run(move |c| {
+            c.execute(
+                "DELETE FROM sessions WHERE token_hash = ?1 AND user_id = ?2",
+                rusqlite::params![hash, uid],
+            )
+        })
+        .await?;
+    if current && !u.bearer {
+        return Ok(local::clear_session_response(StatusCode::NO_CONTENT));
+    }
+    Ok(StatusCode::NO_CONTENT.into_response())
 }

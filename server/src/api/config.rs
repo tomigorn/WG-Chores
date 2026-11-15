@@ -12,5 +12,6 @@ pub async fn get(State(st): State<AppState>) -> Json<Value> {
         "notify_times": c.notify_times.iter().map(|t| t.format("%H:%M").to_string()).collect::<Vec<_>>(),
         "tz": c.tz.name(),
         "version": env!("CARGO_PKG_VERSION"),
+        "min_app_version": c.min_app_version,
     }))
 }

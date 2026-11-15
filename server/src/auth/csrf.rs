@@ -12,6 +12,9 @@ pub async fn check(State(st): State<AppState>, req: Request, next: Next) -> Resp
         return next.run(req).await;
     }
     let h = req.headers();
+    if super::bearer(h).is_some() && !h.contains_key(header::COOKIE) {
+        return next.run(req).await;
+    }
     let header_ok = h.get("x-wgc").is_some_and(|v| v == "1");
     let origin_ok = match h.get(header::ORIGIN) {
         None => true,

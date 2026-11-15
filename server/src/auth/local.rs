@@ -208,6 +208,11 @@ pub async fn reserve_registration(st: &AppState, ip: ClientIp) -> Result<(), Api
     Ok(())
 }
 
+/// Failed app code exchanges count in their own per-ip bucket.
+pub async fn reserve_app_code(st: &AppState, ip: ClientIp) -> Result<Attempt, ApiError> {
+    reserve_keys(st, vec![(format!("app:{}", ip_key(ip)), MAX_PER_IP)], None).await
+}
+
 /// Counts one attempt against `key`, refusing with 429 once `max` are within `window`.
 pub async fn reserve_counter(
     st: &AppState,
@@ -372,6 +377,40 @@ pub struct Register {
     pw: String,
     display_name: String,
     invite: Option<String>,
+    client: Option<String>,
+    device_name: Option<String>,
+}
+
+/// `client` "android" answers with a bearer token instead of the session cookie.
+fn is_app(client: Option<&str>) -> Result<bool, ApiError> {
+    match client {
+        None | Some("web") => Ok(false),
+        Some("android") => Ok(true),
+        Some(_) => Err(ApiError::bad_request("invalid_client", "Unknown client.")),
+    }
+}
+
+/// Signs the user in: an app gets `{token, user}`, the browser the session cookie and the user.
+async fn signed_in(
+    st: &AppState,
+    headers: &HeaderMap,
+    status: StatusCode,
+    id: i64,
+    app: Option<Option<String>>,
+    user: serde_json::Value,
+) -> Result<Response, ApiError> {
+    if let Some(name) = app {
+        let device =
+            session::create_device(&st.db, &*st.clock, id, name.as_deref().unwrap_or("")).await?;
+        return Ok((
+            status,
+            Json(serde_json::json!({"token": device, "user": user})),
+        )
+            .into_response());
+    }
+    drop_incoming_session(st, headers).await?;
+    let sid = session::create(&st.db, &*st.clock, id, SessionKind::Web).await?;
+    Ok(with_cookie(status, session::set_cookie(&sid), Some(user)))
 }
 
 pub async fn register(
@@ -381,6 +420,7 @@ pub async fn register(
     ApiJson(b): ApiJson<Register>,
 ) -> Result<Response, ApiError> {
     require_local(&st)?;
+    let app = is_app(b.client.as_deref())?.then(|| b.device_name.clone());
     let invite_hash = b
         .invite
         .as_deref()
@@ -444,20 +484,15 @@ pub async fn register(
         }
         Err(e) => return Err(e.into()),
     };
-    drop_incoming_session(&st, &headers).await?;
-    let sid = session::create(&st.db, &*st.clock, id, SessionKind::Web).await?;
-    Ok(with_cookie(
-        StatusCode::CREATED,
-        session::set_cookie(&sid),
-        Some(user_json(
-            id,
-            Some(&username),
-            &display_name,
-            super::AccountKind::Local,
-            None,
-            None,
-        )),
-    ))
+    let user = user_json(
+        id,
+        Some(&username),
+        &display_name,
+        super::AccountKind::Local,
+        None,
+        None,
+    );
+    signed_in(&st, &headers, StatusCode::CREATED, id, app, user).await
 }
 
 /// A user row plus its local password identity; returns the user id.
@@ -503,6 +538,8 @@ pub struct Login {
     username: String,
     #[serde(rename = "password")]
     pw: String,
+    client: Option<String>,
+    device_name: Option<String>,
 }
 
 pub async fn login(
@@ -512,6 +549,7 @@ pub async fn login(
     ApiJson(b): ApiJson<Login>,
 ) -> Result<Response, ApiError> {
     require_local(&st)?;
+    let app = is_app(b.client.as_deref())?.then(|| b.device_name.clone());
     let attempt = reserve(&st, Some(&b.username), ip).await?;
     let subject = b.username.trim().to_lowercase();
     let found: Option<(i64, Option<String>, String, Option<String>)> = st
@@ -544,20 +582,15 @@ pub async fn login(
         ));
     };
     attempt.succeed(&st.db).await?;
-    drop_incoming_session(&st, &headers).await?;
-    let sid = session::create(&st.db, &*st.clock, id, SessionKind::Web).await?;
-    Ok(with_cookie(
-        StatusCode::OK,
-        session::set_cookie(&sid),
-        Some(user_json(
-            id,
-            username.as_deref(),
-            &display_name,
-            super::AccountKind::Local,
-            None,
-            None,
-        )),
-    ))
+    let user = user_json(
+        id,
+        username.as_deref(),
+        &display_name,
+        super::AccountKind::Local,
+        None,
+        None,
+    );
+    signed_in(&st, &headers, StatusCode::OK, id, app, user).await
 }
 
 #[derive(Deserialize, Default)]
@@ -578,7 +611,8 @@ pub async fn logout(
         serde_json::from_slice(&body)
             .map_err(|_| ApiError::bad_request("invalid_body", "The request body is not valid."))?
     };
-    if let (Some(endpoint), Some(raw)) = (b.push_endpoint, super::session_cookie(&headers)) {
+    let cred = super::credential(&headers)?;
+    if let (Some(endpoint), Some((raw, _))) = (b.push_endpoint, cred.clone()) {
         let hash = session::hash_token(&raw);
         st.db
             .run(move |c| {
@@ -590,8 +624,16 @@ pub async fn logout(
             })
             .await?;
     }
-    drop_incoming_session(&st, &headers).await?;
-    Ok(clear_session_response(StatusCode::NO_CONTENT))
+    match cred {
+        Some((raw, true)) => {
+            session::delete(&st.db, &raw).await?;
+            Ok(StatusCode::NO_CONTENT.into_response())
+        }
+        _ => {
+            drop_incoming_session(&st, &headers).await?;
+            Ok(clear_session_response(StatusCode::NO_CONTENT))
+        }
+    }
 }
 
 #[cfg(test)]

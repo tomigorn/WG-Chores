@@ -2,7 +2,10 @@ use rusqlite::Connection;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-const MIGRATIONS: &[&str] = &[include_str!("migrations/0001_init.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("migrations/0001_init.sql"),
+    include_str!("migrations/0002_app.sql"),
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -118,7 +121,7 @@ mod tests {
             })
             .await
             .unwrap();
-        assert_eq!(v, 1);
+        assert_eq!(v, MIGRATIONS.len() as i64);
         assert_eq!(n, 1);
     }
 
@@ -216,7 +219,7 @@ mod tests {
                     "INSERT INTO users (id, display_name, created_at) VALUES (1, 'n', 'x');
                      INSERT INTO households (id, name, created_at) VALUES (1, 'h', 'x');
                      INSERT INTO memberships VALUES (1, 1, 'x');
-                     INSERT INTO sessions VALUES ('t', 1, 'web', 'x', 'x', 'x');
+                     INSERT INTO sessions (token_hash, user_id, kind, created_at, last_seen_at, expires_at) VALUES ('t', 1, 'web', 'x', 'x', 'x');
                      INSERT INTO identities (user_id, kind, subject) VALUES (1, 'local', 'anna');
                      DELETE FROM users WHERE id = 1;",
                 )?;
@@ -268,6 +271,40 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(v, None);
+    }
+
+    #[test]
+    fn version_1_database_upgrades_keeping_sessions() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.create_scalar_function(
+            "ulower",
+            1,
+            rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+            |ctx| ctx.get::<Option<String>>(0),
+        )
+        .unwrap();
+        conn.execute_batch(MIGRATIONS[0]).unwrap();
+        conn.pragma_update(None, "user_version", 1).unwrap();
+        conn.execute_batch(
+            "INSERT INTO users (id, display_name, created_at) VALUES (1, 'n', 'x');
+             INSERT INTO sessions VALUES ('t', 1, 'web', 'x', 'x', 'x');",
+        )
+        .unwrap();
+        migrate(&mut conn).unwrap();
+        let (v, name): (usize, Option<String>) = conn
+            .query_row(
+                "SELECT (SELECT user_version FROM pragma_user_version), device_name FROM sessions",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((v, name), (MIGRATIONS.len(), None));
+        let n: i64 = conn
+            .query_row("SELECT count(*) FROM device_notification_state", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(n, 0);
     }
 
     #[test]

@@ -18,7 +18,7 @@ pub enum SessionKind {
 }
 
 impl SessionKind {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SessionKind::Web => "web",
             SessionKind::Android => "android",
@@ -55,6 +55,47 @@ pub async fn create(
     user_id: i64,
     kind: SessionKind,
 ) -> crate::db::Result<String> {
+    insert(db, clock, user_id, kind, None).await
+}
+
+/// An app session, used as bearer token; the name is cleaned by `device_name`.
+pub async fn create_device(
+    db: &Db,
+    clock: &dyn Clock,
+    user_id: i64,
+    name: &str,
+) -> crate::db::Result<String> {
+    insert(
+        db,
+        clock,
+        user_id,
+        SessionKind::Android,
+        Some(device_name(Some(name))),
+    )
+    .await
+}
+
+/// Trimmed, without control characters, at most 60 characters; "Android" when empty.
+pub fn device_name(raw: Option<&str>) -> String {
+    let n: String = crate::model::clean_text(raw.unwrap_or(""))
+        .chars()
+        .take(60)
+        .collect();
+    let n = n.trim();
+    if n.is_empty() {
+        "Android".into()
+    } else {
+        n.to_string()
+    }
+}
+
+async fn insert(
+    db: &Db,
+    clock: &dyn Clock,
+    user_id: i64,
+    kind: SessionKind,
+    name: Option<String>,
+) -> crate::db::Result<String> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).expect("os randomness");
     let raw = URL_SAFE_NO_PAD.encode(bytes);
@@ -64,20 +105,22 @@ pub async fn create(
     db.run(move |c| {
         c.execute("DELETE FROM sessions WHERE expires_at < ?1", [&now_s])?;
         c.execute(
-            "INSERT INTO sessions (token_hash, user_id, kind, created_at, last_seen_at, expires_at)
-             VALUES (?1, ?2, ?3, ?4, ?4, ?5)",
-            rusqlite::params![hash, user_id, kind.as_str(), now_s, exp_s],
+            "INSERT INTO sessions (token_hash, user_id, kind, created_at, last_seen_at, expires_at, device_name)
+             VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6)",
+            rusqlite::params![hash, user_id, kind.as_str(), now_s, exp_s, name],
         )
     })
     .await?;
     Ok(raw)
 }
 
+/// A session of `kind` only: a web token never works as bearer, an app token never as cookie.
 pub async fn lookup(
     db: &Db,
     clock: &dyn Clock,
     raw: &str,
     local_enabled: bool,
+    kind: SessionKind,
 ) -> crate::db::Result<Option<CurrentUser>> {
     let hash = hash_token(raw);
     let now = clock.now();
@@ -87,8 +130,8 @@ pub async fn lookup(
                     EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.kind = 'local'),
                     EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.kind != 'local')
              FROM sessions s JOIN users u ON u.id = s.user_id
-             WHERE s.token_hash = ?1 AND u.former = 0",
-            [&hash],
+             WHERE s.token_hash = ?1 AND s.kind = ?2 AND u.former = 0",
+            rusqlite::params![hash, kind.as_str()],
             |r| {
                 Ok((
                     r.get::<_, String>(0)?,
@@ -130,6 +173,7 @@ pub async fn lookup(
                 AccountKind::Sso
             },
             session_hash: hash,
+            bearer: kind == SessionKind::Android,
         }))
     })
     .await

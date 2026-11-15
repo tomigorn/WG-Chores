@@ -162,6 +162,9 @@ struct Pending {
     verifier: String,
     invite: Option<String>,
     exp: i64,
+    /// Set when the app started the login: its S256 PKCE challenge for the one-time code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    app: Option<String>,
 }
 
 fn mac(key: &[u8; 32], payload: &str) -> Hmac<Sha256> {
@@ -214,7 +217,13 @@ fn redirect(to: &str, cookies: &[String]) -> Response {
     res
 }
 
-fn to_login(f: Fail, invite: Option<&str>, cookies: &[String]) -> Response {
+fn to_login(f: Fail, invite: Option<&str>, app: bool, cookies: &[String]) -> Response {
+    if app {
+        return redirect(
+            &format!("{}?error={}", super::app::REDIRECT, f.code()),
+            cookies,
+        );
+    }
     let to = match invite.filter(|t| valid_invite(t)) {
         Some(t) => format!("/login?error={}&invite={t}", f.code()),
         None => format!("/login?error={}", f.code()),
@@ -233,9 +242,19 @@ pub async fn start(State(st): State<AppState>, RawQuery(q): RawQuery) -> Respons
         return StatusCode::NOT_FOUND.into_response();
     };
     let invite = query_param(&q, "invite");
+    let app = match query_param(&q, "client").as_deref() {
+        None | Some("web") => None,
+        Some("android") => {
+            match query_param(&q, "challenge").filter(|c| super::app::valid_challenge(c)) {
+                Some(c) => Some(c),
+                None => return StatusCode::BAD_REQUEST.into_response(),
+            }
+        }
+        Some(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
     let client = match p.client(&st, cfg).await {
         Ok(c) => c,
-        Err(f) => return to_login(f, invite.as_deref(), &[]),
+        Err(f) => return to_login(f, invite.as_deref(), app.is_some(), &[]),
     };
     let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
     let (url, state, nonce) = client
@@ -255,6 +274,7 @@ pub async fn start(State(st): State<AppState>, RawQuery(q): RawQuery) -> Respons
         verifier: verifier.secret().clone(),
         invite: invite.filter(|t| valid_invite(t)),
         exp: (st.clock.now() + STATE_TTL).timestamp(),
+        app,
     };
     let cookie = state_cookie(&seal(&st.secret, &pending), STATE_TTL.num_seconds());
     redirect(url.as_str(), &[cookie])
@@ -269,15 +289,58 @@ pub async fn callback(
         return StatusCode::NOT_FOUND.into_response();
     };
     let clear = state_cookie("", 0);
-    match finish(&st, cfg, p, &headers, &q).await {
-        Ok((sid, target)) => redirect(&target, &[clear, session::set_cookie(&sid)]),
+    let done = match finish(&st, cfg, p, &headers, &q).await {
+        Ok((id, pending)) => signed_in(&st, &headers, id, pending).await,
+        Err(f) => Err(f),
+    };
+    match done {
+        Ok((target, Some(sid))) => redirect(&target, &[clear, session::set_cookie(&sid)]),
+        Ok((target, None)) => redirect(&target, &[clear]),
         Err(f) => {
-            let invite = super::cookie(&headers, STATE_COOKIE)
-                .and_then(|raw| open(&st.secret, &raw))
-                .and_then(|p| p.invite);
-            to_login(f, invite.as_deref(), &[clear])
+            let pending =
+                super::cookie(&headers, STATE_COOKIE).and_then(|raw| open(&st.secret, &raw));
+            let app = pending.as_ref().is_some_and(|p| p.app.is_some());
+            let invite = pending.and_then(|p| p.invite);
+            to_login(f, invite.as_deref(), app, &[clear])
         }
     }
+}
+
+/// The app gets a one-time code on its redirect URI; the browser gets the session cookie (returned as Some).
+async fn signed_in(
+    st: &AppState,
+    headers: &HeaderMap,
+    id: i64,
+    pending: Pending,
+) -> Result<(String, Option<String>), Fail> {
+    if let Some(challenge) = pending.app {
+        let code = super::app::issue_code(st, id, challenge)
+            .await
+            .map_err(|e| {
+                eprintln!("oidc app login: storing the code failed: {e}");
+                Fail::Failed
+            })?;
+        let mut target = format!("{}?code={code}", super::app::REDIRECT);
+        if let Some(t) = pending.invite {
+            target.push_str(&format!("&invite={t}"));
+        }
+        return Ok((target, None));
+    }
+    drop_incoming_session(st, headers).await.map_err(|e| {
+        eprintln!("oidc login: dropping the old session failed: {}", e.code);
+        Fail::Failed
+    })?;
+    let sid = session::create(&st.db, &*st.clock, id, SessionKind::Web)
+        .await
+        .map_err(|e| {
+            eprintln!("oidc login: creating the session failed: {e}");
+            Fail::Failed
+        })?;
+    let target = match pending.invite {
+        Some(t) => format!("/invite/{t}"),
+        None => "/".into(),
+    };
+    Ok((target, Some(sid)))
 }
 
 async fn finish(
@@ -286,7 +349,7 @@ async fn finish(
     p: &Provider,
     headers: &HeaderMap,
     q: &Option<String>,
-) -> Result<(String, String), Fail> {
+) -> Result<(i64, Pending), Fail> {
     if query_param(q, "error").is_some() {
         return Err(Fail::Failed);
     }
@@ -308,7 +371,7 @@ async fn finish(
             eprintln!("oidc token exchange not possible: {e}");
             Fail::Failed
         })?
-        .set_pkce_verifier(PkceCodeVerifier::new(pending.verifier))
+        .set_pkce_verifier(PkceCodeVerifier::new(pending.verifier.clone()))
         .request_async(&p.http)
         .await
         .map_err(|e| {
@@ -319,7 +382,7 @@ async fn finish(
             }
         })?;
     let id_token = token.id_token().ok_or(Fail::Failed)?; // leak-check: ok
-    let nonce = Nonce::new(pending.nonce);
+    let nonce = Nonce::new(pending.nonce.clone());
     let verify = |c: &OidcClient| {
         let clock = st.clock.clone();
         let verifier = c.id_token_verifier().set_time_fn(move || clock.now());
@@ -388,22 +451,7 @@ async fn finish(
         eprintln!("oidc user update failed: {e}");
         Fail::Failed
     })?;
-
-    drop_incoming_session(st, headers).await.map_err(|e| {
-        eprintln!("oidc login: dropping the old session failed: {}", e.code);
-        Fail::Failed
-    })?;
-    let sid = session::create(&st.db, &*st.clock, id, SessionKind::Web)
-        .await
-        .map_err(|e| {
-            eprintln!("oidc login: creating the session failed: {e}");
-            Fail::Failed
-        })?;
-    let target = match pending.invite {
-        Some(t) => format!("/invite/{t}"),
-        None => "/".into(),
-    };
-    Ok((sid, target))
+    Ok((id, pending))
 }
 
 /// An error with its causes, e.g. "Request failed: client error: connection refused".
@@ -490,6 +538,7 @@ mod tests {
             verifier: "v".into(),
             invite: None,
             exp: 1,
+            app: None,
         }
     }
 

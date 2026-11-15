@@ -86,6 +86,8 @@ pub struct Config {
     pub oidc: Option<OidcConfig>,
     pub notify_times: Vec<NaiveTime>,
     pub member_directory: bool,
+    /// Oldest app version the server still works with, e.g. "1.0.0".
+    pub min_app_version: String,
     pub data_dir: PathBuf,
     pub listen: SocketAddr,
     pub trusted_proxies: Vec<IpNet>,
@@ -93,6 +95,25 @@ pub struct Config {
     pub push_allow_loopback_http: bool,
     /// Extra push service host suffixes beyond the built-in browser services.
     pub push_allowed_hosts: Vec<String>,
+}
+
+fn parse_version(v: Option<String>) -> Result<String, ConfigError> {
+    let Some(v) = v.map(|v| v.trim().to_string()).filter(|v| !v.is_empty()) else {
+        return Ok("1.0.0".into());
+    };
+    let parts: Vec<&str> = v.split('.').collect();
+    let ok = (1..=3).contains(&parts.len())
+        && parts
+            .iter()
+            .all(|p| (1..=6).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit()));
+    if ok {
+        Ok(v)
+    } else {
+        Err(ConfigError::Invalid(
+            "MIN_APP_VERSION",
+            format!("{v}: expected a version like 1.2.3"),
+        ))
+    }
 }
 
 fn parse_url(key: &'static str, v: &str) -> Result<Url, ConfigError> {
@@ -240,6 +261,7 @@ impl Config {
             oidc,
             notify_times,
             member_directory: parse_bool("MEMBER_DIRECTORY", get("MEMBER_DIRECTORY"), false)?,
+            min_app_version: parse_version(get("MIN_APP_VERSION"))?,
             data_dir: get("DATA_DIR")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| "/data".into()),
@@ -505,6 +527,22 @@ mod tests {
         ] {
             assert!(
                 Config::from_env(env(&[URL, ("PUSH_ALLOWED_HOSTS", bad)])).is_err(),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn min_app_version_checked() {
+        assert_eq!(
+            Config::from_env(env(&[URL])).unwrap().min_app_version,
+            "1.0.0"
+        );
+        let c = Config::from_env(env(&[URL, ("MIN_APP_VERSION", " 1.4 ")])).unwrap();
+        assert_eq!(c.min_app_version, "1.4");
+        for bad in ["v1.0", "1..2", "1.2.3.4", "x"] {
+            assert!(
+                Config::from_env(env(&[URL, ("MIN_APP_VERSION", bad)])).is_err(),
                 "{bad}"
             );
         }

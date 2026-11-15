@@ -1,3 +1,4 @@
+pub mod app;
 pub mod csrf;
 pub mod local;
 pub mod oidc;
@@ -25,10 +26,34 @@ pub struct CurrentUser {
     pub display_name: String,
     pub kind: AccountKind,
     pub session_hash: String,
+    /// Signed in with an app token in `Authorization: Bearer`, not the session cookie.
+    pub bearer: bool,
 }
 
 pub(crate) fn session_cookie(headers: &HeaderMap) -> Option<String> {
     cookie(headers, session::COOKIE_NAME)
+}
+
+/// The token of `Authorization: Bearer <token>`; other schemes (e.g. Basic from a proxy) are ignored.
+pub(crate) fn bearer(headers: &HeaderMap) -> Option<String> {
+    let v = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, token) = v.split_once(' ').unwrap_or((v, ""));
+    scheme
+        .eq_ignore_ascii_case("bearer")
+        .then(|| token.trim().to_string())
+}
+
+/// The session token of a request and whether it came as bearer; both cookie and bearer is refused.
+pub(crate) fn credential(headers: &HeaderMap) -> Result<Option<(String, bool)>, ApiError> {
+    match (session_cookie(headers), bearer(headers)) {
+        (Some(_), Some(_)) => Err(ApiError::bad_request(
+            "ambiguous_auth",
+            "Send either the session cookie or a bearer token, not both.",
+        )),
+        (Some(c), None) => Ok(Some((c, false))),
+        (None, Some(b)) => Ok(Some((b, true))),
+        (None, None) => Ok(None),
+    }
 }
 
 pub(crate) fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -45,8 +70,16 @@ impl FromRequestParts<AppState> for CurrentUser {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, st: &AppState) -> Result<Self, ApiError> {
-        let raw = session_cookie(&parts.headers).ok_or_else(ApiError::unauthenticated)?;
-        session::lookup(&st.db, &*st.clock, &raw, st.cfg.local_accounts)
+        let (raw, bearer) = credential(&parts.headers)?.ok_or_else(ApiError::unauthenticated)?;
+        if raw.is_empty() {
+            return Err(ApiError::unauthenticated());
+        }
+        let kind = if bearer {
+            session::SessionKind::Android
+        } else {
+            session::SessionKind::Web
+        };
+        session::lookup(&st.db, &*st.clock, &raw, st.cfg.local_accounts, kind)
             .await?
             .ok_or_else(ApiError::unauthenticated)
     }

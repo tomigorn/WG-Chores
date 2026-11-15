@@ -64,6 +64,7 @@ impl TestApp {
             xff: None,
             csrf: true,
             origin: Some(ORIGIN.into()),
+            bearer: None,
         }
     }
 
@@ -117,6 +118,7 @@ pub struct Client {
     pub xff: Option<String>,
     pub csrf: bool,
     pub origin: Option<String>,
+    pub bearer: Option<String>,
 }
 
 pub struct Resp {
@@ -149,6 +151,9 @@ impl Client {
             if let Some(o) = &self.origin {
                 req = req.header(header::ORIGIN, o);
             }
+        }
+        if let Some(t) = &self.bearer {
+            req = req.header(header::AUTHORIZATION, format!("Bearer {t}"));
         }
         if let Some(x) = &self.xff {
             req = req.header("x-forwarded-for", x);
