@@ -21,6 +21,14 @@ sealed interface SsoCallback {
             return url.queryParameter("code")?.takeIf { it.isNotEmpty() }?.let(::Code) ?: Error("sso_failed")
         }
 
+        const val FALLBACK_ALIAS = "SsoCallback"
+
+        /** The callback URI, only when Android delivered it through the fallback alias (never via the launcher activity). */
+        fun fromIntent(component: String?, packageName: String, uri: String?): String? {
+            if (component != "$packageName.$FALLBACK_ALIAS") return null
+            return uri?.takeIf { parse(it) != null }
+        }
+
         fun startUrl(server: String, challenge: String): String =
             server.toHttpUrl().newBuilder()
                 .addPathSegments("auth/oidc/start")

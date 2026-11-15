@@ -82,6 +82,26 @@ class LoginFlowTest {
         }
     }
 
+    @Test fun callbackToTheLauncherActivityIsIgnored() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForTag("server-url")
+            compose.onNodeWithTag("server-url").performTextReplacement(fake.url)
+            compose.onNodeWithTag("connect").performClick()
+            compose.waitFor("Sign in with Holy Grail")
+        }
+        runBlocking { app.container.session.saveVerifier("v".repeat(43)) }
+        val code = fake.issueSsoCode(ch.tomigorn.wgchores.auth.Pkce.challenge("v".repeat(43)))
+        val intent = android.content.Intent(app, MainActivity::class.java)
+            .setData(android.net.Uri.parse("wgchores://auth?code=$code"))
+        ActivityScenario.launch<MainActivity>(intent).use {
+            compose.waitFor("Sign in with Holy Grail")
+            Thread.sleep(1_000)
+            compose.waitFor("Sign in with Holy Grail")
+        }
+        assertTrue(fake.issued.isEmpty())
+        runBlocking { assertEquals("v".repeat(43), app.container.session.takeVerifier()) }
+    }
+
     @Test fun changeServerForgetsTheServer() {
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitForTag("server-url")

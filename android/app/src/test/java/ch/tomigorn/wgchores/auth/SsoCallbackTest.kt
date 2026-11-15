@@ -16,6 +16,15 @@ class SsoCallbackTest {
 
     @Test fun missingCodeIsAFailure() = assertEquals(SsoCallback.Error("sso_failed"), SsoCallback.parse("wgchores://auth"))
 
+    @Test fun acceptsTheCallbackOnlyThroughTheFallbackAlias() {
+        val uri = "wgchores://auth?code=abc"
+        assertEquals(uri, SsoCallback.fromIntent("ch.tomigorn.wgchores.SsoCallback", "ch.tomigorn.wgchores", uri))
+        assertEquals(null, SsoCallback.fromIntent("ch.tomigorn.wgchores.MainActivity", "ch.tomigorn.wgchores", uri))
+        assertEquals(null, SsoCallback.fromIntent(null, "ch.tomigorn.wgchores", uri))
+        assertEquals(null, SsoCallback.fromIntent("ch.tomigorn.wgchores.SsoCallback", "ch.tomigorn.wgchores", "https://example.com"))
+        assertEquals(null, SsoCallback.fromIntent("ch.tomigorn.wgchores.SsoCallback", "ch.tomigorn.wgchores", null))
+    }
+
     @Test fun buildsTheStartUrl() =
         assertEquals(
             "https://chores.example.com/auth/oidc/start?client=android&challenge=abc_-1",

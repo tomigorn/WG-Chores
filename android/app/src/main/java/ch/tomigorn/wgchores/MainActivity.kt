@@ -45,9 +45,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var fallbackOpen = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleCallback(intent)
+        fallbackOpen = savedInstanceState?.getBoolean(FALLBACK_OPEN) ?: false
+        if (!handleCallback(intent) && !fallbackOpen) setFallbackCallback(false)
         setContent {
             val state by vm.auth.collectAsStateWithLifecycle()
             val theme by vm.theme.collectAsStateWithLifecycle()
@@ -69,11 +72,31 @@ class MainActivity : ComponentActivity() {
         handleCallback(intent)
     }
 
-    private fun handleCallback(intent: Intent?) {
-        val uri = intent?.data?.takeIf { it.scheme == SsoCallback.SCHEME } ?: return
+    override fun onResume() {
+        super.onResume()
+        // back from the fallback Custom Tab, with or without a callback: close the wgchores://auth door again
+        if (fallbackOpen) {
+            fallbackOpen = false
+            setFallbackCallback(false)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(FALLBACK_OPEN, fallbackOpen)
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) setFallbackCallback(false)
+        super.onDestroy()
+    }
+
+    private fun handleCallback(intent: Intent?): Boolean {
+        val uri = SsoCallback.fromIntent(intent?.component?.className, packageName, intent?.data?.toString()) ?: return false
         setFallbackCallback(false)
-        intent.data = null
-        vm.finishSso(uri.toString())
+        intent?.data = null
+        vm.finishSso(uri)
+        return true
     }
 
     /** Auth Tab returns the callback only to this app; browsers without it get a Custom Tab and the wgchores://auth filter, enabled just for that. */
@@ -83,19 +106,21 @@ class MainActivity : ComponentActivity() {
             AuthTabIntent.Builder().build().launch(authTab, url.toUri(), SsoCallback.SCHEME)
         } else {
             setFallbackCallback(true)
+            fallbackOpen = true
             CustomTabsIntent.Builder().build().launchUrl(this, url.toUri())
         }
     }
 
     private fun setFallbackCallback(enabled: Boolean) {
         packageManager.setComponentEnabledSetting(
-            ComponentName(this, "$packageName.SsoCallback"),
+            ComponentName(this, "$packageName.${SsoCallback.FALLBACK_ALIAS}"),
             if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.DONT_KILL_APP,
         )
     }
 
     companion object {
+        private const val FALLBACK_OPEN = "fallback_open"
         const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=ch.tomigorn.wgchores"
     }
 }
