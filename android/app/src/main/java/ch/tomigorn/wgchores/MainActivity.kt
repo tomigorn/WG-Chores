@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         fallbackOpen = savedInstanceState?.getBoolean(FALLBACK_OPEN) ?: false
         if (!fallbackOpen) setFallbackCallback(false)
+        if (savedInstanceState == null) (application as WgcApp).container.openFromNotification(intent)
         setContent {
             val state by vm.auth.collectAsStateWithLifecycle()
             val theme by vm.theme.collectAsStateWithLifecycle()
@@ -67,6 +68,11 @@ class MainActivity : AppCompatActivity() {
             }
             WgcTheme(dark = dark) { AppRoot(state, theme, actions) }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        (application as WgcApp).container.openFromNotification(intent)
     }
 
     override fun onResume() {

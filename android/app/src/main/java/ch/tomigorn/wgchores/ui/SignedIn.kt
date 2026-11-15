@@ -60,6 +60,8 @@ import ch.tomigorn.wgchores.ui.account.AccountViewModel
 import ch.tomigorn.wgchores.ui.account.SettingsActions
 import ch.tomigorn.wgchores.ui.account.SettingsScreen
 import ch.tomigorn.wgchores.ui.account.SettingsViewModel
+import ch.tomigorn.wgchores.notify.OsNotify
+import ch.tomigorn.wgchores.notify.rememberNotifyPermission
 import ch.tomigorn.wgchores.ui.chore.ChoreActions
 import ch.tomigorn.wgchores.ui.chore.ChoreEditScreen
 import ch.tomigorn.wgchores.ui.chore.ChoreEditViewModel
@@ -140,6 +142,14 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
         Start.Households -> HouseholdsRoute()
     }
     val app = LocalContext.current.applicationContext as Application
+    val openRequest = (app as ch.tomigorn.wgchores.WgcApp).container.openHousehold
+    val open by openRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(open) {
+        open?.let {
+            openRequest.value = null
+            nav.openHousehold(it)
+        }
+    }
     Box(Modifier.fillMaxSize()) {
     NavHost(nav, startDestination = startRoute) {
         composable<HouseholdRoute> { entry ->
@@ -237,11 +247,17 @@ fun SignedInArea(state: AuthState.SignedIn, theme: ThemeMode, actions: AppAction
         composable<SettingsRoute> {
             val vm: SettingsViewModel = viewModel()
             val ui by vm.ui.collectAsStateWithLifecycle()
-            SettingsScreen(ui, theme, object : SettingsActions {
+            val perm = rememberNotifyPermission((app as ch.tomigorn.wgchores.WgcApp).container.notifyStore)
+            SettingsScreen(ui.copy(os = perm.state), theme, object : SettingsActions {
                 override fun back() = back()
                 override fun theme(mode: ThemeMode) = actions.setTheme(mode)
                 override fun language(tag: String) = vm.language(tag)
-                override fun notify(done: Boolean, on: Boolean) = vm.notify(done, on)
+                override fun notify(done: Boolean, on: Boolean) = when {
+                    !on || perm.state == OsNotify.Allowed -> vm.notify(done, on)
+                    perm.state == OsNotify.Blocked -> perm.openSettings()
+                    else -> perm.request { vm.notify(done, true) }
+                }
+                override fun allowNotifications() = if (perm.state == OsNotify.Blocked) perm.openSettings() else perm.request {}
                 override fun open(url: String) = actions.openUrl(url)
                 override fun reload() = vm.load()
                 override fun dismissSnack(seq: Long) = vm.dismiss(seq)

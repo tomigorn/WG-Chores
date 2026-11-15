@@ -23,6 +23,7 @@ class AuthController(
     private val appVersion: String,
     private val deviceName: String,
     private val allowLocalHttp: Boolean,
+    private val onUser: suspend (server: String, user: User) -> Unit = { _, _ -> },
 ) {
     private val _state = MutableStateFlow<AuthState>(AuthState.Loading)
     val state: StateFlow<AuthState> = _state
@@ -122,6 +123,7 @@ class AuthController(
         return try {
             val user = api(server).me()
             store.saveUser(user.id, user.displayName, user.lastHouseholdId)
+            onUser(server, user)
             _state.update { if (it is AuthState.SignedIn) it.copy(userName = user.displayName, userId = user.id) else it }
             user
         } catch (_: ApiException) {
@@ -199,6 +201,7 @@ class AuthController(
             }
             return loginError(LoginError.Code("keystore_failed"))
         }
+        result.user?.let { onUser(server, it) }
         set(AuthState.SignedIn(server, name, result.user?.id))
     }
 

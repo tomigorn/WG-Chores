@@ -6,7 +6,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 data class Session(
@@ -37,6 +40,9 @@ class SessionStore(private val prefs: DataStore<Preferences>, private val cipher
         cached?.let { (b, plain) -> if (b == blob) return plain }
         return withContext(Dispatchers.Default) { cipher.decrypt(blob) }.also { cached = blob to it }
     }
+
+    /** The stored server config as it changes (notify times and zone drive the background check). */
+    val configs: Flow<ServerConfig?> = prefs.data.map { p -> p[Keys.config]?.let(ServerConfig::parse) }.distinctUntilChanged()
 
     suspend fun read(): Session {
         val p = prefs.data.first()

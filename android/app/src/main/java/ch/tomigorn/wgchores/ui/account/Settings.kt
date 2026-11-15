@@ -42,6 +42,7 @@ import ch.tomigorn.wgchores.R
 import ch.tomigorn.wgchores.WgcApp
 import ch.tomigorn.wgchores.api.OfflineException
 import ch.tomigorn.wgchores.data.ThemeMode
+import ch.tomigorn.wgchores.notify.OsNotify
 import ch.tomigorn.wgchores.ui.chore.Pill
 import ch.tomigorn.wgchores.ui.chore.account
 import ch.tomigorn.wgchores.ui.components.LinkButton
@@ -69,6 +70,7 @@ data class SettingsUi(
     val server: String? = null,
     val snack: Notice? = null,
     val snackSeq: Long = 0,
+    val os: OsNotify = OsNotify.Allowed,
 )
 
 interface SettingsActions {
@@ -79,6 +81,8 @@ interface SettingsActions {
     fun open(url: String)
     fun reload()
     fun dismissSnack(seq: Long)
+    /** Ask for the permission, or open the system settings when only they can turn notifications on. */
+    fun allowNotifications() {}
 }
 
 object AppLanguage {
@@ -96,6 +100,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         try {
             val a = wgc.account() ?: throw OfflineException()
             val me = a.api.patchMe(buildJsonObject { put(if (done) "notify_done" else "notify_due", on) })
+            wgc.container.notifyStore.saveFlags(a.key, me.notifyDone, me.notifyDue)
             NotifySync.State(me.notifyDone, me.notifyDue)
         } catch (e: Exception) {
             lastError = e
@@ -114,7 +119,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             ui.update { it.copy(server = wgc.container.session.read().server) }
             try {
-                val me = wgc.account()?.api?.me() ?: throw OfflineException()
+                val a = wgc.account() ?: throw OfflineException()
+                val me = a.api.me()
+                wgc.container.notifyStore.saveFlags(a.key, me.notifyDone, me.notifyDue)
                 sync.confirmed(me.notifyDone, me.notifyDue)
                 ui.update { it.copy(loaded = true, loadFailed = false) }
             } catch (e: CancellationException) {
@@ -130,7 +137,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         AppLanguage.set(tag)
     }
 
-    /** Saved on the server (PATCH /me), one change at a time; the background check that shows them comes with the notifications step. */
+    /** Saved on the server (PATCH /me), one change at a time; the switches also start or stop the background check. */
     fun notify(done: Boolean, on: Boolean) {
         viewModelScope.launch {
             if (!sync.set(done, on)) {
@@ -166,9 +173,20 @@ fun SettingsScreen(ui: SettingsUi, theme: ThemeMode, act: SettingsActions) {
                 }
                 SectionTitle(stringResource(R.string.settings_notifications), Modifier.padding(top = 8.dp))
                 RowsCard {
-                    Toggle(stringResource(R.string.settings_notify_done), stringResource(R.string.settings_notify_done_hint), ui.notifyDone, ui.loaded, "notify-done") { act.notify(true, it) }
+                    val shown = ui.os == OsNotify.Allowed
+                    Toggle(stringResource(R.string.settings_notify_done), stringResource(R.string.settings_notify_done_hint), ui.notifyDone && shown, ui.loaded, "notify-done") { act.notify(true, it) }
                     HorizontalDivider(color = Wgc.colors.border)
-                    Toggle(stringResource(R.string.settings_notify_due), stringResource(R.string.settings_notify_due_hint), ui.notifyDue, ui.loaded, "notify-due") { act.notify(false, it) }
+                    Toggle(stringResource(R.string.settings_notify_due), stringResource(R.string.settings_notify_due_hint), ui.notifyDue && shown, ui.loaded, "notify-due") { act.notify(false, it) }
+                }
+                if (ui.os != OsNotify.Allowed) {
+                    val text = when (ui.os) {
+                        OsNotify.Rationale -> R.string.notify_os_rationale
+                        OsNotify.Blocked -> R.string.notify_os_blocked
+                        else -> R.string.notify_os_ask
+                    }
+                    Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.text, modifier = Modifier.padding(start = 4.dp).testTag("notify-os-text"))
+                    val button = if (ui.os == OsNotify.Blocked) R.string.notify_open_settings else R.string.notify_allow
+                    ch.tomigorn.wgchores.ui.components.SecondaryButton(stringResource(button), act::allowNotifications, Modifier.testTag("notify-allow"))
                 }
                 if (ui.loadFailed) {
                     Text(stringResource(R.string.settings_load_failed), style = MaterialTheme.typography.bodyMedium, color = Wgc.colors.dangerText, modifier = Modifier.padding(start = 4.dp))
