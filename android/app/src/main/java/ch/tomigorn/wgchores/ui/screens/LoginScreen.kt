@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,7 +74,7 @@ fun LoginScreen(
     var register by rememberSaveable { mutableStateOf(false) }
     var displayName by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
-    var pw by rememberSaveable(state.error) { mutableStateOf("") }
+    var pw by remember(state.error) { mutableStateOf("") }
     var showPw by rememberSaveable { mutableStateOf(false) }
     val config = state.config
     val canRegister = config != null && config.localAccounts && config.openRegistration

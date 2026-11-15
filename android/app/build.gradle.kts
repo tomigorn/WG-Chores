@@ -10,7 +10,13 @@ val appVersion: String = providers.gradleProperty("wgc.version").orNull
     ?: rootDir.resolve("../server/Cargo.toml").takeIf { it.isFile }?.readLines()
         ?.firstNotNullOfOrNull { Regex("""^version = "(.+)"""").find(it)?.groupValues?.get(1) }
     ?: error("app version unknown: build inside the WG-Chores repo or pass -Pwgc.version=X.Y.Z")
-val appVersionCode: Int = appVersion.split('.').map { it.toInt() }.let { (major, minor, patch) ->
+// same rule as AppVersion in the app: numbers before an optional "-suffix"
+val appVersionCode: Int = appVersion.substringBefore('-').split('.').map {
+    it.toIntOrNull() ?: error("app version $appVersion is not X.Y.Z")
+}.let { parts ->
+    require(parts.size == 3) { "app version $appVersion is not X.Y.Z" }
+    val (major, minor, patch) = parts
+    require(minor < 100 && patch < 100) { "app version $appVersion: minor and patch must stay below 100 for the versionCode" }
     major * 10000 + minor * 100 + patch
 }
 
