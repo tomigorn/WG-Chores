@@ -62,6 +62,8 @@ Completion:
 |---|---|
 | `android/scripts/beefy-build.sh --write-locks` | after a change in `gradle/libs.versions.toml` or `app/build.gradle.kts`: resolves everything on beefy (`:app:dependencies assembleRelease testDebugUnitTest assembleDebugAndroidTest --write-locks`) and copies the new `app/gradle.lockfile` into `android/app/`; commit it with the change |
 
+CI: job `android` in `.github/workflows/ci.yml` runs `testDebugUnitTest verifyRoborazziDebug assembleRelease` on every pull request (Renovate's included; a stale lockfile fails it); the image release (`release.yml`) skips it.
+
 Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs minor and patch below 100 (the build fails otherwise).
 
 ## How it works
