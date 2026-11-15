@@ -406,7 +406,11 @@ async fn names_without_usable_history_are_listed_not_created() {
     assert_eq!(s.skipped_bad_date, 1);
     assert!(s.to_string().contains("eve, Ghost Writer"), "{s}");
     assert_eq!(
-        count(&db, "SELECT count(*) FROM users WHERE display_name = 'Ghost Writer'").await,
+        count(
+            &db,
+            "SELECT count(*) FROM users WHERE display_name = 'Ghost Writer'"
+        )
+        .await,
         0
     );
 }

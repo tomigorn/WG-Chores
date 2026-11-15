@@ -537,13 +537,18 @@ async fn delete_account_keeps_history_as_former() {
         (400, Some("current_password_required"))
     );
     let r = c
-        .delete("/api/v1/me", json!({"current_password": "wrong password here"}))
+        .delete(
+            "/api/v1/me",
+            json!({"current_password": "wrong password here"}),
+        )
         .await;
     assert_eq!(
         (r.status, r.body["error"].as_str()),
         (403, Some("wrong_password"))
     );
-    let r = c.delete("/api/v1/me", json!({"current_password": PW})).await; // leak-check: ok
+    let r = c
+        .delete("/api/v1/me", json!({"current_password": PW}))
+        .await; // leak-check: ok
     assert_eq!(r.status, 204);
     assert!(c.jar.is_empty());
     let (former, username, name, comps, idents, sessions, members): (
@@ -852,7 +857,9 @@ async fn delete_account_keeps_shared_history_and_deletes_households_left_empty()
     .await;
     let mut c = app.client();
     c.login("anna", PW).await;
-    let r = c.delete("/api/v1/me", json!({"current_password": PW})).await; // leak-check: ok
+    let r = c
+        .delete("/api/v1/me", json!({"current_password": PW}))
+        .await; // leak-check: ok
     assert_eq!(r.status, 204);
     let counts: Vec<i64> = app
         .db(|c| {
@@ -889,16 +896,24 @@ async fn logout_drops_own_push_subscription_only() {
     let mut c = app.client();
     c.login("anna", PW).await;
     let r = c
-        .post("/api/v1/auth/logout", json!({"push_endpoint": "https://push.example.com/b1"}))
+        .post(
+            "/api/v1/auth/logout",
+            json!({"push_endpoint": "https://push.example.com/b1"}),
+        )
         .await;
     assert_eq!(r.status, 204);
     c.login("anna", PW).await;
     let r = c
-        .post("/api/v1/auth/logout", json!({"push_endpoint": "https://push.example.com/a1"}))
+        .post(
+            "/api/v1/auth/logout",
+            json!({"push_endpoint": "https://push.example.com/a1"}),
+        )
         .await;
     assert_eq!(r.status, 204);
     c.login("anna", PW).await;
-    let r = c.send(axum::http::Method::POST, "/api/v1/auth/logout", None).await;
+    let r = c
+        .send(axum::http::Method::POST, "/api/v1/auth/logout", None)
+        .await;
     assert_eq!(r.status, 204);
     let left: Vec<String> = app
         .db(|c| {
@@ -906,5 +921,8 @@ async fn logout_drops_own_push_subscription_only() {
             s.query_map([], |r| r.get(0))?.collect()
         })
         .await;
-    assert_eq!(left, ["https://push.example.com/a2", "https://push.example.com/b1"]);
+    assert_eq!(
+        left,
+        ["https://push.example.com/a2", "https://push.example.com/b1"]
+    );
 }

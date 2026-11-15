@@ -76,7 +76,10 @@ impl FromRequestParts<AppState> for ClientIp {
             .get_all("x-forwarded-for")
             .iter()
             .flat_map(|v| match v.to_str() {
-                Ok(s) => s.split(',').map(|e| e.trim().parse::<IpAddr>().ok()).collect(),
+                Ok(s) => s
+                    .split(',')
+                    .map(|e| e.trim().parse::<IpAddr>().ok())
+                    .collect(),
                 Err(_) => vec![None],
             })
             .collect();

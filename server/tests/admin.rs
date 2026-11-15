@@ -310,8 +310,12 @@ fn parse_commands() {
         Command::Healthcheck
     ));
     assert!(matches!(args(&["--help"]).unwrap(), Command::Help(t) if t.contains("healthcheck")));
-    assert!(matches!(args(&["--help"]).unwrap(), Command::Help(t) if t.contains("revoke-sessions")));
-    assert!(matches!(args(&["revoke-sessions", "-h"]).unwrap(), Command::Help(t) if t.contains("group")));
+    assert!(
+        matches!(args(&["--help"]).unwrap(), Command::Help(t) if t.contains("revoke-sessions"))
+    );
+    assert!(
+        matches!(args(&["revoke-sessions", "-h"]).unwrap(), Command::Help(t) if t.contains("group"))
+    );
     assert!(matches!(
         args(&["revoke-sessions", "anna"]).unwrap(),
         Command::RevokeSessions { username } if username == "anna"
@@ -485,9 +489,12 @@ async fn revoke_sessions_deletes_every_session_of_that_user() {
     .await
     .unwrap();
     drop(db);
-    let out = cli::run(args(&["revoke-sessions", "ANNA"]).unwrap(), ctx(&env, "unused"))
-        .await
-        .unwrap();
+    let out = cli::run(
+        args(&["revoke-sessions", "ANNA"]).unwrap(),
+        ctx(&env, "unused"),
+    )
+    .await
+    .unwrap();
     assert!(out.contains("2 sessions"), "{out}");
     let db = Db::open(&db_path(&d)).unwrap();
     let left: Vec<String> = db
@@ -498,9 +505,12 @@ async fn revoke_sessions_deletes_every_session_of_that_user() {
         .await
         .unwrap();
     assert_eq!(left, ["b1"]);
-    let e = cli::run(args(&["revoke-sessions", "nobody"]).unwrap(), ctx(&env, "unused"))
-        .await
-        .unwrap_err();
+    let e = cli::run(
+        args(&["revoke-sessions", "nobody"]).unwrap(),
+        ctx(&env, "unused"),
+    )
+    .await
+    .unwrap_err();
     assert!(e.contains("nobody"), "{e}");
 }
 

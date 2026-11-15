@@ -263,18 +263,22 @@ async fn openapi_lists_all_routes() {
 
 #[test]
 fn openapi_documents_retry_logout_body_and_limits() {
-    let doc: Value =
-        serde_json::from_str(include_str!("../openapi.json")).unwrap();
+    let doc: Value = serde_json::from_str(include_str!("../openapi.json")).unwrap();
     let p = &doc["paths"];
     let create = &p["/api/v1/chores/{id}/completions"]["post"];
     assert!(create["responses"]["200"].is_object());
     assert!(create["responses"]["201"].is_object());
-    let note = |op: &Value| op["requestBody"]["content"]["application/json"]["schema"]["properties"]["note"]["nullable"].clone();
+    let note = |op: &Value| {
+        op["requestBody"]["content"]["application/json"]["schema"]["properties"]["note"]["nullable"]
+            .clone()
+    };
     assert_eq!(note(create), true);
     assert_eq!(note(&p["/api/v1/completions/{id}"]["patch"]), true);
     let logout = &p["/api/v1/auth/logout"]["post"]["requestBody"];
     assert_eq!(logout["required"], false);
-    assert!(logout["content"]["application/json"]["schema"]["properties"]["push_endpoint"].is_object());
+    assert!(
+        logout["content"]["application/json"]["schema"]["properties"]["push_endpoint"].is_object()
+    );
     assert!(p["/api/v1/households/{id}/members"]["post"]["responses"]["429"].is_object());
     assert!(p["/api/v1/auth/login"]["post"]["responses"]["503"].is_object());
 }

@@ -632,14 +632,16 @@ async fn done_push_waits_and_skips_an_undone_mark() {
     let mut w = world().await;
     let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
     subscribe(&mut w.b, &w.fake, &Device::new("ben", 2), "en").await;
-    w.app.state.push.set_done_delay(std::time::Duration::from_secs(10));
+    w.app
+        .state
+        .push
+        .set_done_delay(std::time::Duration::from_secs(10));
     let t0 = std::time::Instant::now();
     assert_eq!(done(&mut w.a, c, 1, "2025-12-31").await.status, 201);
     assert!(t0.elapsed() < std::time::Duration::from_secs(5));
-    let r = w
-        .a
-        .delete(&format!("/api/v1/completions/{}", uuid(1)), json!({}))
-        .await;
+    let r =
+        w.a.delete(&format!("/api/v1/completions/{}", uuid(1)), json!({}))
+            .await;
     assert_eq!(r.status, 204);
     tokio::time::pause();
     w.app.state.push.wait_idle().await;
@@ -651,7 +653,10 @@ async fn done_push_sent_after_the_delay_when_kept() {
     let mut w = world().await;
     let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
     subscribe(&mut w.b, &w.fake, &Device::new("ben", 2), "en").await;
-    w.app.state.push.set_done_delay(std::time::Duration::from_millis(300));
+    w.app
+        .state
+        .push
+        .set_done_delay(std::time::Duration::from_millis(300));
     assert_eq!(done(&mut w.a, c, 1, "2025-12-31").await.status, 201);
     assert!(w.fake.take().is_empty());
     w.app.state.push.wait_idle().await;
@@ -669,7 +674,10 @@ async fn shutdown_sends_delayed_done_pushes_at_once() {
     let mut w = world().await;
     let c = new_chore(&mut w.a, w.h, json!({"name": "Bins", "interval": "1w"})).await;
     subscribe(&mut w.b, &w.fake, &Device::new("ben", 2), "en").await;
-    w.app.state.push.set_done_delay(std::time::Duration::from_secs(600));
+    w.app
+        .state
+        .push
+        .set_done_delay(std::time::Duration::from_secs(600));
     assert_eq!(done(&mut w.a, c, 1, "2025-12-31").await.status, 201);
     let t0 = std::time::Instant::now();
     w.app.state.push.shutdown();

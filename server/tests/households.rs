@@ -427,7 +427,10 @@ async fn add_member_is_rate_limited_per_acting_user() {
         assert_eq!(r.status, 404, "attempt {i}");
     }
     let r = a
-        .post(&format!("/api/v1/households/{ha}/members"), json!({"username": "ben"}))
+        .post(
+            &format!("/api/v1/households/{ha}/members"),
+            json!({"username": "ben"}),
+        )
         .await;
     assert_eq!(r.status, 429);
     assert!(r.headers.get("retry-after").is_some());

@@ -354,7 +354,10 @@ mod tests {
         assert!(v["body"].as_str().unwrap().ends_with('…'));
         let small = payload("T".into(), "B \"q\"".into(), 1, "x".into());
         let v: Value = serde_json::from_str(&small).unwrap();
-        assert_eq!((v["title"].as_str(), v["body"].as_str()), (Some("T"), Some("B \"q\"")));
+        assert_eq!(
+            (v["title"].as_str(), v["body"].as_str()),
+            (Some("T"), Some("B \"q\""))
+        );
     }
 
     #[tokio::test]

@@ -216,14 +216,7 @@ pub fn encrypt(ua_public: &[u8], auth: &[u8], plaintext: &[u8]) -> Option<Vec<u8
     rng.fill(&mut salt).ok()?;
     let peer = agreement::UnparsedPublicKey::new(&agreement::ECDH_P256, ua_public);
     let ecdh = agreement::agree_ephemeral(eph, &peer, |s| s.to_vec()).ok()?;
-    seal(
-        &ecdh,
-        as_public.as_ref(),
-        ua_public,
-        auth,
-        &salt,
-        plaintext,
-    )
+    seal(&ecdh, as_public.as_ref(), ua_public, auth, &salt, plaintext)
 }
 
 /// Receiver side of RFC 8291, for tests: `ecdh` is ECDH(ua_private, sender key in the header).

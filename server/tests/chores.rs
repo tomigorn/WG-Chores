@@ -354,7 +354,10 @@ async fn names_lose_control_and_bidi_characters() {
         .await;
     assert_eq!(r.body["display_name"], "Jane Doe");
     let r = a
-        .post("/api/v1/households", json!({"name": "\u{202D}Home\u{007F}"}))
+        .post(
+            "/api/v1/households",
+            json!({"name": "\u{202D}Home\u{007F}"}),
+        )
         .await;
     assert_eq!(r.body["name"], "Home");
     let h = r.body["id"].as_i64().unwrap();
