@@ -63,10 +63,14 @@ class Done(private val outbox: Outbox, private val api: CompletionApi, private v
     companion object {
         fun newUuid(): String = UUID.randomUUID().toString()
 
-        /** Sends one outbox item; a delete the server no longer knows counts as done. */
+        /** Sends one outbox item; a delete the server no longer knows, or a mark it already undid (410), counts as done. */
         fun sendWith(api: CompletionApi): suspend (OutboxItem) -> Unit = { i ->
             when (i.kind) {
-                OutboxItem.Kind.Mark -> api.complete(i.choreId, i.uuid, i.doneOn, i.note)
+                OutboxItem.Kind.Mark -> try {
+                    api.complete(i.choreId, i.uuid, i.doneOn, i.note)
+                } catch (e: ApiException) {
+                    if (e.status != 410) throw e
+                }
                 OutboxItem.Kind.Delete -> try {
                     api.deleteCompletion(i.uuid)
                 } catch (e: ApiException) {

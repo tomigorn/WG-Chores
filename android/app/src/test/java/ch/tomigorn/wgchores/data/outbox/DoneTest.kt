@@ -84,6 +84,19 @@ class DoneTest {
         assertFalse(r.queued)
     }
 
+    @Test fun markTheServerAlreadyUndidIsSettledWithoutANotice() = runBlocking {
+        api.fail = ApiException(410, "deleted")
+        val r = done.mark(7, "2026-11-14", null)
+        assertEquals(Done.Mark("uuid-1", queued = false, rejected = false), r)
+        assertTrue(outbox.items().isEmpty())
+        api.fail = null
+        outbox.add(OutboxItem("late", 7, "2026-11-14", null))
+        api.fail = ApiException(410, "deleted")
+        val f = outbox.flush()
+        assertTrue(f.dropped.isEmpty())
+        assertEquals(1, f.sent)
+    }
+
     @Test fun undoBeforeSendRemovesItFromTheOutbox() = runBlocking {
         api.offline = true
         val r = done.mark(7, "2026-11-14", null)
