@@ -141,4 +141,5 @@ cd web && npm run dev
 | Password hashing | at most 4 at once, 16 waiting; more → 503 `busy` + `Retry-After: 5` |
 
 ## Operations
+- Schema migrations (`server/src/db/migrations/`) run at start, each in one transaction, with foreign keys off (a table rebuild such as `0004` would otherwise cascade); `PRAGMA foreign_key_check` runs before each commit, any violation rolls that migration back and the server refuses to start. Take a `backup` before updating.
 - Edit data through the app or API, not with a plain `sqlite3` client: the `categories` table has a unique index on `ulower(name)`, a function only the server registers, so writes to it fail elsewhere.
