@@ -7,6 +7,7 @@ pub enum Interval {
     W1,
     W2,
     M1,
+    M2,
     M3,
     M6,
     Y1,
@@ -19,6 +20,7 @@ impl Interval {
             Interval::W1 => 7,
             Interval::W2 => 14,
             Interval::M1 => 30,
+            Interval::M2 => 61,
             Interval::M3 => 91,
             Interval::M6 => 182,
             Interval::Y1 => 365,
@@ -31,6 +33,7 @@ impl Interval {
             "1w" => Interval::W1,
             "2w" => Interval::W2,
             "1m" => Interval::M1,
+            "2m" => Interval::M2,
             "3m" => Interval::M3,
             "6m" => Interval::M6,
             "1y" => Interval::Y1,
@@ -44,6 +47,7 @@ impl Interval {
             Interval::W1 => "1w",
             Interval::W2 => "2w",
             Interval::M1 => "1m",
+            Interval::M2 => "2m",
             Interval::M3 => "3m",
             Interval::M6 => "6m",
             Interval::Y1 => "1y",
@@ -125,11 +129,12 @@ mod tests {
         usual: Option<i64>,
     }
 
-    const ALL: [Interval; 7] = [
+    const ALL: [Interval; 8] = [
         Interval::D3,
         Interval::W1,
         Interval::W2,
         Interval::M1,
+        Interval::M2,
         Interval::M3,
         Interval::M6,
         Interval::Y1,
@@ -172,7 +177,7 @@ mod tests {
             assert_eq!(Interval::from_code(i.code()), Some(i));
         }
         let days: Vec<i64> = ALL.iter().map(|i| i.days()).collect();
-        assert_eq!(days, [3, 7, 14, 30, 91, 182, 365]);
+        assert_eq!(days, [3, 7, 14, 30, 61, 91, 182, 365]);
         assert_eq!(interval_days(None), 30);
     }
 

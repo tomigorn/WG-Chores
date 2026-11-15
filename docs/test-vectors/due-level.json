@@ -193,5 +193,55 @@
   "days_since": 730,
   "interval": "1y",
   "level": "long_overdue"
+ },
+ {
+  "days_since": 30,
+  "interval": "2m",
+  "level": "fresh"
+ },
+ {
+  "days_since": 31,
+  "interval": "2m",
+  "level": "soon"
+ },
+ {
+  "days_since": 48,
+  "interval": "2m",
+  "level": "soon"
+ },
+ {
+  "days_since": 49,
+  "interval": "2m",
+  "level": "close"
+ },
+ {
+  "days_since": 60,
+  "interval": "2m",
+  "level": "close"
+ },
+ {
+  "days_since": 61,
+  "interval": "2m",
+  "level": "due"
+ },
+ {
+  "days_since": 91,
+  "interval": "2m",
+  "level": "due"
+ },
+ {
+  "days_since": 92,
+  "interval": "2m",
+  "level": "overdue"
+ },
+ {
+  "days_since": 121,
+  "interval": "2m",
+  "level": "overdue"
+ },
+ {
+  "days_since": 122,
+  "interval": "2m",
+  "level": "long_overdue"
  }
 ]

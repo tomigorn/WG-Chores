@@ -256,6 +256,11 @@ async fn chore_validation_and_edit() {
         .await;
     assert_eq!(p.body["name"], "Trash");
     assert_eq!(p.body["interval"], "2w");
+    let p = a
+        .patch(&format!("/api/v1/chores/{c}"), json!({"interval": "2m"}))
+        .await;
+    assert_eq!(p.status, 200);
+    assert_eq!(p.body["interval"], "2m");
     assert_eq!(
         a.patch(&format!("/api/v1/chores/{c}"), json!({"name": ""}))
             .await
