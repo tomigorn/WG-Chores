@@ -48,7 +48,7 @@ p.authorization_flow = oidc_src.authorization_flow
 p.invalidation_flow = oidc_src.invalidation_flow
 p.signing_key = oidc_src.signing_key
 p.client_type = ClientType.CONFIDENTIAL
-p.grant_types = ["authorization_code", "refresh_token"]  # empty = every request rejected
+p.grant_types = ["authorization_code"]  # the server never refreshes; empty = every request rejected
 p.include_claims_in_id_token = True
 p.redirect_uris = [RedirectURI(RedirectURIMatchingMode.STRICT, f"{HOST}/auth/oidc/callback",
                                RedirectURIType.AUTHORIZATION)]
@@ -71,4 +71,5 @@ if new or ROTATE:
         print("CHANGE client credential rotated, recreate the app: docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 up -d --force-recreate")
 else:
     print("OK client credential unchanged, file not touched (rotate: -e WG_CHORES_OIDC_ROTATE=1)")
+print(f"OK grant types: {', '.join(p.grant_types)}")
 print("OK provisioned")
