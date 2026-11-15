@@ -5,12 +5,12 @@
   import Icon from '../components/Icon.svelte';
   import PageBar from '../components/PageBar.svelte';
   import { api, ApiError, OfflineError, type By, type Chore, type Completion, type Me, type ServerConfig } from '../lib/api';
-  import { applyCompletion, dayWord, doneWhen, rebase, todayIn } from '../lib/chores';
-  import { newUuid } from '../lib/done';
+  import { applyCompletion, dayWord, rebase, todayIn } from '../lib/chores';
   import { t, type Lang } from '../lib/i18n';
+  import { marker } from '../lib/marking';
   import { marks, type FlushResult, type OutboxItem } from '../lib/outbox';
   import { navigate } from '../lib/router';
-  import { clearSnack, rememberChores, showSnack, toast } from '../lib/snack';
+  import { clearSnack, rememberChores, toast } from '../lib/snack';
   import { startSync } from '../lib/sync';
   import { choreMeta, lastDone, usualText } from '../lib/words';
 
@@ -129,38 +129,24 @@
     mutations++;
   }
 
-  async function mark(doneOn: string | null, note: string | null) {
-    if (!chore) return;
-    today = todayIn(config.tz);
-    doneOn ??= today;
-    const prev = chore;
-    const uuid = newUuid();
-    edited();
-    chore = applyCompletion(prev, { doneOn, by: meBy }, today);
-    queued = [...queued, { uuid, choreId: id, doneOn, note }];
-    showSnack({
-      icon: 'check',
-      strong: prev.name,
-      text: t('done.snack', { when: doneWhen(doneOn, today, lang) }),
-      actions: [{ label: t('done.undo'), run: () => undo(uuid, prev) }],
-    });
-    const r = await done.mark(id, doneOn, note, uuid);
-    queued = await outbox.items();
-    if (r.rejected) chore = prev;
-  }
+  const m = marker({
+    done,
+    tz: untrack(() => config.tz),
+    me: () => meBy,
+    lang: () => lang,
+    get: () => chore ?? undefined,
+    set: (c) => {
+      edited();
+      chore = c;
+    },
+    reload: load,
+    setToday: (d) => (today = d),
+    pending: (p) => (queued = 'add' in p ? [...queued, p.add] : queued.filter((q) => q.uuid !== p.remove)),
+    settled: async () => (queued = await outbox.items()),
+  });
 
-  async function undo(uuid: string, prev: Chore) {
-    clearSnack();
-    const now = chore;
-    edited();
-    chore = prev;
-    queued = queued.filter((q) => q.uuid !== uuid);
-    const r = await done.undo(uuid, id);
-    if (r === 'ok') return load();
-    queued = await outbox.items();
-    if (r === 'queued') return;
-    chore = now;
-    toast(t('done.failed'));
+  async function mark(doneOn: string | null, note: string | null): Promise<void> {
+    if (chore) await m.mark(chore, doneOn, note);
   }
 
   function openNew() {
@@ -332,7 +318,7 @@
 
 {#if chore && phase === 'ready' && !chore.archived}
   <footer class="foot">
-    <button class="btn btn-primary" type="button" onclick={() => mark(null, null)}><Icon name="check" size={18} />{t('chore.done_today')}</button>
+    <button class="btn btn-primary" type="button" onclick={() => chore && m.tap(chore)}><Icon name="check" size={18} />{t('chore.done_today')}</button>
     <button class="btn" type="button" onclick={openNew}>{t('chore.other_date')}</button>
   </footer>
 {/if}

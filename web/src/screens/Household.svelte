@@ -7,12 +7,12 @@
   import Sheet from '../components/Sheet.svelte';
   import TopBar from '../components/TopBar.svelte';
   import { api, ApiError, OfflineError, type By, type Chore, type Household, type Me, type ServerConfig } from '../lib/api';
-  import { applyCompletion, doneWhen, groupChores, rebase, todayIn, withPending } from '../lib/chores';
-  import { newUuid } from '../lib/done';
+  import { applyCompletion, groupChores, rebase, todayIn, withPending } from '../lib/chores';
   import { t, type Lang } from '../lib/i18n';
+  import { marker } from '../lib/marking';
   import { marks, type FlushResult } from '../lib/outbox';
   import { navigate } from '../lib/router';
-  import { clearSnack, rememberChores, showSnack, toast } from '../lib/snack';
+  import { clearSnack, rememberChores, toast } from '../lib/snack';
   import { startSync } from '../lib/sync';
   import type { ThemeSetting } from '../lib/theme';
 
@@ -60,8 +60,6 @@
 
   const meBy: By = $derived({ id: me.id, display_name: me.display_name, former: false });
   const groups = $derived(groupChores(chores, lang === 'de' ? 'de-CH' : 'en-GB'));
-
-  const show = showSnack;
 
   function flushed(r: FlushResult) {
     if (r.sent || r.dropped.length) load();
@@ -117,35 +115,17 @@
     return chores.find((c) => c.id === id);
   }
 
-  async function mark(c: Chore, doneOn: string | null, note: string | null) {
-    today = todayIn(config.tz);
-    doneOn ??= today;
-    const prev = current(c.id) ?? c;
-    const uuid = newUuid();
-    setRow(applyCompletion(prev, { doneOn, by: meBy }, today));
-    show({
-      icon: 'check',
-      strong: c.name,
-      text: t('done.snack', { when: doneWhen(doneOn, today, lang) }),
-      actions: [
-        { label: t('done.undo'), run: () => undo(c.id, prev, uuid) },
-        { label: t('done.other_date'), run: () => openSheet(c, prev, uuid, { doneOn, note }) },
-      ],
-    });
-    const r = await done.mark(c.id, doneOn, note, uuid);
-    if (r.rejected) setRow(prev);
-  }
-
-  async function undo(id: number, prev: Chore, uuid: string) {
-    clearSnack();
-    const now = current(id);
-    setRow(prev);
-    const r = await done.undo(uuid, id);
-    if (r === 'ok') return load();
-    if (r === 'queued') return;
-    if (now) setRow(now);
-    toast(t('done.failed'));
-  }
+  const m = marker({
+    done,
+    tz: untrack(() => config.tz),
+    me: () => meBy,
+    lang: () => lang,
+    get: current,
+    set: setRow,
+    reload: load,
+    setToday: (d) => (today = d),
+    more: (c, prev, uuid, doneOn, note) => [{ label: t('done.other_date'), run: () => openSheet(c, prev, uuid, { doneOn, note }) }],
+  });
 
   function openSheet(c: Chore, prev: Chore, uuid: string | null, initial: { doneOn: string; note: string | null }) {
     clearSnack();
@@ -158,18 +138,12 @@
     const s = sheet;
     sheetOpen = false;
     if (!s) return;
-    if (s.uuid === null) return mark(s.chore, doneOn, note);
+    if (s.uuid === null) return m.mark(s.chore, doneOn, note);
     const before = current(s.chore.id);
     setRow(applyCompletion(s.prev, { doneOn, by: meBy }, today));
     const r = await done.change(s.uuid, { doneOn, note });
     if (r === 'ok') {
-      const uuid = s.uuid;
-      show({
-        icon: 'check',
-        strong: s.chore.name,
-        text: t('done.snack', { when: doneWhen(doneOn, today, lang) }),
-        actions: [{ label: t('done.undo'), run: () => undo(s.chore.id, s.prev, uuid) }],
-      });
+      m.snack(s.chore, s.prev, s.uuid, doneOn, note, false);
       load();
     } else {
       if (before) setRow(before);
@@ -250,7 +224,7 @@
         <h2 class="cat"><span class="clamp" data-clamp="2">{g.category ?? t('list.other_category')}</span></h2>
         <ul class="list">
           {#each g.chores as c (c.id)}
-            <ChoreRow chore={c} {today} {lang} ondone={() => mark(c, null, null)} onlong={() => openSheet(c, c, null, { doneOn: todayIn(config.tz), note: null })} />
+            <ChoreRow chore={c} {today} {lang} ondone={() => m.tap(c)} onlong={() => openSheet(c, c, null, { doneOn: todayIn(config.tz), note: null })} />
           {/each}
         </ul>
       </section>

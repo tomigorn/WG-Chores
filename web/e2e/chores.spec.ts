@@ -38,6 +38,17 @@ test('tick marks done today, undo removes it again', async ({ page, context }) =
   await expect.poll(async () => (await anna.completions(c.id)).length).toBe(0);
 });
 
+test('a double tap on the tick marks once', async ({ page, context }) => {
+  const { anna, h } = await setup(context);
+  const c = await anna.chore(h.id, 'Sweep the stairs', 'Hall', '1w');
+  await page.goto(`${box.server.url}/households/${h.id}`);
+  await page.getByRole('button', { name: 'Mark Sweep the stairs done' }).dblclick();
+  await expect(page.getByRole('status')).toContainText('Sweep the stairs');
+  await expect.poll(async () => (await anna.completions(c.id)).length).toBe(1);
+  await page.waitForTimeout(1500);
+  expect(await anna.completions(c.id)).toHaveLength(1);
+});
+
 test('long press opens the date sheet; yesterday with a note is saved', async ({ page, context }) => {
   const { anna, h } = await setup(context);
   const c = await anna.chore(h.id, 'Water the plants', 'Balcony', '3d');

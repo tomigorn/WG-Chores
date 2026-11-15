@@ -95,6 +95,18 @@ describe('Household screen', () => {
     expect(snack()).toContain('could not be saved');
   });
 
+  it('double_tap_marks_once', async () => {
+    const complete = vi.spyOn(api, 'complete').mockImplementation(async (_c, b) => completion(b.id, b.done_on!));
+    await open();
+    button('Mark Clean toilet done').click();
+    button('Mark Clean toilet done').click();
+    await vi.waitFor(() => expect(complete).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    button('Mark Clean toilet done').click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
   it('stale_response_does_not_override_an_undo', async () => {
     const doneList = [{ ...toilet(), last: { done_on: '2026-11-14', by: { id: 1, display_name: 'Anna', former: false } }, days_since: 0, due_level: 'fresh' as const, days_overdue: 0 }];
     vi.spyOn(api, 'complete').mockImplementation(async (_c, b) => completion(b.id, b.done_on!));
