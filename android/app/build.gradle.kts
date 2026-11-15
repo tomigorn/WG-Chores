@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.roborazzi)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 // versionName = the server's version (server/Cargo.toml); beefy-build.sh passes it as -Pwgc.version
@@ -59,6 +60,10 @@ android {
     }
 }
 
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 roborazzi {
     outputDir.set(file("src/test/screenshots"))
 }
@@ -69,6 +74,14 @@ val exportScreenshots = tasks.register<Sync>("exportScreenshots") {
     into(layout.buildDirectory.dir("outputs/screenshots"))
 }
 tasks.matching { it.name == "testDebugUnitTest" }.configureEach { finalizedBy(exportScreenshots) }
+
+// the Room schema JSON lands in app/schemas on beefy; build/outputs is what comes back for committing
+val exportRoomSchemas = tasks.register<Sync>("exportRoomSchemas") {
+    dependsOn("copyRoomSchemas")
+    from("schemas")
+    into(layout.buildDirectory.dir("outputs/room-schemas"))
+}
+tasks.matching { it.name == "assembleDebug" || it.name == "testDebugUnitTest" }.configureEach { finalizedBy(exportRoomSchemas) }
 
 dependencies {
     implementation(platform(libs.compose.bom))

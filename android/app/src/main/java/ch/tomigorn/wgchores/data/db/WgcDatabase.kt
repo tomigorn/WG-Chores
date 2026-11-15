@@ -98,7 +98,7 @@ interface CacheDao {
     suspend fun clearPrefix(prefix: String)
 }
 
-@Database(entities = [PendingMark::class, PendingDelete::class, CacheEntry::class], version = 1, exportSchema = false)
+@Database(entities = [PendingMark::class, PendingDelete::class, CacheEntry::class], version = 1, exportSchema = true)
 abstract class WgcDatabase : RoomDatabase() {
     abstract fun outbox(): OutboxDao
     abstract fun cache(): CacheDao
