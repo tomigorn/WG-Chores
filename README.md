@@ -4,7 +4,7 @@ Shared household chore tracker: who did what, how long ago. One small Rust serve
 
 | Doc | What |
 |---|---|
-| [docs/privacy.md](docs/privacy.md) | what is stored, where |
+| [docs/privacy.md](docs/privacy.md) | what is stored, where (every server also serves it at `/privacy`, and `docs/account-deletion.md` at `/account-deletion`) |
 | [docs/account-deletion.md](docs/account-deletion.md) | how to delete an account |
 
 ## Android app

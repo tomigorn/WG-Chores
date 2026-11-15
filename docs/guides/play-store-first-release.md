@@ -16,7 +16,7 @@ Time: about 1 hour for steps 1–5, then at least 14 days of closed test, then u
 4. Upload key exists and is backed up: [android-signing-key.md](android-signing-key.md).
 5. Signed AAB ready: built on beefy and signed on fastpi ([android/README.md](../../android/README.md#signing-fastpi-only)), file `app-release-signed.aab` in the run folder under `~/.cache/claude-work/wgc-android/latest/`. Copy it to your computer (`scp`).
 6. Demo server live with the reviewer account ([go-live-holy-grail.md](go-live-holy-grail.md) steps 4–7), demo password in KeePassXC.
-7. Repo pushed to GitHub (the privacy and deletion links point there).
+7. Demo server serves `/privacy` and `/account-deletion` (every server does, rendered from `docs/`); repo pushed to GitHub as the fallback for the links.
 8. A contact email for the listing. It is **public**: use an address you don't mind showing (e.g. an alias).
 
 ## 1. Create the app
@@ -50,7 +50,7 @@ Left menu **Monitor and improve** → **Policy and programs** → **App content*
 
 | Item | Answer |
 |---|---|
-| Privacy policy | `https://github.com/tomigorn/WG-Chores/blob/main/docs/privacy.md` (TODO go-live: once the demo server serves it, switch to `https://wg-chores-demo.holy-grail.ch/privacy`) |
+| Privacy policy | `https://wg-chores-demo.holy-grail.ch/privacy` (fallback: `https://github.com/tomigorn/WG-Chores/blob/main/docs/privacy.md`) |
 | Sign-in details (App access) | All or some functionality is restricted → **+ Add new instructions** → text from [reviewer-access.md](../../android/store/reviewer-access.md), real demo password from KeePassXC |
 | Ads | No, my app does not contain ads |
 | Content rating | questionnaire: [content-rating.md](../../android/store/content-rating.md) → **Submit** |

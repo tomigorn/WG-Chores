@@ -8,7 +8,7 @@ Play Console → Monitor and improve → Policy and programs → App content →
 | Does your app collect or share any of the required user data types? | Yes |
 | Is all of the user data collected by your app encrypted in transit? | Yes (the app talks https only) |
 | Which account creation methods does your app support? | Username and password; OAuth (SSO), depending on the server |
-| Delete account URL | `https://github.com/tomigorn/WG-Chores/blob/main/docs/account-deletion.md` (later `https://wg-chores-demo.holy-grail.ch/account-deletion` once the server serves it) |
+| Delete account URL | `https://wg-chores-demo.holy-grail.ch/account-deletion` (fallback: `https://github.com/tomigorn/WG-Chores/blob/main/docs/account-deletion.md`) |
 | Do you provide a way for users to request that some or all of their data is deleted, without requiring them to delete their account? | No (leaving a household removes you from it; everything else goes with the account) |
 
 ## Data types
