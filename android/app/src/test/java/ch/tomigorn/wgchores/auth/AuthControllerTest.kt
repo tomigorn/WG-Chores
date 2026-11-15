@@ -44,6 +44,19 @@ class AuthControllerTest {
         auth.login("anna", fake.pw)
     }
 
+    @Test fun signInRemembersTheUserIdAndRefreshTheLastHousehold() {
+        signedInViaForm()
+        runBlocking {
+            assertEquals(1L, store.read().userId)
+            fake.lastHousehold = 2
+            assertEquals(2L, auth.refreshUser()?.lastHouseholdId)
+            assertEquals(2L, store.read().lastHousehold)
+            fake.down = true
+            assertNull(auth.refreshUser())
+            assertEquals(2L, store.read().lastHousehold)
+        }
+    }
+
     @Test fun firstStartAsksForTheServer() = runBlocking {
         auth.start()
         assertEquals(PickServer(), auth.state.value)
@@ -232,5 +245,11 @@ class AuthControllerTest {
         auth.connect(fake.url)
         auth.finishSso("wgchores://auth?code=${fake.issueSsoCode("x")}")
         assertEquals(LoginError.Code("sso_failed"), (auth.state.value as Login).error)
+    }
+
+    @Test fun strayCallbackWhileSignedInChangesNothing() {
+        signedInViaForm()
+        runBlocking { auth.finishSso("wgchores://auth?error=sso_failed") }
+        assertEquals(SignedIn(fake.url, "Jane Doe"), auth.state.value)
     }
 }

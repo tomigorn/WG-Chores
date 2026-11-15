@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.roborazzi)
+    alias(libs.plugins.ksp)
 }
 
 // versionName = the server's version (server/Cargo.toml); beefy-build.sh passes it as -Pwgc.version
@@ -44,6 +45,8 @@ android {
 
     sourceSets {
         getByName("test").kotlin.srcDir("src/sharedTest/java")
+        // shared with the server and the web app; beefy-build.sh ships docs/test-vectors/ along with android/
+        getByName("test").resources.srcDir(rootDir.resolve("../docs/test-vectors"))
         getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
     }
 
@@ -81,6 +84,9 @@ dependencies {
     implementation(libs.browser)
     implementation(libs.okhttp)
     implementation(libs.serialization.json)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 

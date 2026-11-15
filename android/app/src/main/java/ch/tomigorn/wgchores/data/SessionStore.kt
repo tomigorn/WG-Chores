@@ -3,6 +3,7 @@ package ch.tomigorn.wgchores.data
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -13,6 +14,8 @@ data class Session(
     val config: ServerConfig? = null,
     val token: String? = null, // leak-check: ok
     val userName: String? = null,
+    val userId: Long? = null,
+    val lastHousehold: Long? = null,
 )
 
 class SessionStore(private val prefs: DataStore<Preferences>, private val cipher: TokenCipher) {
@@ -22,6 +25,8 @@ class SessionStore(private val prefs: DataStore<Preferences>, private val cipher
         val token = stringPreferencesKey("token") // leak-check: ok
         val userName = stringPreferencesKey("user_name")
         val verifier = stringPreferencesKey("sso_verifier")
+        val userId = longPreferencesKey("user_id")
+        val lastHousehold = longPreferencesKey("last_household")
     }
 
     /** Sealed blob and its plain value: the Keystore is asked once per stored token, off the main thread. */
@@ -40,6 +45,8 @@ class SessionStore(private val prefs: DataStore<Preferences>, private val cipher
             config = p[Keys.config]?.let(ServerConfig::parse),
             token = unseal(p[Keys.token]), // leak-check: ok
             userName = p[Keys.userName],
+            userId = p[Keys.userId],
+            lastHousehold = p[Keys.lastHousehold],
         )
     }
 
@@ -55,14 +62,29 @@ class SessionStore(private val prefs: DataStore<Preferences>, private val cipher
         prefs.edit { it[Keys.config] = config.toJson() }
     }
 
-    suspend fun saveSignIn(bearer: String, userName: String): Boolean {
+    suspend fun saveSignIn(bearer: String, userName: String, userId: Long? = null): Boolean {
         val sealed = withContext(Dispatchers.Default) { cipher.encrypt(bearer) } ?: return false
         prefs.edit {
             it[Keys.token] = sealed
             it[Keys.userName] = userName
+            if (userId != null) it[Keys.userId] = userId else it.remove(Keys.userId)
+            it.remove(Keys.lastHousehold)
         }
         cached = sealed to bearer
         return true
+    }
+
+    /** Who is signed in and which household they had open, kept for offline starts. */
+    suspend fun saveUser(userId: Long, userName: String, lastHousehold: Long?) {
+        prefs.edit {
+            it[Keys.userId] = userId
+            it[Keys.userName] = userName
+            if (lastHousehold != null) it[Keys.lastHousehold] = lastHousehold else it.remove(Keys.lastHousehold)
+        }
+    }
+
+    suspend fun saveLastHousehold(id: Long?) {
+        prefs.edit { if (id != null) it[Keys.lastHousehold] = id else it.remove(Keys.lastHousehold) }
     }
 
     suspend fun clearSignIn() {
@@ -70,6 +92,8 @@ class SessionStore(private val prefs: DataStore<Preferences>, private val cipher
         prefs.edit {
             it.remove(Keys.token)
             it.remove(Keys.userName)
+            it.remove(Keys.userId)
+            it.remove(Keys.lastHousehold)
             it.remove(Keys.verifier)
         }
     }

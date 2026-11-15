@@ -1,6 +1,10 @@
 package ch.tomigorn.wgchores.api
 
 import ch.tomigorn.wgchores.data.ServerConfig
+import ch.tomigorn.wgchores.data.outbox.CompletionApi
+import ch.tomigorn.wgchores.domain.Chore
+import ch.tomigorn.wgchores.domain.Household
+import kotlinx.serialization.builtins.ListSerializer
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +31,7 @@ data class User(
     val kind: String = "",
     @SerialName("picture_url") val pictureUrl: String? = null,
     @SerialName("account_url") val accountUrl: String? = null,
+    @SerialName("last_household_id") val lastHouseholdId: Long? = null,
 )
 
 @Serializable
@@ -44,7 +49,7 @@ class ApiClient(
     private val bearer: suspend () -> String? = { null },
     private val onUnauthenticated: suspend () -> Unit = {},
     private val http: OkHttpClient = defaultHttp,
-) {
+) : CompletionApi {
     suspend fun login(username: String, pw: String, deviceName: String): AuthResult =
         post("/api/v1/auth/login", AuthResult.serializer(), signedIn = false) {
             put("username", username)
@@ -71,6 +76,45 @@ class ApiClient(
 
     suspend fun me(): User = call(Request.Builder().url(baseUrl + "/api/v1/me").get(), User.serializer(), signedIn = true)
         ?: throw ApiException(204, "invalid_response")
+
+    suspend fun households(): List<Household> = get("/api/v1/households", ListSerializer(Household.serializer()))
+
+    suspend fun household(id: Long): Household = get("/api/v1/households/$id", Household.serializer())
+
+    suspend fun chores(householdId: Long): List<Chore> = get("/api/v1/households/$householdId/chores", ListSerializer(Chore.serializer()))
+
+    suspend fun createHousehold(name: String): Household =
+        post("/api/v1/households", Household.serializer(), signedIn = true) { put("name", name) }
+
+    suspend fun setLastHousehold(id: Long) {
+        send("PUT", "/api/v1/me/last-household", buildJsonObject { put("id", id) })
+    }
+
+    override suspend fun complete(choreId: Long, uuid: String, doneOn: String, note: String?) {
+        send("POST", "/api/v1/chores/$choreId/completions", buildJsonObject {
+            put("id", uuid)
+            put("done_on", doneOn)
+            put("note", note)
+        })
+    }
+
+    override suspend fun patchCompletion(uuid: String, doneOn: String, note: String?) {
+        send("PATCH", "/api/v1/completions/$uuid", buildJsonObject {
+            put("done_on", doneOn)
+            put("note", note)
+        })
+    }
+
+    override suspend fun deleteCompletion(uuid: String) {
+        call<Unit>(Request.Builder().url("$baseUrl/api/v1/completions/$uuid").delete(), null, signedIn = true)
+    }
+
+    private suspend fun <T> get(path: String, serializer: KSerializer<T>): T =
+        call(Request.Builder().url(baseUrl + path).get(), serializer, signedIn = true) ?: throw ApiException(204, "invalid_response")
+
+    private suspend fun send(method: String, path: String, body: JsonObject) {
+        call<Unit>(Request.Builder().url(baseUrl + path).method(method, body.toString().toRequestBody(JSON_TYPE)), null, signedIn = true)
+    }
 
     suspend fun logout() {
         call<Unit>(Request.Builder().url(baseUrl + "/api/v1/auth/logout").post(EMPTY_JSON), null, signedIn = true)
@@ -101,6 +145,7 @@ class ApiClient(
 
     companion object {
         private const val MAX_CONFIG_BYTES = 64L * 1024
+        private const val MAX_BODY_BYTES = 4L * 1024 * 1024
         private val JSON_TYPE = "application/json".toMediaType()
         private val EMPTY_JSON = "{}".toRequestBody(JSON_TYPE)
         internal val json = Json { ignoreUnknownKeys = true }
@@ -116,7 +161,7 @@ class ApiClient(
         suspend fun probe(baseUrl: String, http: OkHttpClient = probeHttp): ServerConfig {
             val request = Request.Builder().url("$baseUrl/api/v1/config").header("Accept", "application/json").build()
             return execute(http, request) { r ->
-                if (!r.isSuccessful || r.header("Content-Type")?.startsWith("application/json") != true) throw NotWgChoresException()
+                if (!r.isSuccessful || !r.isJson()) throw NotWgChoresException()
                 val source = r.body.source()
                 if (source.request(MAX_CONFIG_BYTES + 1)) throw NotWgChoresException()
                 ServerConfig.parse(source.buffer.readUtf8()) ?: throw NotWgChoresException()
@@ -139,13 +184,17 @@ class ApiClient(
                 }
             }
 
+        private fun Response.isJson(): Boolean = body.contentType()?.let { it.type == "application" && it.subtype == "json" } == true
+
         private fun <T> Response.readResult(serializer: KSerializer<T>?): T? {
             val text = try {
-                body.string()
+                val source = body.source()
+                if (source.request(MAX_BODY_BYTES + 1)) null else source.buffer.readUtf8()
             } catch (e: IOException) {
                 throw OfflineException(e)
             }
-            val isJson = header("Content-Type")?.startsWith("application/json") == true
+            if (text == null) throw ApiException(code, if (isSuccessful) "invalid_response" else "http_$code")
+            val isJson = isJson()
             if (isSuccessful) {
                 if (serializer == null || code == 204) return null
                 if (!isJson) throw ApiException(code, "invalid_response")

@@ -23,7 +23,9 @@ class TokenCipherTest {
 
     @Test fun tamperedCiphertextIsRejected() {
         val blob = cipher.encrypt("tok-123")!!
-        val flipped = blob.substring(0, blob.length - 2) + (if (blob[blob.length - 2] == 'A') 'B' else 'A') + blob.last()
+        // a middle character: the last ones may only carry base64 padding bits
+        val i = blob.length / 2
+        val flipped = blob.substring(0, i) + (if (blob[i] == 'A') 'B' else 'A') + blob.substring(i + 1)
         assertNull(cipher.decrypt(flipped))
     }
 

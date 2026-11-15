@@ -178,4 +178,75 @@ class ApiClientTest {
             assertEquals("http_500", failsWith<ApiException> { runBlocking { a.me() } }.code)
         }
     }
+
+    @Test fun probeAcceptsAnUppercaseContentType() {
+        MockWebServer().use { other ->
+            other.enqueue(
+                MockResponse(
+                    200,
+                    headersOf("Content-Type", "Application/JSON; charset=UTF-8"),
+                    """{"name":"WG Chores","local_accounts":true,"open_registration":false,"min_app_version":"1.0.0"}""",
+                ),
+            )
+            other.start()
+            runBlocking { ApiClient.probe(other.url("/").toString().trimEnd('/')) }
+        }
+    }
+
+    @Test fun uppercaseJsonErrorIsReadAsJson() {
+        MockWebServer().use { other ->
+            other.enqueue(MockResponse(400, headersOf("Content-Type", "APPLICATION/JSON"), """{"error":"invalid_date","message":"x"}"""))
+            other.start()
+            val a = ApiClient(other.url("/").toString().trimEnd('/'), bearer = { "t" })
+            assertEquals("invalid_date", failsWith<ApiException> { runBlocking { a.me() } }.code)
+        }
+    }
+
+    @Test fun aHugeBodyIsAnInvalidResponseNotACrash() {
+        MockWebServer().use { other ->
+            val padding = "\"pad\":\"" + "x".repeat(5 * 1024 * 1024) + "\","
+            other.enqueue(MockResponse(200, headersOf("Content-Type", "application/json"), """{$padding"id":1,"display_name":"Jane Doe"}"""))
+            other.start()
+            val a = ApiClient(other.url("/").toString().trimEnd('/'), bearer = { "t" })
+            assertEquals("invalid_response", failsWith<ApiException> { runBlocking { a.me() } }.code)
+        }
+    }
+
+    @Test fun householdsAndChoresAreRead() = runBlocking {
+        bearer = fake.token()
+        assertEquals(listOf("WG Zürich", "Family"), api.households().map { it.name })
+        assertEquals("WG Zürich", api.household(1).name)
+        val chores = api.chores(1)
+        assertEquals(8, chores.size)
+        assertEquals("Bathroom", chores.first { it.name == "Clean toilet" }.category)
+        assertEquals(1L, api.me().lastHouseholdId)
+    }
+
+    @Test fun completeSendsTheClientUuidAndReplaysIdempotently() = runBlocking {
+        bearer = fake.token()
+        api.complete(4, "6f1c2b9e-1111-4c4c-8888-123456789abc", "2026-11-14", "new cleaner")
+        api.complete(4, "6f1c2b9e-1111-4c4c-8888-123456789abc", "2026-11-14", "new cleaner")
+        val made = fake.created()
+        assertEquals(1, made.size)
+        assertEquals("new cleaner", made.values.single().note)
+        val body = fake.lastRequest("/api/v1/chores/4/completions")!!.body!!.utf8()
+        assertTrue(body, body.contains("\"id\":\"6f1c2b9e-1111-4c4c-8888-123456789abc\""))
+    }
+
+    @Test fun patchAndDeleteACompletion() = runBlocking {
+        bearer = fake.token()
+        api.complete(4, "u-1", "2026-11-14", null)
+        api.patchCompletion("u-1", "2026-11-13", "x")
+        assertEquals("2026-11-13", fake.created().getValue("u-1").doneOn)
+        api.deleteCompletion("u-1")
+        assertTrue(fake.created().isEmpty())
+        assertEquals(404, failsWith<ApiException> { runBlocking { api.deleteCompletion("u-1") } }.status)
+    }
+
+    @Test fun lastHouseholdAndNewHousehold() = runBlocking {
+        bearer = fake.token()
+        api.setLastHousehold(2)
+        assertEquals(2L, fake.lastHousehold)
+        assertEquals("Flat", api.createHousehold("Flat").name)
+    }
 }

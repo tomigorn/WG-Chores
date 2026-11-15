@@ -18,10 +18,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val theme: StateFlow<ThemeMode> = c.settings.theme.stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.System)
 
     init {
-        act {
-            c.auth.start()
-            if (c.auth.state.value is AuthState.SignedIn) c.auth.refreshUser()
-        }
+        act { c.auth.start() }
     }
 
     private fun act(block: suspend () -> Unit) {
@@ -41,7 +38,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun login(username: String, pw: String) = act { c.auth.login(username, pw) }
     fun register(displayName: String, username: String, pw: String) = act { c.auth.register(displayName, username, pw) }
     fun retry() = act { c.auth.start() }
-    fun signOut() = act { c.auth.signOut() }
+    /** Sign-out drops the account's waiting marks (the menu warns first) and its cached lists. */
+    fun signOut() = act {
+        c.sync.account()?.let { c.sync.forget(it) }
+        c.auth.signOut()
+    }
     fun changeServer() = act { c.auth.changeServer() }
     fun finishSso(uri: String) = act { c.auth.finishSso(uri) }
     fun setTheme(mode: ThemeMode) = act { c.settings.setTheme(mode) }

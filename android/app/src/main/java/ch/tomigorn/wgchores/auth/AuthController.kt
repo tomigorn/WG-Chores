@@ -5,6 +5,7 @@ import ch.tomigorn.wgchores.api.ApiException
 import ch.tomigorn.wgchores.api.AuthResult
 import ch.tomigorn.wgchores.api.NotWgChoresException
 import ch.tomigorn.wgchores.api.OfflineException
+import ch.tomigorn.wgchores.api.User
 import ch.tomigorn.wgchores.data.AppVersion
 import ch.tomigorn.wgchores.data.ServerConfig
 import ch.tomigorn.wgchores.data.ServerUrl
@@ -91,6 +92,8 @@ class AuthController(
     }
 
     suspend fun finishSso(uri: String) {
+        // a late or stray callback must not end a sign-in that is already done
+        if (_state.value is AuthState.SignedIn) return
         val cb = SsoCallback.parse(uri) ?: return
         val verifier = store.takeVerifier()
         when (cb) {
@@ -105,17 +108,20 @@ class AuthController(
         }
     }
 
-    /** Checks the token with the server: a revoked one leads to the login screen. */
-    suspend fun refreshUser() {
+    /** Checks the token with the server (a revoked one leads to the login screen); null when offline or refused. */
+    suspend fun refreshUser(): User? {
         val s = store.read()
-        val server = s.server ?: return
-        if (s.token == null) return
-        try {
+        val server = s.server ?: return null
+        if (s.token == null) return null
+        return try {
             val user = api(server).me()
-            store.saveSignIn(s.token, user.displayName)
+            store.saveUser(user.id, user.displayName, user.lastHouseholdId)
             _state.update { if (it is AuthState.SignedIn) it.copy(userName = user.displayName) else it }
+            user
         } catch (_: ApiException) {
+            null
         } catch (_: OfflineException) {
+            null
         }
     }
 
@@ -173,7 +179,7 @@ class AuthController(
             return loginError(LoginError.Offline)
         }
         val name = result.user?.displayName.orEmpty()
-        if (!store.saveSignIn(result.token, name)) {
+        if (!store.saveSignIn(result.token, name, result.user?.id)) {
             try {
                 ApiClient(server, bearer = { result.token }).logout()
             } catch (_: ApiException) {
