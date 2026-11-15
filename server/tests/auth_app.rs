@@ -497,34 +497,14 @@ async fn basic_auth_from_a_proxy_is_ignored() {
     assert_eq!(res.status(), 200);
 }
 
-const CERT: &str = "14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42:E6:1D:BE:A8:8A:04:96:B2:3F:CF:44:E5";
-
 #[tokio::test]
-async fn assetlinks_lists_the_app_certificates() {
-    let app = TestApp::new();
+async fn no_app_link_file_is_served() {
+    let app = TestApp::with_env(&[(
+        "ANDROID_CERT_SHA256",
+        "14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42:E6:1D:BE:A8:8A:04:96:B2:3F:CF:44:E5",
+    )]);
     let r = app.client().get("/.well-known/assetlinks.json").await;
-    assert_eq!(r.status, 404, "no certificates configured");
-    let plain = CERT.replace(':', "").to_lowercase();
-    let app = TestApp::with_env(&[("ANDROID_CERT_SHA256", &format!("{CERT}, {plain}"))]);
-    let r = app.client().get("/.well-known/assetlinks.json").await;
-    assert_eq!(r.status, 200);
-    assert!(
-        r.headers["content-type"]
-            .to_str()
-            .unwrap()
-            .starts_with("application/json")
-    );
-    assert_eq!(
-        r.body,
-        json!([{
-            "relation": ["delegate_permission/common.handle_all_urls"],
-            "target": {
-                "namespace": "android_app",
-                "package_name": "ch.tomigorn.wgchores",
-                "sha256_cert_fingerprints": [CERT]
-            }
-        }])
-    );
+    assert_eq!(r.status, 404);
 }
 
 #[tokio::test]

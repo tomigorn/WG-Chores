@@ -11,25 +11,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 pub const REDIRECT: &str = "wgchores://auth";
-pub const PACKAGE: &str = "ch.tomigorn.wgchores";
 const CODE_TTL: Duration = Duration::seconds(60);
-
-/// `GET /.well-known/assetlinks.json`: Digital Asset Links for the app; 404 without `ANDROID_CERT_SHA256`.
-pub async fn assetlinks(State(st): State<AppState>) -> axum::response::Response {
-    use axum::response::IntoResponse;
-    if st.cfg.android_cert_sha256.is_empty() {
-        return axum::http::StatusCode::NOT_FOUND.into_response();
-    }
-    Json(json!([{
-        "relation": ["delegate_permission/common.handle_all_urls"],
-        "target": {
-            "namespace": "android_app",
-            "package_name": PACKAGE,
-            "sha256_cert_fingerprints": st.cfg.android_cert_sha256,
-        }
-    }]))
-    .into_response()
-}
 
 /// base64url without padding of a SHA-256: exactly 43 characters.
 pub fn valid_challenge(c: &str) -> bool {

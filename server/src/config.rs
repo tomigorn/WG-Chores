@@ -88,8 +88,6 @@ pub struct Config {
     pub member_directory: bool,
     /// Oldest app version the server still works with, e.g. "1.0.0".
     pub min_app_version: String,
-    /// SHA-256 signing certificate fingerprints of the Android app, `AB:CD:…`, for `/.well-known/assetlinks.json`.
-    pub android_cert_sha256: Vec<String>,
     pub data_dir: PathBuf,
     pub listen: SocketAddr,
     pub trusted_proxies: Vec<IpNet>,
@@ -97,35 +95,6 @@ pub struct Config {
     pub push_allow_loopback_http: bool,
     /// Extra push service host suffixes beyond the built-in browser services.
     pub push_allowed_hosts: Vec<String>,
-}
-
-/// Comma-separated fingerprints, with or without colons, any case; stored as uppercase `AB:CD:…`.
-fn parse_fingerprints(v: Option<String>) -> Result<Vec<String>, ConfigError> {
-    let mut out: Vec<String> = Vec::new();
-    for raw in v
-        .unwrap_or_default()
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        let hex: String = raw.chars().filter(|c| *c != ':').collect();
-        let colons_ok = !raw.contains(':') || raw.split(':').all(|p| p.len() == 2);
-        if hex.len() != 64 || !colons_ok || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err(ConfigError::Invalid(
-                "ANDROID_CERT_SHA256",
-                format!("{raw}: expected a SHA-256 fingerprint (64 hex digits, colons optional)"),
-            ));
-        }
-        let up = hex.to_ascii_uppercase();
-        let f = (0..32)
-            .map(|i| &up[i * 2..i * 2 + 2])
-            .collect::<Vec<_>>()
-            .join(":");
-        if !out.contains(&f) {
-            out.push(f);
-        }
-    }
-    Ok(out)
 }
 
 fn parse_version(v: Option<String>) -> Result<String, ConfigError> {
@@ -291,7 +260,6 @@ impl Config {
             notify_times,
             member_directory: parse_bool("MEMBER_DIRECTORY", get("MEMBER_DIRECTORY"), false)?,
             min_app_version: parse_version(get("MIN_APP_VERSION"))?,
-            android_cert_sha256: parse_fingerprints(get("ANDROID_CERT_SHA256"))?,
             data_dir: data_dir(get("DATA_DIR")),
             listen: listen(get("LISTEN")).trim().parse().map_err(
                 |e: std::net::AddrParseError| ConfigError::Invalid("LISTEN", e.to_string()),
@@ -567,26 +535,6 @@ mod tests {
         ] {
             assert!(
                 Config::from_env(env(&[URL, ("PUSH_ALLOWED_HOSTS", bad)])).is_err(),
-                "{bad}"
-            );
-        }
-    }
-
-    #[test]
-    fn android_fingerprints_normalized() {
-        assert!(
-            Config::from_env(env(&[URL]))
-                .unwrap()
-                .android_cert_sha256
-                .is_empty()
-        );
-        let plain = "146de983c5730650d8eeb9952f34fc6416a08342e61dbea88a0496b23fcf44e5";
-        let c =
-            Config::from_env(env(&[URL, ("ANDROID_CERT_SHA256", &format!(" {plain} ,"))])).unwrap();
-        assert_eq!(c.android_cert_sha256, vec!["14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42:E6:1D:BE:A8:8A:04:96:B2:3F:CF:44:E5".to_string()]);
-        for bad in ["abc", &plain[1..], &format!("{}x", &plain[1..]), "1:46:de"] {
-            assert!(
-                Config::from_env(env(&[URL, ("ANDROID_CERT_SHA256", bad)])).is_err(),
                 "{bad}"
             );
         }

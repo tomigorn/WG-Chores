@@ -2507,33 +2507,6 @@
      }
     }
    }
-  },
-  "/.well-known/assetlinks.json": {
-   "get": {
-    "summary": "Digital Asset Links for the Android app",
-    "tags": [
-     "system"
-    ],
-    "description": "Package `ch.tomigorn.wgchores` with the fingerprints from `ANDROID_CERT_SHA256`; 404 when that is empty.",
-    "responses": {
-     "200": {
-      "description": "OK",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "array",
-         "items": {
-          "type": "object"
-         }
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "Not configured"
-     }
-    }
-   }
   }
  },
  "components": {
