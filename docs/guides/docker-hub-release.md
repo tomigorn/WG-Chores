@@ -86,18 +86,20 @@ docker buildx imagetools inspect tomigorn/wg-chores:latest
 | known vulnerability | PR at once, any day |
 
 ## 8. First version tag
-The number is decided at the switch to v2 (`1.0.0` below, change it if you pick another). The tag must equal `version` in `server/Cargo.toml`.
-1. Set the version:
+The number is decided at the switch to v2 (`1.0.0` is set, change it if you pick another). The tag must equal `version` in `server/Cargo.toml`.
+1. The version is already `1.0.0` (commit "version bump to v1.0.0"). Check:
 ```
 cd ~/Documents/development/WG-Chores
-sed -i '0,/^version = ".*"/s//version = "1.0.0"/' server/Cargo.toml
 grep -m1 '^version' server/Cargo.toml          # shows: version = "1.0.0"
-(cd server && cargo update -p wg-chores --offline)   # writes the new version into Cargo.lock
-git diff --stat                                  # only server/Cargo.toml and server/Cargo.lock
 ```
-2. Commit and tag (the message is fixed by the versioning rule, no `WG-Chores:` prefix; the commit hook accepts it):
+Another number: set it, update the lock file, commit with the fixed message, then rebuild and re-sign the Android files ([android/README.md](../../android/README.md#release-build)):
 ```
-git commit -m "version bump to v1.0.0" -- server/Cargo.toml server/Cargo.lock
+sed -i '0,/^version = ".*"/s//version = "1.1.0"/' server/Cargo.toml
+(cd server && cargo update -p wg-chores --offline)
+git commit -m "version bump to v1.1.0" -- server/Cargo.toml server/Cargo.lock
+```
+2. Tag (the tag must equal the version):
+```
 git tag -a v1.0.0 -m "WG-Chores v1.0.0"
 ```
 3. Scan (see step 4 for which scan), then push the commit and the tag:
