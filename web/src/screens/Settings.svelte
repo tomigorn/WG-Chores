@@ -3,13 +3,13 @@
   import Icon from '../components/Icon.svelte';
   import LegalLinks from '../components/LegalLinks.svelte';
   import PageBar from '../components/PageBar.svelte';
-  import { api, OfflineError, type Me } from '../lib/api';
+  import { api, OfflineError, type Me, type ServerConfig } from '../lib/api';
   import { currentLanguage, languageSetting, setLanguage, t, type Lang, type LangSetting } from '../lib/i18n';
   import { push } from '../lib/push';
   import { toast } from '../lib/snack';
   import type { ThemeSetting } from '../lib/theme';
 
-  let { me, theme, ontheme, onme }: { me: Me; lang: Lang; theme: ThemeSetting; ontheme: (s: ThemeSetting) => void; onme: (m: Me) => void } = $props();
+  let { config, me, theme, ontheme, onme }: { config: ServerConfig | null; me: Me; lang: Lang; theme: ThemeSetting; ontheme: (s: ThemeSetting) => void; onme: (m: Me) => void } = $props();
 
   let language: LangSetting = $state(languageSetting());
   let notify = $state(untrack(() => ({ done: me.notify_done, due: me.notify_due })));
@@ -102,6 +102,7 @@
   </section>
 
   <LegalLinks />
+  {#if config?.version}<p class="version" data-nowrap>{t('settings.version', { version: config.version })}</p>{/if}
 </main>
 
 <style>
@@ -169,6 +170,13 @@
   input[role='switch']:checked::before {
     transform: translateX(18px);
     background: var(--accent-text);
+  }
+
+  .version {
+    margin: 0;
+    padding: 0 var(--s1);
+    font-size: var(--fs-sm);
+    color: var(--muted);
   }
 
   .note {

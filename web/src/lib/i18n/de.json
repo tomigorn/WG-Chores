@@ -301,6 +301,7 @@
     "notify_due": "Fällige Aufgaben",
     "notify_due_hint": "Einmal, wenn eine Aufgabe fällig wird",
     "notify_note": "Benach\u00adrichti\u00adgungen kommen, sobald die App installiert ist.",
+    "version": "Version {version}",
     "blocked": "Auf diesem Gerät in den Browser-Einstellungen blockiert – dort erlauben, um sie hier zu bekommen.",
     "install_first": "Zuerst die App installieren (Teilen → Zum Home-Bildschirm)",
     "not_allowed": "Benach\u00adrichti\u00adgungen wurden nicht erlaubt. Schalter wieder einschalten, um erneut gefragt zu werden."

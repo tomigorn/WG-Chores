@@ -6,12 +6,12 @@ import { api, OfflineError } from '../lib/api';
 import { push } from '../lib/push';
 import * as i18n from '../lib/i18n';
 import { clearSnack } from '../lib/snack';
-import { me, text } from './testkit';
+import { config, me, text } from './testkit';
 
 let app: ReturnType<typeof mount> | null = null;
 
 function open(over: Partial<typeof me> = {}) {
-  const props = { me: { ...me, ...over }, lang: 'en' as const, theme: 'system' as const, ontheme: vi.fn(), onme: vi.fn() };
+  const props = { config: { ...config, version: '1.0.0' }, me: { ...me, ...over }, lang: 'en' as const, theme: 'system' as const, ontheme: vi.fn(), onme: vi.fn() };
   app = mount(Settings, { target: document.body, props });
   flushSync();
   return props;
@@ -29,6 +29,17 @@ afterEach(() => {
 });
 
 describe('Settings', () => {
+  it('version_line_at_the_bottom', () => {
+    open();
+    const line = document.querySelector<HTMLElement>('.version')!;
+    expect(line.textContent).toBe('Version 1.0.0');
+    expect(line.hasAttribute('data-nowrap')).toBe(true);
+    expect(document.querySelector('main')!.lastElementChild).toBe(line);
+    radio('Language', 'Deutsch').click();
+    flushSync();
+    expect(line.textContent).toBe('Version 1.0.0');
+  });
+
   it('theme_and_language_choices', () => {
     const p = open();
     expect(radio('Theme', 'System').getAttribute('aria-checked')).toBe('true');

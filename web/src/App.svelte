@@ -224,7 +224,7 @@
     {:else if route.name === 'new-chore'}
       {#key route.householdId}<ChoreEdit choreId={null} householdId={route.householdId} {config} {me} {lang} />{/key}
     {:else if route.name === 'settings'}
-      <Settings {me} {lang} {theme} ontheme={chooseTheme} onme={updated} />
+      <Settings {config} {me} {lang} {theme} ontheme={chooseTheme} onme={updated} />
     {:else if route.name === 'account'}
       <Account {config} {me} {lang} onlogout={logout} onme={updated} ondeleted={() => signOut(false)} />
     {/if}

@@ -301,6 +301,7 @@
     "notify_due": "Chores due",
     "notify_due_hint": "Once when a chore becomes due",
     "notify_note": "Notifications arrive once the app is installed.",
+    "version": "Version {version}",
     "blocked": "Blocked in browser settings on this device – allow notifications there to get them here.",
     "install_first": "Install the app first (Share → Add to Home Screen)",
     "not_allowed": "Notifications were not allowed. Turn the switch on again to be asked once more."
