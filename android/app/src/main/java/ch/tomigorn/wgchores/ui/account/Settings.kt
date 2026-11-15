@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -29,15 +30,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import ch.tomigorn.wgchores.BuildConfig
 import ch.tomigorn.wgchores.R
 import ch.tomigorn.wgchores.WgcApp
 import ch.tomigorn.wgchores.api.OfflineException
@@ -69,6 +73,8 @@ data class SettingsUi(
     val loaded: Boolean = false,
     val loadFailed: Boolean = false,
     val server: String? = null,
+    val appVersion: String = "",
+    val serverVersion: String? = null,
     val snack: Notice? = null,
     val snackSeq: Long = 0,
     val os: OsNotify = OsNotify.Allowed,
@@ -95,7 +101,7 @@ object AppLanguage {
 
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val wgc = app as WgcApp
-    val ui = MutableStateFlow(SettingsUi(language = AppLanguage.current()))
+    val ui = MutableStateFlow(SettingsUi(language = AppLanguage.current(), appVersion = BuildConfig.VERSION_NAME))
     @Volatile private var lastError: Exception? = null
     private val sync = NotifySync { done, on ->
         try {
@@ -118,7 +124,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun load() {
         ui.update { it.copy(loadFailed = false) }
         viewModelScope.launch {
-            ui.update { it.copy(server = wgc.container.session.read().server) }
+            val session = wgc.container.session.read()
+            ui.update { it.copy(server = session.server, serverVersion = session.config?.version?.takeIf { v -> v.isNotBlank() }) }
             try {
                 val a = wgc.account() ?: throw OfflineException()
                 val me = a.api.me()
@@ -208,6 +215,7 @@ fun SettingsScreen(ui: SettingsUi, theme: ThemeMode, act: SettingsActions) {
                         LinkButton(stringResource(R.string.legal_deletion), { act.open("$s/account-deletion") }, Modifier.testTag("legal-deletion"))
                     }
                 }
+                if (ui.appVersion.isNotBlank()) VersionLine(ui.appVersion, ui.serverVersion)
             }
         }
         ToastHost(ui.snack?.let { noticeText(it) }, ui.snackSeq, act::dismissSnack, Modifier.align(Alignment.BottomCenter))
@@ -229,5 +237,23 @@ private fun Toggle(label: String, hint: String, on: Boolean, enabled: Boolean, t
             checked = on, onCheckedChange = null, enabled = enabled,
             colors = SwitchDefaults.colors(checkedTrackColor = Wgc.colors.accent, checkedThumbColor = Wgc.colors.accentText, uncheckedBorderColor = Wgc.colors.borderStrong, uncheckedThumbColor = Wgc.colors.borderStrong, uncheckedTrackColor = Wgc.colors.surface),
         )
+    }
+}
+
+/** One muted line "App 1.0.0 · Server 1.0.0"; when it does not fit, Server goes on a second line. Never cut. */
+@Composable
+private fun VersionLine(app: String, server: String?) {
+    val style = MaterialTheme.typography.bodySmall
+    val appText = stringResource(R.string.settings_version_app, app)
+    val serverText = server?.let { stringResource(R.string.settings_version_server, it) }
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp)) {
+        val both = serverText?.let { "$appText · $it" }
+        val fits = both != null && measurer.measure(both, style, maxLines = 1, softWrap = false).size.width <= with(density) { maxWidth.roundToPx() }
+        Column(Modifier.testTag("version-line")) {
+            val lines = if (both == null || serverText == null) listOf(appText) else if (fits) listOf(both) else listOf(appText, serverText)
+            lines.forEach { Text(it, style = style, color = Wgc.colors.muted, maxLines = 1, softWrap = false, modifier = Modifier.testTag("version-text")) }
+        }
     }
 }

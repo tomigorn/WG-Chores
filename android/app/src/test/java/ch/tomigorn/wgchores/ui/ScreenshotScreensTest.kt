@@ -99,7 +99,7 @@ object Screens {
 
     val accountSso = account.copy(me = User(1, null, "Jane Doe", "sso", accountUrl = "https://sso.example.com/if/user/"), devices = account.devices.take(1))
 
-    val settings = SettingsUi(language = "system", notifyDone = true, notifyDue = false, loaded = true, server = Shots.SERVER)
+    val settings = SettingsUi(language = "system", notifyDone = true, notifyDue = false, loaded = true, server = Shots.SERVER, appVersion = "1.0.0", serverVersion = "1.0.0")
 }
 
 /** The screens of P5 at 320 dp: font 1.0 and 2.0, light and dark. */

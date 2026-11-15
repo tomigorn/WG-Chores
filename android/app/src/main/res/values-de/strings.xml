@@ -314,6 +314,8 @@
     <string name="devices_sign_out_label">%1$s abmelden</string>
     <string name="devices_signed_out">%1$s abgemeldet</string>
     <string name="settings_notify_app">Die App schaut zweimal am Tag auf deinem Server nach.</string>
+    <string name="settings_version_app">App %1$s</string>
+    <string name="settings_version_server">Server %1$s</string>
     <string name="entry_delete_dropped">Der Eintrag vom %1$s konnte nicht gelöscht werden und bleibt.</string>
     <plurals name="entry_delete_dropped_many">
         <item quantity="one">1 Eintrag konnte nicht gelöscht werden und bleibt.</item>
