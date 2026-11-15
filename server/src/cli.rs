@@ -27,6 +27,9 @@ pub enum Command {
     },
     DemoReset,
     Healthcheck,
+    RevokeSessions {
+        username: String,
+    },
     Help(String),
 }
 
@@ -43,15 +46,16 @@ wg-chores: WG Chores server and admin commands
 Usage: wg-chores [serve | <command> ...]
 
 Commands:
-  serve        run the server (default)
-  migrate-v1   import one household from a v1 SQLite file
-  backup       write a consistent copy of the database
-  create-user  create a local account
-  demo-reset   wipe everything and load the demo data (DEMO_MODE=true only)
-  healthcheck  exit 0 when the local server answers /healthz (container health checks)
+  serve            run the server (default)
+  migrate-v1       import one household from a v1 SQLite file
+  backup           write a consistent copy of the database
+  create-user      create a local account
+  revoke-sessions  sign a user out everywhere (e.g. after removing them from the SSO group)
+  demo-reset       wipe everything and load the demo data (DEMO_MODE=true only)
+  healthcheck      exit 0 when the local server answers /healthz (container health checks)
 
 Options:
-  -h, --help   show this help; also works after a command
+  -h, --help       show this help; also works after a command
 
 Environment: serve reads the full configuration (PUBLIC_URL, LISTEN, ...; see the README).
 The other commands read only DATA_DIR (default /data) and TZ (default UTC), plus the variables named in their own help.
@@ -116,6 +120,16 @@ Environment: LISTEN (default 0.0.0.0:8080).
 
 Example (compose): healthcheck: { test: [\"CMD\", \"/wg-chores\", \"healthcheck\"] }";
 
+const REVOKE_HELP: &str = "\
+Usage: wg-chores revoke-sessions <username>
+
+Deletes every session of that user (web and app), so they are signed out at once. Works for local and SSO accounts.
+To remove someone from an SSO server: take them out of the SSO group first, then run this. Otherwise they can sign in again.
+
+Environment: DATA_DIR (default /data).
+
+Example: wg-chores revoke-sessions jane.doe";
+
 fn usage_error(cmd: Option<&str>, message: impl Into<String>) -> Usage {
     let (usage, hint) = match cmd {
         Some(c) => (
@@ -123,7 +137,7 @@ fn usage_error(cmd: Option<&str>, message: impl Into<String>) -> Usage {
             format!("Next: wg-chores {c} --help"),
         ),
         None => (
-            "Usage: wg-chores [serve | migrate-v1 | backup | create-user | demo-reset | healthcheck]".into(),
+            "Usage: wg-chores [serve | migrate-v1 | backup | create-user | revoke-sessions | demo-reset | healthcheck]".into(),
             "Next: wg-chores --help".into(),
         ),
     };
@@ -142,6 +156,7 @@ fn help_for(cmd: &str) -> &'static str {
         "create-user" => USER_HELP,
         "demo-reset" => DEMO_HELP,
         "healthcheck" => HEALTH_HELP,
+        "revoke-sessions" => REVOKE_HELP,
         _ => MAIN_HELP,
     }
 }
@@ -160,6 +175,7 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
         "create-user",
         "demo-reset",
         "healthcheck",
+        "revoke-sessions",
     ];
     if !known.contains(&cmd) {
         return Err(usage_error(None, format!("unknown command \"{cmd}\"")));
@@ -218,6 +234,11 @@ pub fn parse(args: &[String]) -> Result<Command, Usage> {
                 force,
             })
         }
+        "revoke-sessions" => match positional.as_slice() {
+            [u] => Ok(Command::RevokeSessions { username: u.clone() }),
+            [] => Err(err("the username is required".into())),
+            [_, x, ..] => Err(err(format!("unexpected argument \"{x}\""))),
+        },
         "backup" => match positional.as_slice() {
             [f] => Ok(Command::Backup {
                 file: f.into(),
@@ -280,6 +301,7 @@ pub async fn run(cmd: Command, mut ctx: Ctx) -> Result<String, String> {
         Command::Serve => Err("serve is started by the program itself".into()),
         Command::Backup { file, force } => backup(&ctx, &file, force),
         Command::DemoReset => demo_reset(&ctx).await,
+        Command::RevokeSessions { username } => revoke_sessions(&ctx, username).await,
         Command::Healthcheck => {
             let listen = env_of(&ctx, "LISTEN").unwrap_or_else(|| "0.0.0.0:8080".into());
             tokio::task::spawn_blocking(move || healthcheck(&listen))
@@ -378,6 +400,33 @@ fn healthcheck(listen: &str) -> Result<String, String> {
     match line.split_whitespace().nth(1) {
         Some("200") => Ok("ok".into()),
         _ => Err(format!("unhealthy: {addr}/healthz answered \"{line}\"")),
+    }
+}
+
+async fn revoke_sessions(ctx: &Ctx, username: String) -> Result<String, String> {
+    let db = open_db(ctx)?;
+    let name = username.trim().to_string();
+    let n = db
+        .run(move |c| {
+            let id: Option<i64> = match c.query_row(
+                "SELECT id FROM users WHERE username = ?1 AND former = 0",
+                [&name],
+                |r| r.get(0),
+            ) {
+                Ok(id) => Some(id),
+                Err(rusqlite::Error::QueryReturnedNoRows) => None,
+                Err(e) => return Err(e),
+            };
+            id.map(|id| c.execute("DELETE FROM sessions WHERE user_id = ?1", [id]))
+                .transpose()
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    match n {
+        Some(n) => Ok(format!(
+            "Deleted {n} sessions of {username}.\nNext: check that {username} is out of the SSO group (or delete the account in the app)"
+        )),
+        None => Err(format!("no active user named {username}")),
     }
 }
 

@@ -1,9 +1,10 @@
 complete -c wg-chores -f
-set -l cmds serve migrate-v1 backup create-user demo-reset healthcheck
+set -l cmds serve migrate-v1 backup create-user revoke-sessions demo-reset healthcheck
 complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a serve -d 'Run the server (default)'
 complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a migrate-v1 -d 'Import one household from a v1 SQLite file'
 complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a backup -d 'Write a consistent copy of the database'
 complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a create-user -d 'Create a local account'
+complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a revoke-sessions -d 'Sign a user out everywhere'
 complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a demo-reset -d 'Wipe all data and load the demo data (DEMO_MODE=true)'
 complete -c wg-chores -n "not __fish_seen_subcommand_from $cmds" -a healthcheck -d 'Exit 0 when the local server answers /healthz'
 complete -c wg-chores -s h -l help -d 'Show help'

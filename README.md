@@ -137,6 +137,8 @@ Two login tabs at once: only the one started last can finish; the other returns 
 
 Users are matched by issuer + `sub`; name, picture (https only) and username (`preferred_username`, if free) are refreshed at every login.
 
+Remove someone: take them out of the SSO group, then `wg-chores revoke-sessions <username>` (otherwise their sessions run until they expire, at most 30 days).
+
 Fake provider for tests and the browser suite:
 ```
 cargo run --features test-util --bin fake-oidc -- 8081
@@ -219,6 +221,7 @@ cd web && npm run dev
 | `migrate-v1 --from v1.db --household <id\|name> --map old=user[,…] [--force]` | import ONE household from a copy of the v1 file (opened read-only, one transaction); `--map` is repeatable, matches v1 member names and history names case-insensitively, targets must be active v2 users (else nothing is written); unmapped names become former members; room → category (empty → "Other"); `DoneAt` without offset = UTC, day in `TZ`; a same-named v2 household refuses the import unless `--force` |
 | `backup <file> [--force]` | online backup of `DATA_DIR/wg-chores.db` (safe while running); refuses to overwrite without `--force` |
 | `create-user <username> [--display-name N] [--password-file F]` | local account, same rules as registration; password asked twice without echo, or from a file; works with `LOCAL_ACCOUNTS=false` but warns |
+| `revoke-sessions <username>` | delete every session of that user (signed out everywhere at once); after removing someone from the SSO group |
 | `healthcheck` | `GET /healthz` on the local `LISTEN` port (loopback for `0.0.0.0`/`::`), exit 0 on 200, else 1; for container health checks (the image has no shell or curl) |
 | `demo-reset` | needs `DEMO_MODE=true` and `DEMO_PASSWORD_FILE`; deletes ALL data, creates `reviewer`, household "Demo WG", 10 sample chores in 4 categories with history |
 
@@ -228,6 +231,7 @@ Shell completion: `server/completions/wg-chores.fish` (copy to `~/.config/fish/c
 | Topic | Detail |
 |---|---|
 | Rate limits | login: 5 failures per account and 20 per client IP in 15 min; registration: 20 per client IP in 15 min (own bucket); IPv6 clients count per /64; 429 + `Retry-After` |
+| Sessions | 30 days idle; at most 90 days (local accounts) or 30 days (SSO accounts) after sign-in; `wg-chores revoke-sessions <username>` ends them all at once |
 | Password hashing | at most 4 at once, 16 waiting; more → 503 `busy` + `Retry-After: 5` |
 
 ## Operations

@@ -305,6 +305,12 @@ fn parse_commands() {
         Command::Healthcheck
     ));
     assert!(matches!(args(&["--help"]).unwrap(), Command::Help(t) if t.contains("healthcheck")));
+    assert!(matches!(args(&["--help"]).unwrap(), Command::Help(t) if t.contains("revoke-sessions")));
+    assert!(matches!(args(&["revoke-sessions", "-h"]).unwrap(), Command::Help(t) if t.contains("group")));
+    assert!(matches!(
+        args(&["revoke-sessions", "anna"]).unwrap(),
+        Command::RevokeSessions { username } if username == "anna"
+    ));
     match args(&[
         "migrate-v1",
         "--from",
@@ -346,6 +352,8 @@ fn usage_errors_name_the_next_command() {
         vec!["create-user", "u", "--display-name"],
         vec!["demo-reset", "extra"],
         vec!["healthcheck", "extra"],
+        vec!["revoke-sessions"],
+        vec!["revoke-sessions", "a", "b"],
     ] {
         let u = args(&bad).err().unwrap_or_else(|| panic!("{bad:?} parsed"));
         assert!(
@@ -374,6 +382,7 @@ fn completions_list_every_subcommand() {
             "display-name",
             "from",
             "healthcheck",
+            "revoke-sessions",
         ] {
             assert!(s.contains(w), "{f}: {w}");
         }
@@ -452,4 +461,45 @@ async fn healthcheck_against_real_router() {
         .unwrap()
     });
     assert!(healthcheck(format!("0.0.0.0:{port}")).await.is_ok());
+}
+
+#[tokio::test]
+async fn revoke_sessions_deletes_every_session_of_that_user() {
+    let d = Scratch::new("revoke");
+    let env = data_env(&d);
+    let db = Db::open(&db_path_created(&d)).unwrap();
+    db.run(|c| {
+        c.execute_batch(
+            "INSERT INTO users (id, username, display_name, created_at) VALUES (1, 'anna', 'Anna', 'x'), (2, 'ben', 'Ben', 'x');
+             INSERT INTO sessions (token_hash, user_id, kind, created_at, last_seen_at, expires_at) VALUES
+               ('a1', 1, 'web', 'x', 'x', '2099-01-01T00:00:00.000Z'),
+               ('a2', 1, 'android', 'x', 'x', '2099-01-01T00:00:00.000Z'),
+               ('b1', 2, 'web', 'x', 'x', '2099-01-01T00:00:00.000Z');",
+        )
+    })
+    .await
+    .unwrap();
+    drop(db);
+    let out = cli::run(args(&["revoke-sessions", "ANNA"]).unwrap(), ctx(&env, "unused"))
+        .await
+        .unwrap();
+    assert!(out.contains("2 sessions"), "{out}");
+    let db = Db::open(&db_path(&d)).unwrap();
+    let left: Vec<String> = db
+        .run(|c| {
+            let mut st = c.prepare("SELECT token_hash FROM sessions ORDER BY 1")?;
+            st.query_map([], |r| r.get(0))?.collect()
+        })
+        .await
+        .unwrap();
+    assert_eq!(left, ["b1"]);
+    let e = cli::run(args(&["revoke-sessions", "nobody"]).unwrap(), ctx(&env, "unused"))
+        .await
+        .unwrap_err();
+    assert!(e.contains("nobody"), "{e}");
+}
+
+fn db_path_created(d: &Scratch) -> PathBuf {
+    std::fs::create_dir_all(d.path("data")).unwrap();
+    db_path(d)
 }

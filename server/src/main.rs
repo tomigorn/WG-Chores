@@ -29,6 +29,7 @@ async fn admin(cmd: wg_chores::cli::Command) {
         Command::CreateUser { .. } => "create-user",
         Command::DemoReset => "demo-reset",
         Command::Healthcheck => "healthcheck",
+        Command::RevokeSessions { .. } => "revoke-sessions",
         _ => "",
     };
     let ctx = Ctx {

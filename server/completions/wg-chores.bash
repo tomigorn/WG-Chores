@@ -1,6 +1,6 @@
 _wg_chores() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} cmd=${COMP_WORDS[1]}
-    local cmds="serve migrate-v1 backup create-user demo-reset healthcheck"
+    local cmds="serve migrate-v1 backup create-user revoke-sessions demo-reset healthcheck"
     COMPREPLY=()
     if [[ $COMP_CWORD -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$cmds -h --help" -- "$cur"))
