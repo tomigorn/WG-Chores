@@ -96,38 +96,13 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.arch }},mode=max
           provenance: false
           sbom: false
-      - name: Build final image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          platforms: ${{ matrix.platform }}
-          build-args: CARGO_BUILD_JOBS=4
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          labels: ${{ steps.meta.outputs.labels }}
-          load: true
-          tags: wg-chores:smoke
-          provenance: false
-          sbom: false
-      - name: Smoke test (healthcheck)
-        run: |
-          docker run -d --name smoke -p 127.0.0.1:8080:8080 -e PUBLIC_URL=http://localhost:8080 wg-chores:smoke
-          for _ in $(seq 1 30); do
-            if docker exec smoke /wg-chores healthcheck; then
-              curl -fsS http://127.0.0.1:8080/healthz
-              docker rm -f smoke
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs smoke
-          exit 1
       - name: Log in to Docker Hub
         if: needs.gate.outputs.push == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Push by digest
+      - name: Push by digest (untagged until the smoke test passed)
         id: push
         if: needs.gate.outputs.push == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -140,6 +115,34 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           provenance: mode=max
           sbom: true
+      - name: Build final image locally (nothing to push)
+        if: needs.gate.outputs.push != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          build-args: CARGO_BUILD_JOBS=4
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          tags: wg-chores:smoke
+          provenance: false
+          sbom: false
+      - name: Smoke test (healthcheck)
+        env:
+          REF: ${{ needs.gate.outputs.push == 'true' && format('{0}@{1}', env.IMAGE, steps.push.outputs.digest) || 'wg-chores:smoke' }}
+        run: |
+          docker run -d --name smoke -p 127.0.0.1:8080:8080 -e PUBLIC_URL=http://localhost:8080 "$REF"
+          for _ in $(seq 1 30); do
+            if docker exec smoke /wg-chores healthcheck; then
+              curl -fsS http://127.0.0.1:8080/healthz
+              docker rm -f smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs smoke
+          exit 1
       - name: Save digest
         if: needs.gate.outputs.push == 'true'
         env:
