@@ -13,6 +13,7 @@ import javax.crypto.KeyGenerator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -266,5 +267,25 @@ class AuthControllerTest {
         signedInViaForm()
         runBlocking { auth.finishSso("wgchores://auth?error=sso_failed") }
         assertEquals(SignedIn(fake.url, "Jane Doe", 1), auth.state.value)
+    }
+
+    @Test fun startRunningDuringAnSsoCallbackNeverEndsSignedOut() {
+        repeat(30) { i ->
+            val dir = tmp.newFolder("race$i")
+            val st = SessionStore(PreferenceDataStoreFactory.create(scope = scope) { File(dir, "s.preferences_pb") }, TokenCipher { key })
+            val a = AuthController(st, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
+            runBlocking {
+                a.start()
+                a.connect(fake.url)
+                val challenge = a.beginSso()!!.substringAfter("challenge=")
+                val code = fake.issueSsoCode(challenge)
+                val fresh = AuthController(st, appVersion = "1.0.0", deviceName = "Pixel 9", allowLocalHttp = true)
+                val cb = async(Dispatchers.Default) { fresh.finishSso("wgchores://auth?code=$code") }
+                val starting = async(Dispatchers.Default) { fresh.start() }
+                cb.await()
+                starting.await()
+                assertTrue("round $i: ${fresh.state.value}", fresh.state.value is SignedIn)
+            }
+        }
     }
 }

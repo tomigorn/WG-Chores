@@ -14,6 +14,8 @@ import ch.tomigorn.wgchores.data.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Server choice, sign-in and sign-out; the single source of the app's auth state. */
 class AuthController(
@@ -28,7 +30,12 @@ class AuthController(
     fun api(server: String): ApiClient =
         ApiClient(server, bearer = { store.read().token }, onUnauthenticated = { toLogin(server) })
 
-    suspend fun start() {
+    // start() and an SSO callback can arrive together on a cold start; one must not overwrite the other
+    private val transitions = Mutex()
+
+    suspend fun start() = transitions.withLock { startLocked() }
+
+    private suspend fun startLocked() {
         val s = store.read()
         val server = s.server ?: return set(AuthState.PickServer())
         if (s.config != null && tooOld(server, s.config)) return
@@ -92,7 +99,9 @@ class AuthController(
     }
 
     /** A callback counts only while signed out and with a sign-in started here; anything else is ignored. */
-    suspend fun finishSso(uri: String) {
+    suspend fun finishSso(uri: String) = transitions.withLock { finishSsoLocked(uri) }
+
+    private suspend fun finishSsoLocked(uri: String) {
         if (store.read().token != null) return
         val cb = SsoCallback.parse(uri) ?: return
         val verifier = store.takeVerifier() ?: return
