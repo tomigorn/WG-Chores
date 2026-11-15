@@ -49,6 +49,25 @@ fn expiry(created: DateTime<Utc>, seen: DateTime<Utc>, sso: bool) -> DateTime<Ut
     (seen + IDLE).min(created + absolute)
 }
 
+/// Whether a stored session is still valid: its stored expiry, the idle/absolute rule for its account kind, and local-only accounts while local accounts are off.
+#[allow(clippy::too_many_arguments)]
+pub fn alive(
+    created: &str,
+    seen: &str,
+    expires: &str,
+    local: bool,
+    sso: bool,
+    local_enabled: bool,
+    now: DateTime<Utc>,
+) -> bool {
+    let (Some(created), Some(seen), Some(expires)) =
+        (parse_ts(created), parse_ts(seen), parse_ts(expires))
+    else {
+        return false;
+    };
+    !(!local_enabled && local && !sso) && now < expires.min(expiry(created, seen, sso))
+}
+
 pub async fn create(
     db: &Db,
     clock: &dyn Clock,
@@ -149,15 +168,13 @@ pub async fn lookup(
             Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
             Err(e) => return Err(e),
         };
-        let (Some(created), Some(seen), Some(expires)) =
-            (parse_ts(&created), parse_ts(&seen), parse_ts(&expires))
-        else {
-            return Ok(None);
-        };
-        if (!local_enabled && local && !other) || now >= expires.min(expiry(created, seen, other)) {
+        if !alive(&created, &seen, &expires, local, other, local_enabled, now) {
             c.execute("DELETE FROM sessions WHERE token_hash = ?1", [&hash])?;
             return Ok(None);
         }
+        let (Some(created), Some(seen)) = (parse_ts(&created), parse_ts(&seen)) else {
+            return Ok(None);
+        };
         if now - seen >= TOUCH_EVERY {
             c.execute(
                 "UPDATE sessions SET last_seen_at = ?2, expires_at = ?3 WHERE token_hash = ?1",

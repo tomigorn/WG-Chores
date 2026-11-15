@@ -39,6 +39,10 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(|| async { "ok" }))
+        .route(
+            "/.well-known/assetlinks.json",
+            get(crate::auth::app::assetlinks),
+        )
         .route("/auth/oidc/start", get(oidc::start))
         .route("/auth/oidc/callback", get(oidc::callback))
         .route("/api/v1/openapi.json", get(crate::openapi::get))

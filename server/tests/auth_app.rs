@@ -496,3 +496,122 @@ async fn basic_auth_from_a_proxy_is_ignored() {
         .unwrap();
     assert_eq!(res.status(), 200);
 }
+
+const CERT: &str = "14:6D:E9:83:C5:73:06:50:D8:EE:B9:95:2F:34:FC:64:16:A0:83:42:E6:1D:BE:A8:8A:04:96:B2:3F:CF:44:E5";
+
+#[tokio::test]
+async fn assetlinks_lists_the_app_certificates() {
+    let app = TestApp::new();
+    let r = app.client().get("/.well-known/assetlinks.json").await;
+    assert_eq!(r.status, 404, "no certificates configured");
+    let plain = CERT.replace(':', "").to_lowercase();
+    let app = TestApp::with_env(&[("ANDROID_CERT_SHA256", &format!("{CERT}, {plain}"))]);
+    let r = app.client().get("/.well-known/assetlinks.json").await;
+    assert_eq!(r.status, 200);
+    assert!(
+        r.headers["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("application/json")
+    );
+    assert_eq!(
+        r.body,
+        json!([{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "ch.tomigorn.wgchores",
+                "sha256_cert_fingerprints": [CERT]
+            }
+        }])
+    );
+}
+
+#[tokio::test]
+async fn web_login_with_bearer_header_rejected() {
+    let app = TestApp::new();
+    signup(&app, "anna").await;
+    let mut c = app.client();
+    c.bearer = Some("whatever".into());
+    let r = c
+        .post(
+            "/api/v1/auth/login",
+            json!({"username": "anna", "password": PW}),
+        )
+        .await;
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (400, Some("ambiguous_auth"))
+    );
+    assert!(r.set_cookies().is_empty());
+    let r = c
+        .post(
+            "/api/v1/auth/register",
+            json!({"username": "bert", "password": PW, "display_name": "Bert"}),
+        )
+        .await;
+    assert_eq!(r.status, 400);
+    assert!(r.set_cookies().is_empty());
+}
+
+#[tokio::test]
+async fn former_user_refused_at_app_token() {
+    let (fake, app) = sso_setup().await;
+    let mut c = app.client();
+    let q = format!("client=android&challenge={}", challenge(VERIFIER));
+    let code = code_of(&app_sso(&fake, &mut c, &q).await);
+    app.db(|c| c.execute("UPDATE users SET former = 1", []))
+        .await;
+    let r = exchange(&app, &code, VERIFIER).await;
+    assert_eq!(
+        (r.status, r.body["error"].as_str()),
+        (400, Some("invalid_code"))
+    );
+}
+
+#[tokio::test]
+async fn app_sso_keeps_the_browser_web_session() {
+    let (fake, app) = sso_setup().await;
+    let (mut web, _) = signup(&app, "anna").await;
+    let q = format!("client=android&challenge={}", challenge(VERIFIER));
+    let code = code_of(&app_sso(&fake, &mut web, &q).await);
+    assert_eq!(web.get("/api/v1/me").await.body["username"], "anna");
+    assert_eq!(exchange(&app, &code, VERIFIER).await.status, 200);
+}
+
+#[tokio::test]
+async fn bearer_account_delete_sets_no_cookie() {
+    let app = TestApp::new();
+    signup(&app, "anna").await;
+    let bearer = token_for(&app, "anna").await;
+    let mut a = app_client(&app, &bearer);
+    let r = a
+        .delete("/api/v1/me", json!({"current_password": PW}))
+        .await;
+    assert_eq!(r.status, 204, "{:?}", r.body);
+    assert!(r.set_cookies().is_empty());
+}
+
+#[tokio::test]
+async fn devices_hide_sessions_past_their_computed_expiry() {
+    let app = TestApp::new();
+    let id = app.seed_local_user("anna", PW).await;
+    let mut old = app.client();
+    login_as(&app, &mut old, id).await;
+    app.clock.advance(Duration::days(20));
+    assert_eq!(old.get("/api/v1/me").await.status, 200);
+    app.db(move |c| {
+        c.execute(
+            "INSERT INTO identities (user_id, kind, issuer, subject) VALUES (?1, 'oidc', 'https://sso.example.com', 'linked')",
+            [id],
+        )
+    })
+    .await;
+    app.clock.advance(Duration::days(11));
+    let mut fresh = app.client();
+    login_as(&app, &mut fresh, id).await;
+    let r = fresh.get("/api/v1/me/devices").await;
+    assert_eq!(r.status, 200);
+    assert_eq!(r.body.as_array().unwrap().len(), 1, "{:?}", r.body);
+    assert_eq!(r.body[0]["current"], true);
+}

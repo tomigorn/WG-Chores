@@ -382,8 +382,13 @@ pub struct Register {
 }
 
 /// `client` "android" answers with a bearer token instead of the session cookie.
-fn is_app(client: Option<&str>) -> Result<bool, ApiError> {
+/// A browser sign-in carrying a bearer token is refused: bearer requests never get cookies.
+fn is_app(client: Option<&str>, headers: &HeaderMap) -> Result<bool, ApiError> {
     match client {
+        None | Some("web") if super::bearer(headers).is_some() => Err(ApiError::bad_request(
+            "ambiguous_auth",
+            "A browser sign-in cannot carry a bearer token.",
+        )),
         None | Some("web") => Ok(false),
         Some("android") => Ok(true),
         Some(_) => Err(ApiError::bad_request("invalid_client", "Unknown client.")),
@@ -420,7 +425,7 @@ pub async fn register(
     ApiJson(b): ApiJson<Register>,
 ) -> Result<Response, ApiError> {
     require_local(&st)?;
-    let app = is_app(b.client.as_deref())?.then(|| b.device_name.clone());
+    let app = is_app(b.client.as_deref(), &headers)?.then(|| b.device_name.clone());
     let invite_hash = b
         .invite
         .as_deref()
@@ -549,7 +554,7 @@ pub async fn login(
     ApiJson(b): ApiJson<Login>,
 ) -> Result<Response, ApiError> {
     require_local(&st)?;
-    let app = is_app(b.client.as_deref())?.then(|| b.device_name.clone());
+    let app = is_app(b.client.as_deref(), &headers)?.then(|| b.device_name.clone());
     let attempt = reserve(&st, Some(&b.username), ip).await?;
     let subject = b.username.trim().to_lowercase();
     let found: Option<(i64, Option<String>, String, Option<String>)> = st

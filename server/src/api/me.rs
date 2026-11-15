@@ -294,23 +294,48 @@ fn device_id(token_hash: &str) -> String {
 }
 
 pub async fn devices(State(st): State<AppState>, u: CurrentUser) -> Result<Json<Value>, ApiError> {
-    let (uid, now) = (u.id, ts(st.clock.now()));
-    let rows: Vec<(String, String, Option<String>, String, String)> = st
+    let uid = u.id;
+    type Row = (
+        String,
+        String,
+        Option<String>,
+        String,
+        String,
+        String,
+        bool,
+        bool,
+    );
+    let rows: Vec<Row> = st
         .db
         .run(move |c| {
             c.prepare(
-                "SELECT token_hash, kind, device_name, created_at, last_seen_at FROM sessions
-                 WHERE user_id = ?1 AND expires_at > ?2 ORDER BY last_seen_at DESC, created_at DESC",
+                "SELECT s.token_hash, s.kind, s.device_name, s.created_at, s.last_seen_at, s.expires_at,
+                        EXISTS (SELECT 1 FROM identities i WHERE i.user_id = s.user_id AND i.kind = 'local'),
+                        EXISTS (SELECT 1 FROM identities i WHERE i.user_id = s.user_id AND i.kind != 'local')
+                 FROM sessions s WHERE s.user_id = ?1 ORDER BY s.last_seen_at DESC, s.created_at DESC",
             )?
-            .query_map(rusqlite::params![uid, now], |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            .query_map([uid], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))
             })?
             .collect()
         })
         .await?;
+    let now = st.clock.now();
+    let local_enabled = st.cfg.local_accounts;
     Ok(Json(Value::Array(
         rows.into_iter()
-            .map(|(hash, kind, name, created, seen)| {
+            .filter(|(_, _, _, created, seen, expires, local, sso)| {
+                crate::auth::session::alive(
+                    created,
+                    seen,
+                    expires,
+                    *local,
+                    *sso,
+                    local_enabled,
+                    now,
+                )
+            })
+            .map(|(hash, kind, name, created, seen, ..)| {
                 serde_json::json!({
                     "id": device_id(&hash),
                     "kind": kind,
