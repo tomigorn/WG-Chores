@@ -1,3 +1,4 @@
+# system unit, see wg-chores-demo-reset.service
 [Unit]
 Description=WG Chores demo reset every night
 

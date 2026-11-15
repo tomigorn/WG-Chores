@@ -1,3 +1,4 @@
+# system unit: sudo cp wg-chores-demo-reset.* /etc/systemd/system/ && sudo systemctl enable --now wg-chores-demo-reset.timer
 [Unit]
 Description=WG Chores demo: wipe data and load the sample household
 

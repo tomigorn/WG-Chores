@@ -1,5 +1,6 @@
-# fastpi: public demo wg-chores-demo.holy-grail.ch, local accounts, data reset nightly (systemd/wg-chores-demo-reset.timer).
+# fastpi: public demo wg-chores-demo.holy-grail.ch (Cloudflare Tunnel -> Traefik -> this container), local accounts, data reset nightly (systemd/wg-chores-demo-reset.timer).
 # docker compose -f compose.demo.yaml up -d   (needs secrets/demo_password, 12+ characters)
+# once after the first start: docker exec wg-chores-demo /wg-chores demo-reset
 name: wg-chores-demo
 services:
   wg-chores-demo:
@@ -8,6 +9,8 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8086:8080"
+    networks:
+      - traefik_wg_chores
     environment:
       PUBLIC_URL: https://wg-chores-demo.holy-grail.ch
       TZ: Europe/Zurich
@@ -15,13 +18,14 @@ services:
       OPEN_REGISTRATION: "false"
       DEMO_MODE: "true"
       DEMO_PASSWORD_FILE: /run/secrets/demo_password # leak-check: ok
+      TRUSTED_PROXIES: 10.24.24.3   # Traefik's pinned address on traefik_wg_chores
     secrets:
       - demo_password
     volumes:
       - wg-chores-demo-data:/data
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,noexec,nosuid,nodev
     cap_drop:
       - ALL
     security_opt:
@@ -38,6 +42,10 @@ services:
 secrets:
   demo_password:
     file: ./secrets/demo_password
+
+networks:
+  traefik_wg_chores:
+    external: true
 
 volumes:
   wg-chores-demo-data:
