@@ -58,7 +58,7 @@ class FakeServer : Closeable {
 
     data class Done(val choreId: Long, val doneOn: String, val note: String?, val by: By)
 
-    val me = By(1, "Jane Doe")
+    var me = By(1, "Jane Doe")
     val sam = By(2, "Sam")
 
     data class FakeInvite(val id: Long, val hid: Long, val token: String, val by: By, val expiresAt: String, var open: Boolean = true) // leak-check: ok

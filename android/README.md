@@ -25,7 +25,7 @@ Completion:
 | Stack | Kotlin, Compose Material 3, Navigation Compose, OkHttp + kotlinx.serialization, DataStore, androidx.browser, AppCompat (per-app language on Android 8–12), WorkManager; versions in `gradle/libs.versions.toml` |
 | IDs | `ch.tomigorn.wgchores`, minSdk 26, targetSdk 36, compileSdk 37 |
 | Version | `versionName` = `server/Cargo.toml` version (`beefy-build.sh` passes `-Pwgc.version`), `versionCode` = major·10000 + minor·100 + patch |
-| Server | https only (debug builds also `http://localhost`, `127.0.0.1`, `10.0.2.2` for tests); probe `GET /api/v1/config` (5 s, JSON only, max 64 KiB), must answer `name: "WG Chores"`; "Change server" wipes the session |
+| Server | https only (debug and the `minified` check build also `http://localhost`, `127.0.0.1`, `10.0.2.2` for tests, flag `BuildConfig.ALLOW_LOCAL_HTTP`); probe `GET /api/v1/config` (5 s, JSON only, max 64 KiB), must answer `name: "WG Chores"`; "Change server" wipes the session |
 | Update | app older than `min_app_version` (fresh or cached config, also offline) → "Please update the app" with the Play link |
 | Sign-in | local form and/or SSO; SSO via Auth Tab (`wgchores` scheme, PKCE), Custom Tab + the `.SsoCallback` intent filter only on browsers without Auth Tab |
 | Fallback alias | `.SsoCallback` points at `SsoCallbackActivity` (no UI, not exported itself): it hands the URI to the app in memory, opens `MainActivity`, disables the alias and finishes. Enabled only while a Custom Tab sign-in is open, disabled again on return or the next app start; another app can then at most send a wrong code and force a retry (useless without the PKCE verifier). Callbacks are ignored once a token is stored or when no sign-in was started here |
@@ -54,6 +54,8 @@ Completion:
 | `android/scripts/beefy-build.sh verifyRoborazziDebug` | compare with the goldens in `app/src/test/screenshots/`; diffs in `latest/app/build/outputs/roborazzi/` |
 | `android/scripts/beefy-build.sh --emulator connectedDebugAndroidTest` | sign-in, SSO callback alias, chore list (✓, Undo, date sheet, offline mark synced once after a restart), chore page (mark, change and delete entries), interval edit, invite share sheet, join by pasted link, account deletion, signing out another device, language switch, background check via the WorkManager test driver (due + done notifications posted, tap opens the household), on the emulator against a fake server (`app/src/sharedTest/`) |
 
+| `android/scripts/beefy-build.sh --emulator releaseDeviceCheck` | R8 check on the emulator (JVM test `device/ReleaseDeviceCheck.kt` drives adb): the release APK (debug key, inside the container) refuses `http://`; the `minified` build (release code and R8 rules, debug key, local http) signs in to the fake server with demo data, marks a chore done, opens sheet, chore page, households, settings and takes the store screenshots to `latest/app/build/outputs/device-check/screenshots/` (copy them to `store/screenshots/`) |
+
 Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs minor and patch below 100 (the build fails otherwise).
 
 ## How it works
@@ -66,6 +68,14 @@ Screenshots: 320 dp wide, font 1.0 and 2.0, light and dark. `versionCode` needs 
 
 Night window: beefy runs its own jobs 03:55–04:45 (auto-update 04:12, backup 04:26). A build may run then (`--cpus 6` of 12 keeps it moderate); avoid image rebuilds in that window.
 
+## Release build
+```
+android/scripts/beefy-build.sh --emulator bundleRelease releaseDeviceCheck
+```
+- R8 on (`isMinifyEnabled`, `isShrinkResources`, `app/proguard-rules.pro`), no signing config: `latest/app/build/outputs/bundle/release/app-release.aab` and `latest/app/build/outputs/apk/release/app-release-unsigned.apk`
+- Sign them on fastpi (below) into `~/.cache/claude-work/wgc-android/release/wg-chores-<version>.aab` / `.apk`; never committed
+- Store graphics: `NODE_PATH=<dir with playwright> node android/store/graphics.mjs <roboto-latin-600-normal.woff2>` (from `@fontsource/roboto`) writes `store/icon-512.png` and `store/feature-graphic.png`
+
 ## Signing (fastpi only)
 Upload key and password file stay in `~/secrets/wg-chores/` on fastpi (mode 600, backed up to KeePassXC); no keystore ever goes to beefy. fastpi has no JDK, so signing runs in the pinned JDK container (arm64 from the same multi-arch digest).
 
@@ -75,13 +85,18 @@ mkdir -p ~/.local/share/wg-chores
 ssh beefy-direct 'sudo docker run --rm --entrypoint cat wgc-android-build:local /opt/android-sdk/build-tools/36.0.0/lib/apksigner.jar' > ~/.local/share/wg-chores/apksigner.jar
 ```
 
-Sign (in the folder with the unsigned artifacts; keystore/alias names as created with the keystore):
+Sign (from the repo root, after the release build):
 ```
+V=$(sed -n 's/^version = "\(.*\)"/\1/p' server/Cargo.toml | head -1)
+mkdir -p ~/.cache/claude-work/wgc-android/release && cd ~/.cache/claude-work/wgc-android/release
+cp ../latest/app/build/outputs/apk/release/app-release-unsigned.apk ../latest/app/build/outputs/bundle/release/app-release.aab .
 J=eclipse-temurin:21-jdk@sha256:0a3f329821dcadf54b2a3033a15e2e9f007069a9db43d7f51897e6b80e726b07
 RUN="docker run --rm --user $(id -u):$(id -g) -v $HOME/.local/share/wg-chores:/tools:ro -v $HOME/secrets/wg-chores:/keys:ro -v $PWD:/w -w /w $J"
-$RUN java -jar /tools/apksigner.jar sign --ks /keys/upload.jks --ks-pass file:/keys/upload.pass --ks-key-alias upload --out app-release.apk app-release-unsigned.apk
-$RUN java -jar /tools/apksigner.jar verify --print-certs app-release.apk
-$RUN jarsigner -keystore /keys/upload.jks -storepass:file /keys/upload.pass -sigalg SHA256withRSA -digestalg SHA-256 -signedjar app-release-signed.aab app-release.aab upload
+$RUN java -jar /tools/apksigner.jar sign --ks /keys/upload.jks --ks-pass file:/keys/upload.pass --ks-key-alias upload --out wg-chores-$V.apk app-release-unsigned.apk
+$RUN java -jar /tools/apksigner.jar verify --print-certs wg-chores-$V.apk
+$RUN jarsigner -keystore /keys/upload.jks -storepass:file /keys/upload.pass -sigalg SHA256withRSA -digestalg SHA-256 -signedjar wg-chores-$V.aab app-release.aab upload
+$RUN jarsigner -verify wg-chores-$V.aab
+rm app-release-unsigned.apk app-release.aab wg-chores-$V.apk.idsig
 ```
 APK: `apksigner` (v2/v3 signatures); AAB: `jarsigner` (what Play expects for the upload key). Both checked with a throwaway key on fastpi 2026-11-15.
 

@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         override fun signOut() = vm.signOut()
         override fun setTheme(mode: ThemeMode) = vm.setTheme(mode)
         override fun openUrl(url: String) {
-            if (!url.startsWith("https://") && !(BuildConfig.DEBUG && url.startsWith("http://"))) return
+            if (!url.startsWith("https://") && !(BuildConfig.ALLOW_LOCAL_HTTP && url.startsWith("http://"))) return
             runCatching { CustomTabsIntent.Builder().build().launchUrl(this@MainActivity, url.toUri()) }
         }
         override fun openStore() {

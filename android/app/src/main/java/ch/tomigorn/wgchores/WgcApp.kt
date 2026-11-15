@@ -50,7 +50,7 @@ class AppContainer(context: Context) {
         session,
         appVersion = BuildConfig.VERSION_NAME,
         deviceName = Build.MODEL.ifBlank { "Android" },
-        allowLocalHttp = BuildConfig.DEBUG,
+        allowLocalHttp = BuildConfig.ALLOW_LOCAL_HTTP,
         onUser = { server, u -> notifyStore.saveFlags(Account.keyOf(server, u.id), u.notifyDone, u.notifyDue) },
     )
     val db = WgcDatabase.open(context)

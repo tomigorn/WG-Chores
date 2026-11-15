@@ -33,6 +33,26 @@ android {
         versionCode = appVersionCode
         versionName = appVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "ALLOW_LOCAL_HTTP", "false")
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "ALLOW_LOCAL_HTTP", "true")
+        }
+        // unsigned: signed on fastpi with the upload key (README "Signing (fastpi only)")
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        // release code and R8 rules, debug key and local http: the device check drives it against the fake server
+        create("minified") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+            buildConfigField("boolean", "ALLOW_LOCAL_HTTP", "true")
+        }
     }
 
     buildFeatures {
@@ -51,6 +71,7 @@ android {
         getByName("androidTest").kotlin.srcDir("src/sharedTest/java")
         // Room schema history for the migration test (Robolectric reads the app's assets); debug builds only
         getByName("debug").assets.srcDir("$projectDir/schemas")
+        getByName("minified").res.srcDir("src/debug/res")
     }
 
     testOptions {
@@ -84,6 +105,22 @@ val exportRoomSchemas = tasks.register<Sync>("exportRoomSchemas") {
     into(layout.buildDirectory.dir("outputs/room-schemas"))
 }
 tasks.matching { it.name == "assembleDebug" || it.name == "testDebugUnitTest" }.configureEach { finalizedBy(exportRoomSchemas) }
+
+// the R8 builds on a connected emulator: beefy-build.sh --emulator releaseDeviceCheck (store screenshots in build/outputs/device-check/)
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach { (this as Test).filter.excludeTestsMatching("ch.tomigorn.wgchores.device.*") }
+tasks.register<Test>("releaseDeviceCheck") {
+    val unit = tasks.getByName<Test>("testDebugUnitTest")
+    testClassesDirs = unit.testClassesDirs
+    classpath = unit.classpath
+    filter.includeTestsMatching("ch.tomigorn.wgchores.device.*")
+    dependsOn("assembleRelease", "assembleMinified")
+    val apks = layout.buildDirectory.dir("outputs/apk").get().asFile
+    systemProperty("wgc.device.releaseApk", apks.resolve("release/app-release-unsigned.apk").path)
+    systemProperty("wgc.device.minifiedApk", apks.resolve("minified/app-minified.apk").path)
+    systemProperty("wgc.device.debugKeystore", android.signingConfigs.getByName("debug").storeFile!!.path)
+    systemProperty("wgc.device.out", layout.buildDirectory.dir("outputs/device-check").get().asFile.path)
+    outputs.upToDateWhen { false }
+}
 
 dependencies {
     implementation(platform(libs.compose.bom))
