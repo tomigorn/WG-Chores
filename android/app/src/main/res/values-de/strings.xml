@@ -322,4 +322,11 @@
     </plurals>
     <string name="edit_rename_failed">Die Aufgabe ist gespeichert, die anderen behalten ihre Kategorie: %1$s</string>
     <string name="settings_load_failed">Die Einstellungen für Benachrichtigungen konnten nicht geladen werden.</string>
+    <string name="notify_channel_due">Fällige Aufgaben</string>
+    <string name="notify_channel_done">Von anderen erledigt</string>
+    <string name="notify_os_ask">Erlaube Benachrichtigungen, um sie auf diesem Telefon zu bekommen.</string>
+    <string name="notify_os_rationale">WG Chores braucht deine Erlaubnis, um diese Benachrichtigungen zu zeigen.</string>
+    <string name="notify_os_blocked">Benachrichtigungen sind für WG Chores auf diesem Telefon ausgeschaltet.</string>
+    <string name="notify_allow">Erlauben</string>
+    <string name="notify_open_settings">Benachrichtigungen in den Systemeinstellungen erlauben</string>
 </resources>

@@ -323,4 +323,11 @@
     </plurals>
     <string name="edit_rename_failed">The chore is saved, but the other chores keep their category: %1$s</string>
     <string name="settings_load_failed">The notification settings could not be loaded.</string>
+    <string name="notify_channel_due">Chores due</string>
+    <string name="notify_channel_done">Done by others</string>
+    <string name="notify_os_ask">Allow notifications to get these on this phone.</string>
+    <string name="notify_os_rationale">WG Chores needs your permission to show these notifications.</string>
+    <string name="notify_os_blocked">Notifications are turned off for WG Chores on this phone.</string>
+    <string name="notify_allow">Allow</string>
+    <string name="notify_open_settings">Allow notifications in system settings</string>
 </resources>

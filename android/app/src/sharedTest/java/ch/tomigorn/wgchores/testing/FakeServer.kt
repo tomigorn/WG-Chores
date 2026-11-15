@@ -76,6 +76,64 @@ class FakeServer : Closeable {
     @Volatile var displayName = "Jane Doe"
     @Volatile var kind = "local"
 
+    data class PollDone(val seq: Long, val hid: Long, val choreId: Long, val by: String, val doneOn: String)
+
+    /** Done events of the other members, for the background check. */
+    val pollDone = CopyOnWriteArrayList<PollDone>()
+    /** Chores newly due that this device has not acknowledged yet. */
+    val dueChores = CopyOnWriteArrayList<Long>()
+    private val offered = java.util.concurrent.ConcurrentHashMap<Long, Int>()
+    @Volatile var pollPage = 50
+    /** The next n polls are handled but their answers are lost on the way (the app sees offline). */
+    @Volatile var dropPollAnswers = 0
+    private var polls = 0
+
+    fun doneBy(by: String, choreId: Long) = synchronized(pollDone) {
+        val c = chores.first { it.id == choreId }
+        pollDone += PollDone((pollDone.maxOfOrNull { it.seq } ?: 0) + 1, c.householdId, choreId, by, today.toString())
+    }
+
+    private fun householdName(id: Long) = households.find { it.id == id }?.name ?: "Household $id"
+
+    private fun str(s: String) = Json.encodeToString(String.serializer(), s)
+
+    /** Like the server: no done events without a cursor, due notices acknowledged by the next cursor. */
+    private fun poll(r: RecordedRequest): MockResponse = synchronized(pollDone) {
+        val raw = r.url.queryParameter("since")
+        val since = raw?.let { Regex("c(\\d+)\\.(\\d+)").matchEntire(it) ?: return error(400, "invalid_cursor") }
+            ?.let { it.groupValues[1].toLong() to it.groupValues[2].toInt() }
+        if (since != null) {
+            val acked = offered.filterValues { it == since.second }.keys
+            dueChores.removeAll(acked)
+            acked.forEach { offered.remove(it) }
+        }
+        val poll = ++polls
+        val max = pollDone.maxOfOrNull { it.seq } ?: 0
+        var cursorSeq = max
+        var more = false
+        var done = emptyList<PollDone>()
+        if (since != null) {
+            val after = pollDone.filter { it.seq > since.first }.sortedBy { it.seq }
+            val page = after.take(pollPage)
+            more = after.size > pollPage
+            cursorSeq = if (more) page.last().seq else maxOf(max, since.first)
+            if (notifyDone) done = page
+        }
+        val due = if (!notifyDue) emptyMap<Long, List<Chore>>() else dueChores.mapNotNull { id -> chores.find { it.id == id } }.groupBy { it.householdId }
+        due.values.flatten().forEach { offered[it.id] = poll }
+        val doneJson = done.joinToString(",") { d ->
+            """{"household":{"id":${d.hid},"name":${str(householdName(d.hid))}},"chore":{"id":${d.choreId},"name":${str(chores.first { it.id == d.choreId }.name)}},"by":${str(d.by)},"done_on":"${d.doneOn}"}"""
+        }
+        val dueJson = due.entries.joinToString(",") { (hid, list) ->
+            """{"household":{"id":$hid,"name":${str(householdName(hid))}},"chores":[${list.joinToString(",") { """{"id":${it.id},"name":${str(it.name)}}""" }}]}"""
+        }
+        if (dropPollAnswers > 0) {
+            dropPollAnswers--
+            return MockResponse(503, headersOf("Content-Type", "text/html"), "<h1>lost</h1>")
+        }
+        json(200, """{"cursor":"c$cursorSeq.$poll","done":[$doneJson],"due":[$dueJson],"more":$more}""")
+    }
+
     init {
         seed()
     }
@@ -293,6 +351,7 @@ class FakeServer : Closeable {
         if (down) return MockResponse(503, headersOf("Content-Type", "text/html"), "<h1>down</h1>")
         if (r.method == "POST" && r.headers["Authorization"] == null && r.headers["X-WGC"] != "1") return error(403, "csrf")
         if (path.startsWith("/api/v1/") && path !in open && bearer(r) == null) return error(401, "unauthenticated")
+        if (path == "/api/v1/notifications/poll") return poll(r)
         extra(r, path)?.let { return it }
         Regex("/api/v1/households/(\\d+)").matchEntire(path)?.let { m ->
             val h = households.find { it.id == m.groupValues[1].toLong() } ?: return error(404, "not_found")
