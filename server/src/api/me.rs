@@ -129,7 +129,11 @@ pub async fn patch(
         check_password(&new)?;
         let name = row.username.clone().unwrap_or_default();
         let attempt = local::reserve(&st, Some(&name), ip).await?;
-        let ok = current.len() <= 1024 && st.hasher.verify(current, row.hash.clone()).await?;
+        let (attempt, ok) = if current.len() <= 1024 {
+            attempt.verify(&st, current, row.hash.clone()).await?
+        } else {
+            (attempt, false)
+        };
         if !ok {
             return Err(ApiError::forbidden(
                 "wrong_password",
@@ -195,7 +199,11 @@ pub async fn delete(
             })?;
             let name = row.username.clone().unwrap_or_default();
             let attempt = local::reserve(&st, Some(&name), ip).await?;
-            let ok = current.len() <= 1024 && st.hasher.verify(current, row.hash.clone()).await?;
+            let (attempt, ok) = if current.len() <= 1024 {
+                attempt.verify(&st, current, row.hash.clone()).await?
+            } else {
+                (attempt, false)
+            };
             if !ok {
                 return Err(ApiError::forbidden(
                     "wrong_password",

@@ -926,3 +926,49 @@ async fn logout_drops_own_push_subscription_only() {
         ["https://push.example.com/a2", "https://push.example.com/b1"]
     );
 }
+
+#[tokio::test]
+async fn busy_hasher_leaves_no_failure_rows() {
+    let app = TestApp::new();
+    app.seed_local_user("anna", PW).await;
+    let mut c = app.client();
+    app.state.hasher.set_busy_for_tests(true);
+    for _ in 0..6 {
+        let r = c.login("anna", "wrong password here").await;
+        assert_eq!((r.status, r.body["error"].as_str()), (503, Some("busy")));
+    }
+    app.state.hasher.set_busy_for_tests(false);
+    assert_eq!(c.login("anna", PW).await.status, 200);
+
+    app.state.hasher.set_busy_for_tests(true);
+    for _ in 0..6 {
+        let r = c
+            .patch(
+                "/api/v1/me",
+                pw_body(Some("wrong password here"), Some("another long password")),
+            )
+            .await;
+        assert_eq!(r.status, 503);
+        let r = c
+            .delete(
+                "/api/v1/me",
+                json!({"current_password": "wrong password here"}),
+            )
+            .await;
+        assert_eq!(r.status, 503);
+    }
+    app.state.hasher.set_busy_for_tests(false);
+    let left: i64 = app
+        .state
+        .db
+        .run(|c| c.query_row("SELECT count(*) FROM login_failures", [], |r| r.get(0)))
+        .await
+        .unwrap();
+    assert_eq!(left, 0);
+    assert_eq!(
+        c.delete("/api/v1/me", json!({"current_password": PW}))
+            .await
+            .status,
+        204
+    );
+}

@@ -44,6 +44,18 @@ impl Hasher {
         Self::with(Argon2::new(Algorithm::Argon2id, Version::V0x13, params))
     }
 
+    /// Tests: every call answers `busy` until switched off again.
+    #[cfg(feature = "test-util")]
+    pub fn set_busy_for_tests(&self, on: bool) {
+        if on {
+            self.slots.forget_permits(4);
+            self.waiting.store(MAX_HASH_WAITERS, Ordering::SeqCst);
+        } else {
+            self.waiting.store(0, Ordering::SeqCst);
+            self.slots.add_permits(4);
+        }
+    }
+
     fn with(argon: Argon2<'static>) -> Arc<Hasher> {
         let dummy = argon
             .hash_password(b"dummy password for timing")
@@ -178,7 +190,7 @@ pub fn check_display_name(raw: &str) -> Result<String, ApiError> {
 
 /// A reserved attempt: the failure rows are inserted up front so concurrent requests cannot overshoot the limits.
 pub struct Attempt {
-    ip_row: i64,
+    rows: Vec<i64>,
     user: Option<String>,
 }
 
@@ -251,23 +263,21 @@ async fn reserve_window(
             if let Some(w) = wait {
                 return Ok(Err(w as u64));
             }
-            let mut ip_row = 0;
-            for (n, (key, _)) in keys.iter().enumerate() {
+            let mut rows = Vec::with_capacity(keys.len());
+            for (key, _) in &keys {
                 tx.execute(
                     "INSERT INTO login_failures (key, at) VALUES (?1, ?2)",
                     rusqlite::params![key, ts(now)],
                 )?;
-                if n == 0 {
-                    ip_row = tx.last_insert_rowid();
-                }
+                rows.push(tx.last_insert_rowid());
             }
             tx.commit()?;
-            Ok(Ok(ip_row))
+            Ok(Ok(rows))
         })
         .await?;
     match out {
-        Ok(ip_row) => Ok(Attempt {
-            ip_row,
+        Ok(rows) => Ok(Attempt {
+            rows,
             user: user_key,
         }),
         Err(wait) => Err(too_many(wait)),
@@ -278,13 +288,44 @@ impl Attempt {
     /// Success: the reserved ip row is released and the account's failures are cleared.
     pub async fn succeed(self, db: &Db) -> crate::db::Result<()> {
         db.run(move |c| {
-            c.execute("DELETE FROM login_failures WHERE rowid = ?1", [self.ip_row])?;
+            if let Some(ip_row) = self.rows.first() {
+                c.execute("DELETE FROM login_failures WHERE rowid = ?1", [ip_row])?;
+            }
             if let Some(k) = self.user {
                 c.execute("DELETE FROM login_failures WHERE key = ?1", [k])?;
             }
             Ok(())
         })
         .await
+    }
+}
+
+impl Attempt {
+    /// The check never ran (e.g. the hasher was busy): only the rows reserved by this attempt go, earlier failures stay.
+    pub async fn release(self, db: &Db) -> crate::db::Result<()> {
+        db.run(move |c| {
+            for row in &self.rows {
+                c.execute("DELETE FROM login_failures WHERE rowid = ?1", [row])?;
+            }
+            Ok(())
+        })
+        .await
+    }
+
+    /// Verifies a password; when that cannot run, the reservation is released and the error returned.
+    pub async fn verify(
+        self,
+        st: &AppState,
+        pw: String,
+        hash: Option<String>,
+    ) -> Result<(Attempt, bool), ApiError> {
+        match st.hasher.verify(pw, hash).await {
+            Ok(ok) => Ok((self, ok)),
+            Err(e) => {
+                self.release(&st.db).await?;
+                Err(e)
+            }
+        }
     }
 }
 
@@ -490,7 +531,11 @@ pub async fn login(
         .await?;
     let too_long = b.pw.len() > MAX_PASSWORD_BYTES;
     let hash = found.as_ref().and_then(|f| f.1.clone());
-    let ok = !too_long && st.hasher.verify(b.pw, hash).await?;
+    let (attempt, ok) = if too_long {
+        (attempt, false)
+    } else {
+        attempt.verify(&st, b.pw, hash).await?
+    };
     let Some((id, _, display_name, username)) = found.filter(|_| ok) else {
         return Err(ApiError::new(
             StatusCode::UNAUTHORIZED,
