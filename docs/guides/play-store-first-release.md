@@ -14,8 +14,8 @@ Time: about 1 hour for steps 1–5, then at least 14 days of closed test, then u
 2. Trader status (EU, due 1 February 2027): click the task on the Home page → declare **not a trader** (a hobby app, no money). Consequence: the listing tells EU users that EU consumer protection does not apply to the deal with you.
 3. The 12-testers rule: personal accounts created after 13 November 2023 must run a **closed test with at least 12 testers, opted in for 14 days in a row**, before they may publish (https://support.google.com/googleplay/android-developer/answer/14151465). If your account is older, Play Console shows **Production** unlocked under Test and release: then step 6 is optional.
 4. Upload key exists and is backed up: [android-signing-key.md](android-signing-key.md).
-5. Signed AAB ready: built on beefy ([android/README.md](../../android/README.md#release-build)) and signed on fastpi ([Signing](../../android/README.md#signing-fastpi-only)), file `~/.cache/claude-work/wgc-android/release/wg-chores-<version>.aab` on fastpi. Copy it to your computer (`scp`).
-6. Demo server live with the reviewer account ([go-live-holy-grail.md](go-live-holy-grail.md) steps 4–7), demo password in KeePassXC.
+5. Version set to `1.0.0` first ([docker-hub-release.md](docker-hub-release.md) step 8; the AAB takes its version from `server/Cargo.toml`, else it is `0.1.0`). Signed AAB ready: built on beefy ([android/README.md](../../android/README.md#release-build)) and signed on fastpi ([Signing](../../android/README.md#signing-fastpi-only)), file `~/.cache/claude-work/wgc-android/release/wg-chores-<version>.aab` on fastpi. Copy it to your computer (`scp`).
+6. Demo server live with the reviewer account ([go-live-holy-grail.md](go-live-holy-grail.md) steps 1 to 7, step 0 first if the image is not on Docker Hub yet), demo password in KeePassXC.
 7. Demo server serves `/privacy` and `/account-deletion` (every server does, rendered from `docs/`); repo pushed to GitHub as the fallback for the links.
 8. A contact email for the listing. It is **public**: use an address you don't mind showing (e.g. an alias).
 
@@ -32,7 +32,6 @@ Time: about 1 hour for steps 1–5, then at least 14 days of closed test, then u
 ## 2. App signing
 - Play App Signing = Google holds the key that signs what phones install; you only sign uploads with your **upload key**. Nothing to click: it is switched on with the first upload (step 5).
 - Upload key: `~/secrets/wg-chores/upload.jks` on fastpi, backed up in KeePassXC. Lost → reset via Play (see [android-signing-key.md](android-signing-key.md)); never lose it without a backup.
-- After the first upload: copy the app signing SHA-256 into the server's `ANDROID_CERT_SHA256` ([android-signing-key.md](android-signing-key.md#fingerprints-for-the-server-app-links)).
 
 ## 3. Store listing
 Left menu **Grow users** → **Store presence** → **Store listings** (main listing).
@@ -101,6 +100,7 @@ Only needed if Production is locked (step 0.3). Needs all of step 3 and 4 done.
 2. **Create new release** → **Add from library** (the tested AAB) → release notes → **Next** → **Save** → **Send for review**.
 3. First production release: staged rollout is not available (only for updates); it goes to 100 % once approved. Optional: **Publishing overview** → **Managed publishing** on, to choose the moment yourself.
 4. Review: usually 1–7 days. Then the app is public at `https://play.google.com/store/apps/details?id=ch.tomigorn.wgchores` (link used by "Please update the app").
+5. Web install banner: set `PLAY_STORE_URL` in `web/src/lib/install.ts` to that link, commit, and release a new server image ([docker-hub-release.md](docker-hub-release.md)); the banner then also links the Play Store.
 
 ## 9. Updates
 1. Bump the version (`server/Cargo.toml`; versionCode follows), commit.
