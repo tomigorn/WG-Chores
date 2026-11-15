@@ -6,6 +6,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/0001_init.sql"),
     include_str!("migrations/0002_app.sql"),
     include_str!("migrations/0003_app_confirm.sql"),
+    include_str!("migrations/0004_interval_2m.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -14,6 +15,8 @@ pub enum DbError {
     Sqlite(#[from] rusqlite::Error),
     #[error("database schema version {found} is newer than this build supports ({known})")]
     SchemaTooNew { found: usize, known: usize },
+    #[error("database migration {version} would leave broken foreign keys, nothing changed")]
+    ForeignKeys { version: usize },
     #[error("database task failed: {0}")]
     Task(#[from] tokio::task::JoinError),
 }
@@ -75,9 +78,29 @@ fn migrate(conn: &mut Connection) -> Result<()> {
             known: MIGRATIONS.len(),
         });
     }
+    if current == MIGRATIONS.len() {
+        return Ok(());
+    }
+    // table rebuilds need foreign keys off (a DROP TABLE would cascade), see sqlite.org/lang_altertable.html
+    let fk: bool = conn.query_row("PRAGMA foreign_keys", [], |r| r.get(0))?;
+    conn.pragma_update(None, "foreign_keys", "OFF")?;
+    let out = apply(conn, current);
+    conn.pragma_update(None, "foreign_keys", fk)?;
+    out
+}
+
+fn apply(conn: &mut Connection, current: usize) -> Result<()> {
     for (i, sql) in MIGRATIONS.iter().enumerate().skip(current) {
         let tx = conn.transaction()?;
         tx.execute_batch(sql)?;
+        let broken = tx
+            .prepare("PRAGMA foreign_key_check")?
+            .query([])?
+            .next()?
+            .is_some();
+        if broken {
+            return Err(DbError::ForeignKeys { version: i + 1 });
+        }
         tx.pragma_update(None, "user_version", i + 1)?;
         tx.commit()?;
     }
@@ -306,6 +329,140 @@ mod tests {
             })
             .unwrap();
         assert_eq!(n, 0);
+    }
+
+    fn conn_at_version(v: usize) -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        conn.create_scalar_function(
+            "ulower",
+            1,
+            rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+            |ctx| Ok(ctx.get::<Option<String>>(0)?.map(|s| s.to_lowercase())),
+        )
+        .unwrap();
+        for (i, sql) in MIGRATIONS.iter().take(v).enumerate() {
+            let tx = conn.transaction().unwrap();
+            tx.execute_batch(sql).unwrap();
+            tx.pragma_update(None, "user_version", i + 1).unwrap();
+            tx.commit().unwrap();
+        }
+        conn
+    }
+
+    fn rows(conn: &Connection, sql: &str) -> Vec<String> {
+        let mut st = conn.prepare(sql).unwrap();
+        let n = st.column_count();
+        st.query_map([], |r| {
+            (0..n)
+                .map(|i| {
+                    r.get::<_, rusqlite::types::Value>(i)
+                        .map(|v| format!("{v:?}"))
+                })
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map(|v| v.join("|"))
+        })
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap()
+    }
+
+    #[test]
+    fn version_3_database_gains_two_month_interval_keeping_data() {
+        let mut conn = conn_at_version(3);
+        conn.execute_batch(
+            "INSERT INTO users (id, display_name, created_at) VALUES (1, 'n', 'x');
+             INSERT INTO households (id, name, created_at) VALUES (1, 'h', 'x');
+             INSERT INTO categories (id, household_id, name) VALUES (4, 1, 'Kitchen');
+             INSERT INTO chores (id, household_id, category_id, name, interval, archived_at, created_at) VALUES
+                 (3, 1, 4, 'Bins', '1w', NULL, 'a'),
+                 (7, 1, NULL, 'Oven', '3m', 'z', 'b'),
+                 (9, 1, 4, 'Plants', NULL, NULL, 'c');
+             INSERT INTO completions (id, chore_id, user_id, done_on, note, created_at) VALUES
+                 ('u1', 3, 1, '2026-01-01', 'ok', 'x'),
+                 ('u2', 7, 1, '2026-01-02', NULL, 'x');
+             INSERT INTO done_events (completion_id) VALUES ('u1');
+             INSERT INTO sessions (token_hash, user_id, kind, created_at, last_seen_at, expires_at) VALUES ('t', 1, 'android', 'x', 'x', 'x');
+             INSERT INTO device_notification_state (session_hash, chore_id, told_on) VALUES ('t', 3, '2026-01-03');
+             INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth, created_at) VALUES (1, 1, 'e', 'p', 'a', 'x');
+             INSERT INTO notification_state VALUES (1, 7, '2026-01-04');",
+        )
+        .unwrap();
+        let tables = [
+            "SELECT * FROM chores ORDER BY id",
+            "SELECT * FROM completions ORDER BY id",
+            "SELECT * FROM done_events",
+            "SELECT * FROM device_notification_state",
+            "SELECT * FROM notification_state",
+        ];
+        let before: Vec<Vec<String>> = tables.iter().map(|q| rows(&conn, q)).collect();
+        migrate(&mut conn).unwrap();
+        let after: Vec<Vec<String>> = tables.iter().map(|q| rows(&conn, q)).collect();
+        assert_eq!(before, after);
+        assert_eq!(
+            rows(&conn, "PRAGMA foreign_key_check"),
+            Vec::<String>::new()
+        );
+        assert_eq!(rows(&conn, "PRAGMA integrity_check"), ["Text(\"ok\")"]);
+        assert_eq!(rows(&conn, "PRAGMA foreign_keys"), ["Integer(1)"]);
+        assert_eq!(
+            rows(
+                &conn,
+                "SELECT name FROM sqlite_schema WHERE tbl_name = 'chores' AND type = 'index'"
+            ),
+            ["Text(\"chores_household\")"]
+        );
+        let ins = |c: &Connection, iv: &str| {
+            c.execute(
+                "INSERT INTO chores (household_id, name, interval, created_at) VALUES (1, 'c', ?1, 'x')",
+                [iv],
+            )
+        };
+        ins(&conn, "2m").unwrap();
+        assert!(ins(&conn, "2d").is_err());
+        assert!(
+            conn.execute(
+                "INSERT INTO chores (household_id, name, created_at) VALUES (999, 'c', 'x')",
+                []
+            )
+            .is_err()
+        );
+        conn.execute("DELETE FROM chores WHERE id = 3", []).unwrap();
+        let left: i64 = conn
+            .query_row(
+                "SELECT (SELECT count(*) FROM completions) + (SELECT count(*) FROM done_events) + (SELECT count(*) FROM device_notification_state)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(left, 1);
+        conn.execute("DELETE FROM households WHERE id = 1", [])
+            .unwrap();
+        let chores: i64 = conn
+            .query_row("SELECT count(*) FROM chores", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(chores, 0);
+    }
+
+    #[test]
+    fn migration_with_broken_foreign_keys_rolls_back() {
+        let mut conn = conn_at_version(3);
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        conn.execute_batch(
+            "INSERT INTO chores (id, household_id, name, interval, created_at) VALUES (1, 42, 'orphan', '1w', 'x');",
+        )
+        .unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        assert!(matches!(
+            migrate(&mut conn),
+            Err(DbError::ForeignKeys { version: 4 })
+        ));
+        let v: usize = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 3);
+        assert_eq!(rows(&conn, "PRAGMA foreign_keys"), ["Integer(1)"]);
+        assert_eq!(rows(&conn, "SELECT name FROM chores"), ["Text(\"orphan\")"]);
     }
 
     #[test]
