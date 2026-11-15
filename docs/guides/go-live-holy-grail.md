@@ -99,6 +99,7 @@ docker stop wg-chores-app wg-chores-sqliteweb
 2. Copy the v1 database and look at its names:
 ```
 sudo sqlite3 -readonly /var/lib/docker/volumes/wg-chores_wgchores-data/_data/wgchores.db ".backup /home/pi/.cache/claude-work/wg-v1.db"
+sudo sqlite3 /home/pi/.cache/claude-work/wg-v1.db "PRAGMA journal_mode=DELETE;"   # the copy keeps v1's WAL mode, which a read-only mount cannot open
 sudo chown 65035:65037 /home/pi/.cache/claude-work/wg-v1.db && sudo chmod 400 /home/pi/.cache/claude-work/wg-v1.db
 sudo sqlite3 -readonly /home/pi/.cache/claude-work/wg-v1.db "SELECT Id, Name FROM Households; SELECT HouseholdId, Username FROM Members;"
 ```
@@ -123,6 +124,6 @@ sudo rm /home/pi/.cache/claude-work/wg-v1.db
 | Problem | Do |
 |---|---|
 | v2 broken after the switch | `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 stop`, then `docker start wg-chores-app wg-chores-sqliteweb` (v1 data unchanged) |
-| bad import | `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 stop`, restore `/data/before-v1-import.db` as in the README "Backup and restore" (volume `wg-chores-v2_wg-chores-v2-data`), start |
+| bad import | `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 stop`, then `docker run --rm -v wg-chores-v2_wg-chores-v2-data:/data alpine sh -c 'cp /data/before-v1-import.db /data/wg-chores.db && rm -f /data/wg-chores.db-wal /data/wg-chores.db-shm && chown 65035:65037 /data/wg-chores.db'`, then `docker compose --project-directory ~/Projects/Docker/WG-Chores-v2 start` |
 | new image broken | [docker-hub-release.md](docker-hub-release.md) "Roll back" |
 | take it all back | stop both projects; `git -C ~/Projects status` → `git -C ~/Projects restore <changed files>` and delete the new files (or `git revert` once committed); Authentik: delete application `wg-chores`, provider `wg-chores`, mapping `WG Chores groups` (admin UI); Cloudflare: delete the two public hostnames |
