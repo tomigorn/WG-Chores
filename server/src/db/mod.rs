@@ -75,7 +75,9 @@ impl Db {
 }
 
 fn migrate(conn: &mut Connection) -> Result<()> {
-    let current: usize = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    let current = usize::try_from(version)
+        .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(0, version))?;
     if current > MIGRATIONS.len() {
         return Err(DbError::SchemaTooNew {
             found: current,
@@ -109,7 +111,7 @@ fn apply(conn: &mut Connection, current: usize) -> Result<()> {
         if broken {
             return Err(DbError::ForeignKeys { version: i + 1 });
         }
-        tx.pragma_update(None, "user_version", i + 1)?;
+        tx.pragma_update(None, "user_version", (i + 1) as i64)?;
         tx.commit()?;
     }
     Ok(())
@@ -323,14 +325,14 @@ mod tests {
         )
         .unwrap();
         migrate(&mut conn).unwrap();
-        let (v, name): (usize, Option<String>) = conn
+        let (v, name): (i64, Option<String>) = conn
             .query_row(
                 "SELECT (SELECT user_version FROM pragma_user_version), device_name FROM sessions",
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .unwrap();
-        assert_eq!((v, name), (MIGRATIONS.len(), None));
+        assert_eq!((v, name), (MIGRATIONS.len() as i64, None));
         let n: i64 = conn
             .query_row("SELECT count(*) FROM device_notification_state", [], |r| {
                 r.get(0)
@@ -352,7 +354,8 @@ mod tests {
         for (i, sql) in MIGRATIONS.iter().take(v).enumerate() {
             let tx = conn.transaction().unwrap();
             tx.execute_batch(sql).unwrap();
-            tx.pragma_update(None, "user_version", i + 1).unwrap();
+            tx.pragma_update(None, "user_version", (i + 1) as i64)
+                .unwrap();
             tx.commit().unwrap();
         }
         conn
@@ -465,7 +468,7 @@ mod tests {
             migrate(&mut conn),
             Err(DbError::ForeignKeys { version: 4 })
         ));
-        let v: usize = conn
+        let v: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
         assert_eq!(v, 3);
@@ -487,7 +490,7 @@ mod tests {
             Err(DbError::ForeignKeysStillOn)
         ));
         conn.execute_batch("ROLLBACK;").unwrap();
-        let v: usize = conn
+        let v: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
         assert_eq!(v, 3);
