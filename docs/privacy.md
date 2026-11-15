@@ -14,7 +14,7 @@ WG Chores has no central service. Your data lives on the WG Chores server you co
 | Sessions and devices (stored hashed), last seen | staying signed in |
 | Push subscriptions (browser push address + keys), notification settings | notifications |
 | Error logs (no IP addresses) | debugging |
-| Client IP (IPv6: its /64) with the time of sign-in and registration attempts, dropped after about an hour; the reverse proxy in front may log IPs too | rate limits |
+| Client IP (IPv6: its /64) with the time of sign-in and registration attempts, and the username tried at a failed sign-in, dropped after about an hour; the reverse proxy in front may log IPs too | rate limits |
 
 ## What it does not do
 - No ads, no tracking, no analytics, no third-party scripts.
