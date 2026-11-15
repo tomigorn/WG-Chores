@@ -16,7 +16,7 @@ Puts the WG Chores v2 + demo deployment into HomeLab-FastPi ($DEST).
 New files: everything under deploy/holy-grail/Projects/ (same paths).
 Inserted, once:
   Docker/CUSTOMIZATIONS.md                 sections WG-Chores-v2, WG-Chores-Demo (appended)
-  Docker/_global/auto-update.conf          two notify rows after Audiobook-Requests
+  Docker/_global/auto-update.conf          two auto rows after Audiobook-Requests
   Docker/grafana/prometheus/prometheus.yml targets in blackbox-public and blackbox-wan-public
   Docker/_global/checklist.md              two rows after Tech-Radar
   Docker/Authentik/README.md               provisioning line after AudioBookRequest
