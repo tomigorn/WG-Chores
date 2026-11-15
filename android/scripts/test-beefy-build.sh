@@ -29,6 +29,9 @@ check "custom project" 0 "project: android/other" --dry-run --project android/ot
 
 check "project outside android" 2 "must be inside android/" --dry-run --project server assembleDebug
 check "ships only android" 0 "ships: android/" --dry-run assembleDebug
+ver=$(sed -n 's/^version = "\(.*\)"/\1/p' "$here/../../server/Cargo.toml" | head -1)
+check "passes the app version" 0 "gradle: assembleDebug -Pwgc.version=$ver" --dry-run assembleDebug
+check "smoke gets no version" 0 "gradle: assembleDebug connectedCheck" --dry-run --self-test
 
 work=$(mktemp -d "${HOME}/.cache/claude-work/wgc-bbtest.XXXXXX")
 trap 'rm -rf "$work"' EXIT

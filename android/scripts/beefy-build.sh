@@ -81,6 +81,12 @@ esac
 
 repo=$(git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null) || die "not inside the WG-Chores git repo"
 
+# the app's versionName comes from server/Cargo.toml, which is not shipped to beefy
+if [ "$project" = android ]; then
+    version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/server/Cargo.toml" 2>/dev/null | head -1)
+    [ -n "$version" ] && gradle_args+=("-Pwgc.version=$version")
+fi
+
 if [ "$head_only" = 0 ]; then
     suspicious=$(git -C "$repo" ls-files -o --exclude-standard -z -- android | while IFS= read -r -d '' f; do
         case ${f##*/} in
