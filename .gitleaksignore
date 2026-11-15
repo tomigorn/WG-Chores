@@ -1,0 +1,2 @@
+# VAPID public key test vector, not a secret
+b03c9ec90614531d3ae9b0d429461ea2ab465dc1:web/src/lib/push.test.ts:generic-api-key:4
