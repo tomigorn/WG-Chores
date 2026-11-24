@@ -29,6 +29,11 @@ afterEach(() => {
 });
 
 describe('Settings', () => {
+  it('app_section_comes_first', () => {
+    open();
+    expect(document.querySelector('main .section .section-title')!.textContent).toBe('App');
+  });
+
   it('version_line_at_the_bottom', () => {
     open();
     const line = document.querySelector<HTMLElement>('.version')!;

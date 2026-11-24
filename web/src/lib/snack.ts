@@ -19,8 +19,8 @@ export function showSnack(s: Omit<Snack, 'id'>): number {
   return seq;
 }
 
-export function toast(text: string): number {
-  return showSnack({ text });
+export function toast(text: string, duration?: number): number {
+  return showSnack(duration ? { text, duration } : { text });
 }
 
 /** Clears the snack, or only the given one if it is still showing. */

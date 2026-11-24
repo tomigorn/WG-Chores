@@ -305,7 +305,13 @@
     "version": "Version {version}",
     "blocked": "Auf diesem Gerät in den Browser-Einstellungen blockiert – dort erlauben, um sie hier zu bekommen.",
     "install_first": "Zuerst die App installieren (Teilen → Zum Home-Bildschirm)",
-    "not_allowed": "Benach\u00adrichti\u00adgungen wurden nicht erlaubt. Schalter wieder einschalten, um erneut gefragt zu werden."
+    "not_allowed": "Benach\u00adrichti\u00adgungen wurden nicht erlaubt. Schalter wieder einschalten, um erneut gefragt zu werden.",
+    "app": "App",
+    "installed": "Auf diesem Gerät installiert",
+    "install_hint": "WG Chores installieren – Vollbild und Benach\u00adrichti\u00adgungen.",
+    "android_how": "Im Browser-Menü: ⋮ → App installieren bzw. Zum Startbildschirm hinzufügen.",
+    "android_fix": "Bleibt es bei „Wird installiert…“ hängen? Dem Browser Verknüpfungen auf dem Startbildschirm erlauben: Einstellungen des Handys → Apps → dein Browser → Berechtigungen.",
+    "desktop_how": "Über das Browser-Menü oder das Installations-Symbol in der Adressleiste installieren."
   },
   "install": {
     "android": "WG Chores installieren – für Benach\u00adrichti\u00adgungen",
@@ -320,7 +326,8 @@
     "step_share": "In der Safari-Leiste auf Teilen tippen",
     "step_add": "„Zum Home-Bildschirm“ wählen",
     "step_confirm": "Auf „Hinzufügen“ tippen",
-    "done": "Verstanden"
+    "done": "Verstanden",
+    "later": "Du kannst die App später in den Einstellungen installieren."
   },
   "update": {
     "available": "Update verfügbar",

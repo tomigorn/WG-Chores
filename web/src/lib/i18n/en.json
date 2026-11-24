@@ -305,7 +305,13 @@
     "version": "Version {version}",
     "blocked": "Blocked in browser settings on this device – allow notifications there to get them here.",
     "install_first": "Install the app first (Share → Add to Home Screen)",
-    "not_allowed": "Notifications were not allowed. Turn the switch on again to be asked once more."
+    "not_allowed": "Notifications were not allowed. Turn the switch on again to be asked once more.",
+    "app": "App",
+    "installed": "Installed on this device",
+    "install_hint": "Install WG Chores – full screen and notifications.",
+    "android_how": "In the browser menu: ⋮ → Install and create shortcut (Chrome: Add to home screen → Install).",
+    "android_fix": "Stuck at “Installing…”? Allow your browser Home screen shortcuts: phone Settings → Apps → your browser → Permissions.",
+    "desktop_how": "Install it from your browser's menu or the install icon in the address bar."
   },
   "install": {
     "android": "Install WG Chores – for notifications",
@@ -320,7 +326,8 @@
     "step_share": "Tap Share in the Safari toolbar",
     "step_add": "Choose “Add to Home Screen”",
     "step_confirm": "Tap “Add”",
-    "done": "Got it"
+    "done": "Got it",
+    "later": "You can install later in Settings."
   },
   "update": {
     "available": "Update available",

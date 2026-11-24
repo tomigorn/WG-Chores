@@ -4,6 +4,7 @@
     text: string;
     strong?: string;
     icon?: 'check';
+    duration?: number;
     actions?: { label: string; run: () => void }[];
   }
 </script>
@@ -26,7 +27,7 @@
 
   $effect(() => {
     if (!snack || paused) return;
-    const timer = setTimeout(onexpire, duration);
+    const timer = setTimeout(onexpire, snack.duration ?? duration);
     return () => clearTimeout(timer);
   });
 </script>

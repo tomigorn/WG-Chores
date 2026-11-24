@@ -29,4 +29,15 @@ describe('DoneSnackbar', () => {
     expect(onexpire).toHaveBeenCalledTimes(1);
     unmount(app);
   });
+
+  it('snack_can_set_a_shorter_duration', () => {
+    const onexpire = vi.fn();
+    const app = mount(DoneSnackbar, { target: document.body, props: { snack: { id: 1, text: 'note', duration: 3000 }, onexpire } });
+    flushSync();
+    vi.advanceTimersByTime(2900);
+    expect(onexpire).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(200);
+    expect(onexpire).toHaveBeenCalledTimes(1);
+    unmount(app);
+  });
 });

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
+  import InstallSection from '../components/InstallSection.svelte';
   import LegalLinks from '../components/LegalLinks.svelte';
   import PageBar from '../components/PageBar.svelte';
   import { api, OfflineError, type Me, type ServerConfig } from '../lib/api';
@@ -57,6 +58,8 @@
 <PageBar title={t('settings.title')} back={me.last_household_id ? `/households/${me.last_household_id}` : '/households'} />
 
 <main class="screen">
+  <InstallSection />
+
   <section class="section">
     <h2 data-copy class="section-title" id="theme-title">{t('settings.theme')}</h2>
     <div class="seg" role="radiogroup" aria-label={t('settings.theme')}>

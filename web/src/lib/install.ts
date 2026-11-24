@@ -17,8 +17,13 @@ export function touchPoints(): number {
 }
 
 export function installBannerMode(ua: string, standalone: boolean, dismissedAt: number | null, now: number, touch = 0): BannerMode {
-  if (standalone) return 'none';
   if (dismissedAt !== null && dismissedAt <= now && now - dismissedAt < DISMISS_DAYS * DAY) return 'none';
+  return installMode(ua, standalone, touch);
+}
+
+/** How this device installs the app, regardless of the banner's dismiss; 'none' = already installed. */
+export function installMode(ua: string, standalone: boolean, touch = 0): BannerMode {
+  if (standalone) return 'none';
   if (isIos(ua, touch)) {
     const safari = /Version\/[\d.]+.*Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|FBAN|FBAV|Instagram|Line\//.test(ua);
     return safari ? 'ios-safari' : 'ios-other';

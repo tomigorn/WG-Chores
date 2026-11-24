@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import InstallBanner from './InstallBanner.svelte';
 import { button, dialogs, text } from '../screens/testkit';
 import { captureInstallPrompt, dismissedAt } from '../lib/install';
+import { clearSnack, onSnack } from '../lib/snack';
+import type { Snack } from './DoneSnackbar.svelte';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
 const IPHONE_CHROME = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1';
@@ -68,6 +70,17 @@ describe('InstallBanner', () => {
     flushSync();
     expect(document.querySelector('.banner')).toBeNull();
     expect(dismissedAt()).not.toBeNull();
+  });
+
+  it('dismiss_notes_install_later_in_settings', () => {
+    let shown: Snack | null = null;
+    const off = onSnack((s) => (shown = s));
+    open(IPHONE);
+    button('Dismiss')!.click();
+    flushSync();
+    off();
+    expect(shown).toMatchObject({ text: 'You can install later in Settings.', duration: 3000 });
+    clearSnack();
   });
 
   it('never_in_the_installed_app', () => {
