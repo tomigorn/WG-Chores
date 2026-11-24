@@ -13,9 +13,9 @@ Installed, it opens full screen and can send notifications.
 
 | Phone | Steps |
 |---|---|
-| Android (Chrome, Brave) | open the site, sign in, tap **Install** in the banner, or **⋮ → Install and create shortcut** (Chrome: **Add to home screen → Install**) |
+| Android (Chrome, Brave) | open the site, sign in, tap **Install** in the banner or in **Settings → App**, or **⋮ → Install and create shortcut** (Chrome: **Add to home screen → Install**) |
 | Android: hangs at "Installing WG Chores…", no icon | allow the browser to create shortcuts: **Settings → Apps → Brave** (or Chrome) **→ Permissions** (some phones: **Other permissions**) **→ Home screen shortcuts** / **Create shortcuts** on; then install again. Xiaomi, Oppo, Huawei and others block it by default. Also check the app drawer: newer Android puts the app there, not always on the home screen |
-| iPhone, iPad | Safari only: **Share → Add to Home Screen** (the app shows a guide) |
+| iPhone, iPad | Safari only: **Share → Add to Home Screen** (the app shows a guide, also in **Settings → App**) |
 
 ## Android app
 Source, build and signing: [android/README.md](https://github.com/tomigorn/WG-Chores/blob/main/android/README.md). Play Store:

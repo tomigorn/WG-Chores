@@ -1,6 +1,6 @@
 # Install button in Settings
 
-Status: 🔨 working (OK 2026-11-24).
+Status: ✅ done 2026-11-24 (v2.1.0).
 
 ## Why
 Closing the install banner hides it for 30 days (`DISMISS_DAYS`, `web/src/lib/install.ts`); after that only the browser menu installs the app.
@@ -19,16 +19,17 @@ New **App** section at the top of Settings, independent of the banner's dismiss:
 
 After ✕ on the banner, a short note (snackbar, ~3 s): "You can install later in Settings".
 
-German and English; banner keeps its 30-day hide; docs (`docs/reference.md`, README "Install the web app on a phone") and tests updated; patch bump 2.0.4 → 2.0.5.
+German and English; banner keeps its 30-day hide; docs (`docs/reference.md`, README "Install the web app on a phone") and tests updated; minor bump 2.0.4 → 2.1.0 (a new feature).
 
 ## Decisions
 - 2026-11-24 Placement: own **App** section at the top of Settings.
 - 2026-11-24 Installed: show "✓ Installed".
 - 2026-11-24 After ✕ on the banner: short note pointing to Settings.
 - 2026-11-24 Desktop without install offer: a browser-menu hint (not asked, follows the Android row).
+- 2026-11-24 Version 2.1.0 instead of 2.0.5: features bump the minor version.
 
 ## Done-list
-- [ ] Settings shows the right content in all 6 states (verifier screenshots, phone viewport)
-- [ ] Android: the button opens the real install dialog
-- [ ] Banner behaviour unchanged (30-day dismiss)
-- [ ] en + de strings, tests, docs updated; version 2.0.5
+- [x] Settings shows the right content in all 6 states (verifier screenshots, phone viewport)
+- [ ] Android: the button opens the real install dialog (checked: the button calls the browser's `prompt()`; the real dialog needs a phone, see roadmap By hand)
+- [x] Banner behaviour unchanged (30-day dismiss, unit tests)
+- [x] en + de strings, tests, docs updated; version 2.1.0
