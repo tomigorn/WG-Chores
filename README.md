@@ -8,6 +8,15 @@ Shared household chore tracker: who did what, how long ago. One small Rust serve
 | [docs/account-deletion.md](https://github.com/tomigorn/WG-Chores/blob/main/docs/account-deletion.md) | how to delete an account |
 | [docs/reference.md](https://github.com/tomigorn/WG-Chores/blob/main/docs/reference.md) | developer reference: API, push, Android app API, SSO details, web app internals, security, development |
 
+## Install the web app on a phone
+Installed, it opens full screen and can send notifications.
+
+| Phone | Steps |
+|---|---|
+| Android (Chrome, Brave) | open the site, sign in, tap **Install** in the banner, or **⋮ → Install and create shortcut** (Chrome: **Add to home screen → Install**) |
+| Android: hangs at "Installing WG Chores…", no icon | allow the browser to create shortcuts: **Settings → Apps → Brave** (or Chrome) **→ Permissions** (some phones: **Other permissions**) **→ Home screen shortcuts** / **Create shortcuts** on; then install again. Xiaomi, Oppo, Huawei and others block it by default. Also check the app drawer: newer Android puts the app there, not always on the home screen |
+| iPhone, iPad | Safari only: **Share → Add to Home Screen** (the app shows a guide) |
+
 ## Android app
 Source, build and signing: [android/README.md](https://github.com/tomigorn/WG-Chores/blob/main/android/README.md). Play Store:
 
