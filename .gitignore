@@ -6,13 +6,12 @@ web/test-results/
 data/
 .env
 secrets/
-.superpowers/
 .idea/
 .vscode/
 *.swp
 .DS_Store
 Thumbs.db
-docs/superpowers/
+docs/working/
 .claude/settings.local.json
 CLAUDE.local.md
 AGENTS.md
